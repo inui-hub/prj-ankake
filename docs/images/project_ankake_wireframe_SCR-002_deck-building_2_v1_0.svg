@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0c1220"/>
+      <stop offset="52%" stop-color="#141d2e"/>
+      <stop offset="100%" stop-color="#0c1423"/>
+    </linearGradient>
+    <linearGradient id="fire" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4d1d25"/><stop offset="52%" stop-color="#c04431"/><stop offset="100%" stop-color="#f4a540"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#142f4c"/><stop offset="55%" stop-color="#2476a8"/><stop offset="100%" stop-color="#69d5e5"/>
+    </linearGradient>
+    <linearGradient id="wind" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#17352e"/><stop offset="55%" stop-color="#3f9a70"/><stop offset="100%" stop-color="#c7e979"/>
+    </linearGradient>
+    <linearGradient id="light" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#59482b"/><stop offset="58%" stop-color="#d6b75a"/><stop offset="100%" stop-color="#fff3b2"/>
+    </linearGradient>
+    <linearGradient id="dark" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#231d3d"/><stop offset="55%" stop-color="#633d8f"/><stop offset="100%" stop-color="#b47bd1"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6b55dc"/><stop offset="100%" stop-color="#3f79d3"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <style>
+      .title{font:700 30px 'Noto Sans CJK JP', sans-serif;fill:#eef3ff}
+      .section{font:700 20px 'Noto Sans CJK JP', sans-serif;fill:#e4ebf7}
+      .body{font:500 16px 'Noto Sans CJK JP', sans-serif;fill:#c7d1e2}
+      .small{font:500 13px 'Noto Sans CJK JP', sans-serif;fill:#aebbd0}
+      .tiny{font:700 12px 'Noto Sans CJK JP', sans-serif;fill:#eef3ff}
+      .cardtitle{font:700 14px 'Noto Sans CJK JP', sans-serif;fill:#eef3ff}
+      .num{font:700 17px 'Noto Sans CJK JP', sans-serif;fill:#ffffff}
+      .plus{font:700 24px 'Noto Sans CJK JP', sans-serif;fill:#ffffff}
+      .label{font:600 14px 'Noto Sans CJK JP', sans-serif;fill:#dce5f4}
+      .muted{font:500 13px 'Noto Sans CJK JP', sans-serif;fill:#8390a7}
+    </style>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1920" height="88" fill="#0a101c"/>
+  <text x="180" y="55" class="title">デッキ構築</text>
+  <rect x="22" y="108" width="256" height="944" rx="20" fill="#111a2a" stroke="#2f3d56"/>
+  <rect x="296" y="108" width="1048" height="944" rx="20" fill="#101927" stroke="#2f3d56"/>
+  <rect x="1360" y="108" width="538" height="944" rx="20" fill="#101927" stroke="#2f3d56"/>
+  <g opacity="0.42">
+    <text x="46" y="146" class="section">保存済みデッキ</text>
+    <text x="320" y="148" class="section">カード一覧</text>
+    <text x="1384" y="146" class="section">編集中のデッキ</text>
+    
+    <g opacity="0.52">
+      <rect x="340" y="220" width="164" height="235" rx="16" fill="#172235" stroke="#667695" stroke-width="1.5"/>
+      <rect x="348" y="228" width="148" height="126.9" rx="11" fill="url(#fire)"/>
+      <circle cx="364" cy="244" r="17" fill="#101827" stroke="#d8e2f4" stroke-width="1.5"/>
+      <text x="364" y="251" text-anchor="middle" class="num">1</text>
+      <circle cx="480" cy="244" r="13" fill="#e46343" stroke="#e9eef8" stroke-width="1"/>
+      <rect x="348" y="353.95" width="148" height="36" rx="8" fill="#0d1523"/>
+      <text x="356" y="377.95" class="cardtitle">焔の先兵</text>
+      <text x="356" y="436" class="small">火　1/2</text>
+      <rect x="447" y="418" width="44" height="24" rx="12" fill="#263650"/>
+      <text x="469" y="435" text-anchor="middle" class="tiny">4/4</text>
+      <circle cx="483" cy="328.9" r="17" fill="#5d63da"/>
+      <text x="483" y="335.9" text-anchor="middle" class="plus">+</text>
+    </g>
+    
+    <g opacity="1">
+      <rect x="524" y="220" width="164" height="235" rx="16" fill="#172235" stroke="#667695" stroke-width="1.5"/>
+      <rect x="532" y="228" width="148" height="126.9" rx="11" fill="url(#water)"/>
+      <circle cx="548" cy="244" r="17" fill="#101827" stroke="#d8e2f4" stroke-width="1.5"/>
+      <text x="548" y="251" text-anchor="middle" class="num">2</text>
+      <circle cx="664" cy="244" r="13" fill="#4ba8cc" stroke="#e9eef8" stroke-width="1"/>
+      <rect x="532" y="353.95" width="148" height="36" rx="8" fill="#0d1523"/>
+      <text x="540" y="377.95" class="cardtitle">潮騒の術師</text>
+      <text x="540" y="436" class="small">水　2/3</text>
+      <rect x="631" y="418" width="44" height="24" rx="12" fill="#263650"/>
+      <text x="653" y="435" text-anchor="middle" class="tiny">2/4</text>
+      <circle cx="667" cy="328.9" r="17" fill="#5d63da"/>
+      <text x="667" y="335.9" text-anchor="middle" class="plus">+</text>
+    </g>
+    
+    <g opacity="1">
+      <rect x="708" y="220" width="164" height="235" rx="16" fill="#172235" stroke="#667695" stroke-width="1.5"/>
+      <rect x="716" y="228" width="148" height="126.9" rx="11" fill="url(#wind)"/>
+      <circle cx="732" cy="244" r="17" fill="#101827" stroke="#d8e2f4" stroke-width="1.5"/>
+      <text x="732" y="251" text-anchor="middle" class="num">2</text>
+      <circle cx="848" cy="244" r="13" fill="#64bb82" stroke="#e9eef8" stroke-width="1"/>
+      <rect x="716" y="353.95" width="148" height="36" rx="8" fill="#0d1523"/>
+      <text x="724" y="377.95" class="cardtitle">風渡りの斥候</text>
+      <text x="724" y="436" class="small">風　2/2</text>
+      <rect x="815" y="418" width="44" height="24" rx="12" fill="#263650"/>
+      <text x="837" y="435" text-anchor="middle" class="tiny">3/4</text>
+      <circle cx="851" cy="328.9" r="17" fill="#5d63da"/>
+      <text x="851" y="335.9" text-anchor="middle" class="plus">+</text>
+    </g>
+  </g>
+
+  <rect width="1920" height="1080" fill="#050810" opacity="0.72"/>
+
+  <g filter="url(#shadow)">
+    <rect x="420" y="135" width="1080" height="810" rx="30" fill="#111a2a" stroke="#6d7ba0" stroke-width="2"/>
+  </g>
+  <text x="470" y="190" class="section">カード詳細</text>
+  <rect x="1432" y="157" width="42" height="42" rx="12" fill="#263650"/>
+  <text x="1453" y="187" text-anchor="middle" class="section">×</text>
+
+  <!-- Large card -->
+  <rect x="475" y="230" width="360" height="540" rx="24" fill="#172235" stroke="#7787aa" stroke-width="2"/>
+  <rect x="493" y="248" width="324" height="310" rx="16" fill="url(#water)"/>
+  <circle cx="525" cy="282" r="25" fill="#101827" stroke="#e5edf9" stroke-width="2"/>
+  <text x="525" y="291" text-anchor="middle" style="font:700 25px 'Noto Sans CJK JP', sans-serif;fill:#fff">2</text>
+  <circle cx="782" cy="282" r="19" fill="#4ba8cc" stroke="#f0f5ff" stroke-width="2"/>
+  <text x="512" y="606" style="font:700 25px 'Noto Sans CJK JP', sans-serif;fill:#fff">潮騒の術師</text>
+  <text x="512" y="643" class="body">水属性・クリーチャー</text>
+  <rect x="512" y="670" width="286" height="1" fill="#34435d"/>
+  <text x="512" y="715" class="section">攻撃力 2</text>
+  <text x="666" y="715" class="section">体力 3</text>
+  <text x="512" y="753" class="body">移動力 1　攻撃範囲 周囲8マス</text>
+
+  <!-- Detail -->
+  <text x="890" y="260" style="font:700 38px 'Noto Sans CJK JP', sans-serif;fill:#eef3ff">潮騒の術師</text>
+  <text x="892" y="302" class="body">WATER CREATURE　CARD-0021</text>
+  <rect x="890" y="332" width="520" height="1" fill="#34435d"/>
+
+  <text x="890" y="382" class="small">カード効果</text>
+  <rect x="890" y="402" width="520" height="215" rx="16" fill="#172235" stroke="#34435d"/>
+  <text x="918" y="446" class="body">召喚時：このクリーチャーと同じレーン上の</text>
+  <text x="918" y="480" class="body">味方クリーチャー1体を選択する。</text>
+  <text x="918" y="514" class="body">そのクリーチャーの現在体力を2回復する。</text>
+  <text x="918" y="570" class="small">※ワイヤーフレーム用の仮カードテキスト</text>
+
+  <text x="890" y="665" class="small">現在のデッキ採用枚数</text>
+  <text x="890" y="716" style="font:700 36px 'Noto Sans CJK JP', sans-serif;fill:#eef3ff">2 / 4</text>
+
+  <rect x="890" y="774" width="245" height="68" rx="18" fill="url(#primary)"/>
+  <text x="1013" y="817" text-anchor="middle" class="section">＋ デッキに追加</text>
+  <rect x="1165" y="774" width="245" height="68" rx="18" fill="#263650" stroke="#53627e"/>
+  <text x="1288" y="817" text-anchor="middle" class="section">− デッキから削除</text>
+
+  <text x="890" y="884" class="small">追加・削除後もダイアログは閉じない</text>
+  <rect x="842" y="915" width="236" height="30" rx="8" fill="#090e18"/>
+  <text x="960" y="936" text-anchor="middle" class="small">OVL-001 カード詳細</text>
+</svg>

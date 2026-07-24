@@ -1,0 +1,165 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a1020"/>
+      <stop offset="52%" stop-color="#172036"/>
+      <stop offset="100%" stop-color="#0b1424"/>
+    </linearGradient>
+    <linearGradient id="playerPanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#172d46"/>
+      <stop offset="100%" stop-color="#121b2c"/>
+    </linearGradient>
+    <linearGradient id="cpuPanel" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b2035"/>
+      <stop offset="100%" stop-color="#181828"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7256df"/>
+      <stop offset="100%" stop-color="#377bcf"/>
+    </linearGradient>
+    <linearGradient id="fire" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4d1d25"/><stop offset="52%" stop-color="#c04431"/><stop offset="100%" stop-color="#f4a540"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#142f4c"/><stop offset="55%" stop-color="#2476a8"/><stop offset="100%" stop-color="#69d5e5"/>
+    </linearGradient>
+    <linearGradient id="wind" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#17352e"/><stop offset="55%" stop-color="#3f9a70"/><stop offset="100%" stop-color="#c7e979"/>
+    </linearGradient>
+    <linearGradient id="light" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#59482b"/><stop offset="58%" stop-color="#d6b75a"/><stop offset="100%" stop-color="#fff3b2"/>
+    </linearGradient>
+    <linearGradient id="dark" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#231d3d"/><stop offset="55%" stop-color="#633d8f"/><stop offset="100%" stop-color="#b47bd1"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000000" flood-opacity="0.38"/>
+    </filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .title{font:700 32px 'Noto Sans CJK JP', sans-serif;fill:#eef3ff}
+      .hero{font:800 54px 'Noto Sans CJK JP', sans-serif;fill:#ffffff}
+      .section{font:700 21px 'Noto Sans CJK JP', sans-serif;fill:#e7edf8}
+      .body{font:500 16px 'Noto Sans CJK JP', sans-serif;fill:#c5d0e2}
+      .small{font:500 14px 'Noto Sans CJK JP', sans-serif;fill:#a9b6ca}
+      .tiny{font:600 12px 'Noto Sans CJK JP', sans-serif;fill:#dce5f4}
+      .label{font:700 15px 'Noto Sans CJK JP', sans-serif;fill:#eef3ff}
+      .muted{font:500 13px 'Noto Sans CJK JP', sans-serif;fill:#7f8ba2}
+      .num{font:700 20px 'Noto Sans CJK JP', sans-serif;fill:#ffffff}
+    </style>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1920" height="88" fill="#080e19"/>
+  <text x="180" y="55" class="title">CPU対戦</text>
+  <rect x="72" y="130" width="580" height="720" rx="34" fill="url(#playerPanel)" stroke="#4b9bd6" stroke-opacity="0.5"/>
+  <rect x="1268" y="130" width="580" height="720" rx="34" fill="url(#cpuPanel)" stroke="#c45d82" stroke-opacity="0.5"/>
+  <text x="960" y="312" text-anchor="middle" style="font:900 88px 'Noto Sans CJK JP', sans-serif;fill:#fff">VS</text>
+  <rect width="1920" height="1080" fill="#050810" opacity="0.74"/>
+
+  <g filter="url(#shadow)">
+    <rect x="390" y="104" width="1140" height="872" rx="30" fill="#101927" stroke="#6c7895" stroke-width="2"/>
+  </g>
+  <text x="440" y="160" class="title">プレイヤーのデッキを選択</text>
+  <rect x="1450" y="127" width="48" height="48" rx="13" fill="#263650"/>
+  <text x="1474" y="161" text-anchor="middle" class="section">×</text>
+
+  <rect x="440" y="194" width="650" height="50" rx="13" fill="#172235" stroke="#40506a"/>
+  <text x="463" y="225" class="small">デッキ名を検索</text>
+  <text x="1120" y="225" class="small">4件</text>
+
+  
+    <g opacity="1">
+      <rect x="505" y="286" width="620" height="152" rx="18" fill="#302f5b" stroke="#7a75e5" stroke-width="2"/>
+      <rect x="523" y="304" width="96" height="116" rx="12" fill="url(#fire)"/>
+      <rect x="566" y="314" width="76" height="106" rx="11" fill="url(#wind)" stroke="#e3ebf8" stroke-opacity="0.55"/>
+      <text x="665" y="329" class="section">炎風テンポ</text>
+      <text x="665" y="358" class="small">40 / 40　クリーチャー 24 / スペル 16</text>
+      <text x="665" y="388" class="muted">更新: 2026/07/24 22:10</text>
+      <rect x="955" y="312" width="142" height="32" rx="16" fill="#24583f"/>
+      <text x="1026" y="334" text-anchor="middle" class="tiny">対戦可能</text>
+      <text x="665" y="416" class="small">選択中</text>
+      
+    </g>
+    <g opacity="1">
+      <rect x="505" y="454" width="620" height="152" rx="18" fill="#172235" stroke="#3c4b64" stroke-width="1.3"/>
+      <rect x="523" y="472" width="96" height="116" rx="12" fill="url(#water)"/>
+      <rect x="566" y="482" width="76" height="106" rx="11" fill="url(#light)" stroke="#e3ebf8" stroke-opacity="0.55"/>
+      <text x="665" y="497" class="section">蒼光コントロール</text>
+      <text x="665" y="526" class="small">40 / 40　クリーチャー 22 / スペル 18</text>
+      <text x="665" y="556" class="muted">更新: 2026/07/23 19:32</text>
+      <rect x="955" y="480" width="142" height="32" rx="16" fill="#24583f"/>
+      <text x="1026" y="502" text-anchor="middle" class="tiny">対戦可能</text>
+      
+      
+    </g>
+    <g opacity="1">
+      <rect x="505" y="622" width="620" height="152" rx="18" fill="#172235" stroke="#3c4b64" stroke-width="1.3"/>
+      <rect x="523" y="640" width="96" height="116" rx="12" fill="url(#dark)"/>
+      <rect x="566" y="650" width="76" height="106" rx="11" fill="url(#light)" stroke="#e3ebf8" stroke-opacity="0.55"/>
+      <text x="665" y="665" class="section">五属性共鳴</text>
+      <text x="665" y="694" class="small">40 / 40　クリーチャー 26 / スペル 14</text>
+      <text x="665" y="724" class="muted">更新: 2026/07/22 01:05</text>
+      <rect x="955" y="648" width="142" height="32" rx="16" fill="#24583f"/>
+      <text x="1026" y="670" text-anchor="middle" class="tiny">対戦可能</text>
+      
+      
+    </g>
+    <g opacity="0.58">
+      <rect x="505" y="790" width="620" height="152" rx="18" fill="#172235" stroke="#3c4b64" stroke-width="1.3"/>
+      <rect x="523" y="808" width="96" height="116" rx="12" fill="url(#fire)"/>
+      <rect x="566" y="818" width="76" height="106" rx="11" fill="url(#fire)" stroke="#e3ebf8" stroke-opacity="0.55"/>
+      <text x="665" y="833" class="section">火単アグロ調整中</text>
+      <text x="665" y="862" class="small">36 / 40　クリーチャー 28 / スペル 8</text>
+      <text x="665" y="892" class="muted">更新: 2026/07/21 20:18</text>
+      <rect x="955" y="816" width="142" height="32" rx="16" fill="#533934"/>
+      <text x="1026" y="838" text-anchor="middle" class="tiny">選択不可</text>
+      
+      <text x="665" y="920" class="small">カードが4枚不足しています</text>
+    </g>
+
+  <rect x="1180" y="286" width="300" height="430" rx="22" fill="#141f32" stroke="#3f4d67"/>
+  <text x="1212" y="330" class="section">選択中のデッキ</text>
+  <text x="1212" y="380" class="title">炎風テンポ</text>
+  
+    <g transform="rotate(-6 1277.5 497.0)" filter="url(#shadow)">
+      <rect x="1225" y="422" width="105" height="150" rx="18" fill="#142034" stroke="#8290aa" stroke-width="1.5"/>
+      <rect x="1234" y="431" width="87" height="93.0" rx="12" fill="url(#fire)"/>
+      <circle cx="1250" cy="447" r="16" fill="#0e1727" stroke="#e7eef9"/>
+      <text x="1250" y="453" text-anchor="middle" class="tiny">4</text>
+      <text x="1240" y="543" class="tiny">炎輪の突撃</text>
+      <rect x="1240" y="554" width="75" height="4" rx="2" fill="#667792"/>
+    </g>
+  
+    <g transform="rotate(0 1347.5 487.5)" filter="url(#shadow)">
+      <rect x="1290" y="405" width="115" height="165" rx="18" fill="#142034" stroke="#8290aa" stroke-width="1.5"/>
+      <rect x="1299" y="414" width="97" height="102.3" rx="12" fill="url(#wind)"/>
+      <circle cx="1315" cy="430" r="16" fill="#0e1727" stroke="#e7eef9"/>
+      <text x="1315" y="436" text-anchor="middle" class="tiny">5</text>
+      <text x="1305" y="541" class="tiny">翠嵐の狩人</text>
+      <rect x="1305" y="552" width="85" height="4" rx="2" fill="#667792"/>
+    </g>
+  
+    <g transform="rotate(6 1412.5 497.0)" filter="url(#shadow)">
+      <rect x="1360" y="422" width="105" height="150" rx="18" fill="#142034" stroke="#8290aa" stroke-width="1.5"/>
+      <rect x="1369" y="431" width="87" height="93.0" rx="12" fill="url(#fire)"/>
+      <circle cx="1385" cy="447" r="16" fill="#0e1727" stroke="#e7eef9"/>
+      <text x="1385" y="453" text-anchor="middle" class="tiny">1</text>
+      <text x="1375" y="543" class="tiny">焔の先兵</text>
+      <rect x="1375" y="554" width="75" height="4" rx="2" fill="#667792"/>
+    </g>
+  <text x="1212" y="622" class="small">40 / 40　対戦可能</text>
+  <text x="1212" y="653" class="small">クリーチャー 24　スペル 16</text>
+  <text x="1212" y="684" class="small">平均コスト 3.8</text>
+
+  <rect x="440" y="894" width="220" height="58" rx="16" fill="#263650" stroke="#53627e"/>
+  <text x="550" y="931" text-anchor="middle" class="section">キャンセル</text>
+  <rect x="1260" y="878" width="220" height="74" rx="20" fill="url(#primary)"/>
+  <text x="1370" y="924" text-anchor="middle" class="section">このデッキを選択</text>
+
+  <rect x="824" y="1000" width="272" height="30" rx="8" fill="#070c15"/>
+  <text x="960" y="1021" text-anchor="middle" class="small">OVL-009 デッキ選択</text>
+</svg>
