@@ -20,7 +20,7 @@
 | AK-008 | 烈火の号令 | 火 | 5 | スペル | - | - | このターン、レーンを1つ選択する。そのレーン上のすべての味方クリーチャーの攻撃力を+2する。 | ../images/card_illustrations/project_ankake_card_illustration_AK-008_v1_0.png |
 | AK-009 | 紅蓮旗のキャプテン | 火 | 6 | クリーチャー | 5 | 7 | このクリーチャーが場にいる限り、同じレーン上の他のすべての味方クリーチャーの攻撃力を+1する。 | ../images/card_illustrations/project_ankake_card_illustration_AK-009_v1_0.png |
 | AK-010 | ブレイズフェニックス | 火 | 7 | クリーチャー | 7 | 7 | 破壊時：このクリーチャーが破壊される直前にいたレーン上のすべての敵クリーチャーと攻撃可能な拠点に2ダメージを与える。 | ../images/card_illustrations/project_ankake_card_illustration_AK-010_v1_0.png |
-| AK-011 | ボルカニック・レイン | 火 | 8 | スペル | - | - | レーンを1つ選択する。そのレーン上のすべての敵クリーチャーと攻撃可能な拠点に8ダメージを与える。 | ../images/card_illustrations/project_ankake_card_illustration_AK-011_v1_0.png |
+| AK-011 | ボルカニック・レイン | 火 | 7 | スペル | - | - | レーンを1つ選択する。そのレーン上のすべての敵クリーチャーと攻撃可能な拠点に5ダメージを与える。 | ../images/card_illustrations/project_ankake_card_illustration_AK-011_v1_0.png |
 | AK-012 | 獄炎竜ヴァルガス | 火 | 9 | クリーチャー | 9 | 7 | 召喚時：敵クリーチャーまたは攻撃可能な拠点1つを選択する。その対象に7ダメージを与える。この効果で敵クリーチャーを破壊したなら、そのクリーチャーと同じレーン上の他のすべての敵クリーチャーに3ダメージを与える。 | ../images/card_illustrations/project_ankake_card_illustration_AK-012_v1_0.png |
 
 ## 水属性
@@ -68,10 +68,10 @@
 | AK-041 | ホーリー・サイレンス | 光 | 3 | スペル | - | - | 敵クリーチャー1体を選択する。そのクリーチャーの効果を無効にする。 | ../images/card_illustrations/project_ankake_card_illustration_AK-041_v1_0.png |
 | AK-042 | 光壁のアーキテクト | 光 | 4 | クリーチャー | 2 | 2 | 召喚時：このクリーチャーと同じレーン上の空いている通常マスを1つ選択する。そのマスに光属性1/1/3の「ルミナス・ウォール」トークンを1体出す。 | ../images/card_illustrations/project_ankake_card_illustration_AK-042_v1_0.png |
 | AK-043 | シャイニング・キャプテン | 光 | 5 | クリーチャー | 4 | 6 | このクリーチャーが場にいる限り、同じレーン上のすべての味方トークンを+1/+2する。 | ../images/card_illustrations/project_ankake_card_illustration_AK-043_v1_0.png |
-| AK-044 | フォートレス・ライン | 光 | 5 | スペル | - | - | レーンを1つ選択する。そのレーン上の空いている通常マスを3つ選択する。そのマスに光属性1/1/3の「ルミナス・ウォール」トークンを1体ずつ出す。 | ../images/card_illustrations/project_ankake_card_illustration_AK-044_v1_0.png |
+| AK-044 | フォートレス・ライン | 光 | 5 | スペル | - | - | レーンを1つ選択する。そのレーン上の空いている通常マスを3つ選択する。そのマスに光属性1/1/3の「ルミナス・ウォール」トークンを1体ずつ出す。すべての味方トークンを+0/+2する。 | ../images/card_illustrations/project_ankake_card_illustration_AK-044_v1_0.png |
 | AK-045 | 静寂のインクイジター | 光 | 6 | クリーチャー | 5 | 7 | 召喚時：このクリーチャーと同じレーン上のすべての敵クリーチャーの効果を無効にする。 | ../images/card_illustrations/project_ankake_card_illustration_AK-045_v1_0.png |
 | AK-046 | グローリアス・チャンピオン | 光 | 7 | クリーチャー | 4 | 5 | 召喚時：このクリーチャーと同じレーン上の空いている通常マスを2つ選択する。そのマスに光属性1/1/3の「ルミナス・ウォール」トークンを1体ずつ出す。このクリーチャーが場にいる限り、味方トークン1体につき、このクリーチャーを+1/+1する。 | ../images/card_illustrations/project_ankake_card_illustration_AK-046_v1_0.png |
-| AK-047 | ディバイン・ドミニオン | 光 | 8 | スペル | - | - | すべての敵クリーチャーの効果を無効にする。すべての味方クリーチャーを+2/+4する。 | ../images/card_illustrations/project_ankake_card_illustration_AK-047_v1_0.png |
+| AK-047 | ディバイン・ドミニオン | 光 | 7 | スペル | - | - | すべての敵クリーチャーの効果を無効にする。すべての味方クリーチャーを+1/+4する。 | ../images/card_illustrations/project_ankake_card_illustration_AK-047_v1_0.png |
 | AK-048 | 光臨天使セラフィエル | 光 | 10 | クリーチャー | 8 | 10 | 召喚時：このクリーチャーと同じレーン上の空いている通常マスを3つ選択する。そのマスに光属性1/1/3の「ルミナス・ウォール」トークンを1体ずつ出す。すべての味方トークンを+3/+3する。 | ../images/card_illustrations/project_ankake_card_illustration_AK-048_v1_0.png |
 
 ## 闇属性
