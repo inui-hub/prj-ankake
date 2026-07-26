@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@ankake/domain": ["packages/domain/src/index.ts"],
+      "@ankake/domain/*": ["packages/domain/src/*"],
+      "@ankake/cpu": ["packages/cpu/src/index.ts"],
+      "@ankake/cpu/*": ["packages/cpu/src/*"],
+      "@ankake/persistence": ["packages/persistence/src/index.ts"],
+      "@ankake/persistence/*": ["packages/persistence/src/*"],
+      "@ankake/ui": ["packages/ui/src/index.ts"],
+      "@ankake/ui/*": ["packages/ui/src/*"]
+    }
+  }
+}

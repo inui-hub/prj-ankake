@@ -2,3 +2,6 @@
 AGENTS.md
 .aidlc-rule-details/*
 aidlc-docs/*
+
+# Node modules
+node_modules/
