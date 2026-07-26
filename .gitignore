@@ -1,6 +1,6 @@
 # AI-DLC files
 AGENTS.md
-.aidlc-rule-details/*
+.aidlc-rule-details/
 aidlc-docs/
 
 # Node modules
