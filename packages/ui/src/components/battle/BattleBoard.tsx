@@ -11,6 +11,14 @@ export interface BattleBoardProps {
   readonly squares: readonly BattleBoardSquareView[];
   readonly candidateKeys?: readonly string[];
   readonly selectedKey?: string;
+  readonly selectedCreatureInstanceId?: string;
+  readonly movementOriginKey?: string;
+  readonly movementPathSteps?: readonly {
+    readonly key: string;
+    readonly stepNumber: number;
+  }[];
+  readonly provisionalPositionKey?: string;
+  readonly onCreatureIntent?: (instanceId: string) => void;
   readonly onSquareIntent?: (coordinate: BoardCoordinate) => void;
 }
 
@@ -19,6 +27,17 @@ export function BattleBoard(props: BattleBoardProps) {
   const [focusedKey, setFocusedKey] = useState(firstKey);
   const squareRefs = useRef(new Map<string, HTMLButtonElement>());
   const candidateKeys = new Set(props.candidateKeys ?? []);
+  const selectedCreature = props.squares
+    .map((square) => square.occupant)
+    .find(
+      (occupant) => occupant?.instanceId === props.selectedCreatureInstanceId
+    );
+  const pathStepsByKey = new Map<string, number[]>();
+  for (const step of props.movementPathSteps ?? []) {
+    const steps = pathStepsByKey.get(step.key) ?? [];
+    steps.push(step.stepNumber);
+    pathStepsByKey.set(step.key, steps);
+  }
 
   useEffect(() => {
     if (!props.squares.some((square) => square.key === focusedKey)) {
@@ -38,18 +57,43 @@ export function BattleBoard(props: BattleBoardProps) {
         {props.squares.map((square) => {
           const isCandidate = candidateKeys.has(square.key);
           const isSelected = props.selectedKey === square.key;
+          const isMovementOrigin = props.movementOriginKey === square.key;
+          const isProvisional = props.provisionalPositionKey === square.key;
+          const pathSteps = pathStepsByKey.get(square.key) ?? [];
+          const hidesConfirmedCreature =
+            selectedCreature &&
+            square.occupant?.instanceId === selectedCreature.instanceId &&
+            isMovementOrigin &&
+            !isProvisional;
+          const displayedOccupant =
+            selectedCreature && isProvisional
+              ? selectedCreature
+              : hidesConfirmedCreature
+                ? undefined
+                : square.occupant;
 
           return (
             <button
               key={square.key}
-              aria-label={describeSquare(square, isCandidate, isSelected)}
-              aria-selected={isSelected || undefined}
+              aria-label={describeSquare(
+                square,
+                displayedOccupant?.name,
+                isCandidate,
+                isSelected,
+                isMovementOrigin,
+                isProvisional,
+                pathSteps
+              )}
+              aria-selected={isSelected || isProvisional || undefined}
               className={[
                 "battle-square",
                 `battle-square--${square.terrain}`,
-                square.occupant ? "battle-square--occupied" : "",
+                displayedOccupant ? "battle-square--occupied" : "",
                 isCandidate ? "battle-square--candidate" : "",
-                isSelected ? "battle-square--selected" : ""
+                isSelected ? "battle-square--selected" : "",
+                isMovementOrigin ? "battle-square--movement-origin" : "",
+                pathSteps.length > 0 ? "battle-square--movement-path" : "",
+                isProvisional ? "battle-square--provisional" : ""
               ].join(" ")}
               data-testid={`battle-square-${square.coordinate.column}-${square.coordinate.row}`}
               role="gridcell"
@@ -68,7 +112,11 @@ export function BattleBoard(props: BattleBoardProps) {
               }}
               onClick={() => {
                 setFocusedKey(square.key);
-                props.onSquareIntent?.(square.coordinate);
+                if (displayedOccupant) {
+                  props.onCreatureIntent?.(displayedOccupant.instanceId);
+                } else {
+                  props.onSquareIntent?.(square.coordinate);
+                }
               }}
               onFocus={() => setFocusedKey(square.key)}
               onKeyDown={(event) => {
@@ -86,8 +134,32 @@ export function BattleBoard(props: BattleBoardProps) {
                 squareRefs.current.get(next)?.focus();
               }}
             >
-              {square.occupant ? (
-                <BattleCard card={square.occupant} mode="board" />
+              {displayedOccupant ? (
+                <BattleCard card={displayedOccupant} mode="board" />
+              ) : null}
+              {isMovementOrigin ? (
+                <span
+                  aria-hidden="true"
+                  className="battle-square__movement-origin"
+                  data-testid="battle-movement-origin-marker"
+                >
+                  O
+                </span>
+              ) : null}
+              {pathSteps.length > 0 ? (
+                <span
+                  aria-hidden="true"
+                  className="battle-square__movement-steps"
+                >
+                  {pathSteps.map((stepNumber) => (
+                    <span
+                      key={stepNumber}
+                      data-testid={`battle-movement-step-${stepNumber}`}
+                    >
+                      {stepNumber}
+                    </span>
+                  ))}
+                </span>
               ) : null}
               {square.terrain !== "normal" ? (
                 <span className="battle-square__base-label">
@@ -104,17 +176,24 @@ export function BattleBoard(props: BattleBoardProps) {
 
 function describeSquare(
   square: BattleBoardSquareView,
+  occupantName: string | undefined,
   isCandidate: boolean,
-  isSelected: boolean
+  isSelected: boolean,
+  isMovementOrigin: boolean,
+  isProvisional: boolean,
+  pathSteps: readonly number[]
 ): string {
   const prefix = `Column ${square.coordinate.column}, row ${square.coordinate.row}`;
-  const interactionLabel = isSelected
-    ? ", selected summon destination"
-    : isCandidate
-      ? ", available summon destination"
-      : "";
-  if (square.occupant) {
-    return `${prefix}, ${terrainLabel(square.terrain)}, occupied by ${square.occupant.name}${interactionLabel}`;
+  const labels = [
+    isSelected ? "selected summon destination" : undefined,
+    isCandidate ? "available destination" : undefined,
+    isMovementOrigin ? "movement origin" : undefined,
+    pathSteps.length > 0 ? `movement path steps ${pathSteps.join(", ")}` : undefined,
+    isProvisional ? "provisional creature position" : undefined
+  ].filter((label): label is string => Boolean(label));
+  const interactionLabel = labels.length > 0 ? `, ${labels.join(", ")}` : "";
+  if (occupantName) {
+    return `${prefix}, ${terrainLabel(square.terrain)}, occupied by ${occupantName}${interactionLabel}`;
   }
 
   return `${prefix}, ${terrainLabel(square.terrain)}${interactionLabel}`;

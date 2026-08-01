@@ -155,7 +155,7 @@ function acceptMove(
     state: {
       ...state,
       board: setBoardOccupant(
-        setBoardOccupant(state.board, card.position as { column: number; row: number }, undefined),
+        setBoardOccupant(state.board, command.origin, undefined),
         destination,
         card.instanceId
       ),

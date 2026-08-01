@@ -5,6 +5,7 @@ export const BATTLE_STARTING_HAND_SIZE = 5;
 export const BATTLE_STARTING_PP = 1;
 export const BATTLE_MAX_PP = 20;
 export const BATTLE_BASE_HP = 20;
+export const BATTLE_BASE_MOVEMENT = 1;
 export const BATTLE_LOG_LIMIT = 500;
 export const CPU_ACCEPTED_COMMAND_LIMIT = 30;
 export const HUMAN_PLAY_PHASE_SECONDS = 90;

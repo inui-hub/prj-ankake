@@ -9,7 +9,8 @@ import {
 import fc from "fast-check";
 import {
   battleStateArbitrary,
-  eligibleHandCreatureStateArbitrary
+  eligibleHandCreatureStateArbitrary,
+  movableCreatureStateArbitrary
 } from "../generators/battleGenerators";
 import { cpuVisibleStateArbitrary } from "../generators/cpuGenerators";
 
@@ -86,6 +87,46 @@ describe("CPU visible state", () => {
         }
       ),
       { numRuns: 40 }
+    );
+  });
+
+  it("projects public movement actionability without leaking a web-owned path draft", () => {
+    fc.assert(
+      fc.property(
+        movableCreatureStateArbitrary.filter((fixture) => fixture.side === "player"),
+        (fixture) => {
+          const stateWithWebDraft = {
+            ...fixture.state,
+            pendingInteraction: {
+              type: "selecting-move",
+              creatureInstanceId: fixture.creatureInstanceId,
+              expectedOrigin: fixture.origin,
+              path: [{ column: fixture.origin.column + 1, row: fixture.origin.row }]
+            }
+          };
+          const publicOccupant = projectPublicBattleView(fixture.state).boardSquares.find(
+            (square) => square.occupant?.instanceId === fixture.creatureInstanceId
+          )?.occupant;
+          const cpuView = projectCpuVisibleState(
+            stateWithWebDraft,
+            generateLegalActions(fixture.state, "cpu")
+          );
+          const serialized = JSON.stringify(cpuView);
+
+          expect(publicOccupant?.isActionable).toBe(
+            generateLegalActions(fixture.state, "player").some(
+              (action) => action.command.type === "moveCreature"
+            )
+          );
+          expect(serialized).not.toContain("pendingInteraction");
+          expect(serialized).not.toContain("expectedOrigin");
+          expect(serialized).not.toContain('"path"');
+          for (const playerHandInstanceId of fixture.state.players.player.handZone) {
+            expect(serialized).not.toContain(playerHandInstanceId);
+          }
+        }
+      ),
+      { numRuns: 60, seed: 7312 }
     );
   });
 });

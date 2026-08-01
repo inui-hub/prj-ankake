@@ -4,6 +4,7 @@ import { DECK_BATTLE_READY_CARD_COUNT, type SavedDeck } from "../deck/types";
 import { createInitialBattleBoard, getLane, setBoardOccupant } from "./board";
 import {
   BATTLE_BASE_HP,
+  BATTLE_BASE_MOVEMENT,
   BATTLE_STARTING_HAND_SIZE,
   BATTLE_STARTING_PP
 } from "./constants";
@@ -294,7 +295,7 @@ function createCardInstance(
     health: card.type === "creature" ? card.health : undefined,
     currentHp: card.type === "creature" ? card.health : undefined,
     maxHp: card.type === "creature" ? card.health : undefined,
-    movement: card.type === "creature" ? 2 : 0,
+    movement: card.type === "creature" ? BATTLE_BASE_MOVEMENT : 0,
     isToken: false,
     effectText: card.effectText,
     effectIds: card.effectIds,

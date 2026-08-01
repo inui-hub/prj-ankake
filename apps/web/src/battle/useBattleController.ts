@@ -14,11 +14,16 @@ import {
   cancelBattleInteraction,
   guardEndPlayPhase,
   isBattleInteractionPending,
+  prepareMovementConfirmation,
   prepareSummonConfirmation,
   projectBattleInteractionView,
+  recoverMovementInteraction,
   recoverSummonInteraction,
+  selectMovementCreature,
+  selectMovementStep,
   selectSummonDestination,
   selectSummonHandCard,
+  undoMovementStep,
   type BattleInteractionState,
   type BattleInteractionView
 } from "./battleInteraction";
@@ -59,7 +64,9 @@ export interface BattleControllerActions {
   readonly startBattle: () => Promise<void>;
   readonly submitCommand: (command: BattleCommand) => Promise<void>;
   readonly selectHandCard: (instanceId: string) => void;
+  readonly selectBoardCreature: (instanceId: string) => void;
   readonly selectBoardSquare: (coordinate: BoardCoordinate) => void;
+  readonly undoInteraction: () => void;
   readonly confirmInteraction: () => Promise<void>;
   readonly cancelInteraction: () => void;
   readonly endPlayPhase: () => Promise<void>;
@@ -240,7 +247,33 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   }
 
   function selectBoardSquare(coordinate: BoardCoordinate): void {
-    setInteraction((current) => selectSummonDestination(current, coordinate));
+    if (!session) {
+      return;
+    }
+
+    setInteraction((current) =>
+      current.kind === "selecting-move"
+        ? selectMovementStep(current, session.state, coordinate)
+        : selectSummonDestination(current, coordinate)
+    );
+  }
+
+  function selectBoardCreature(instanceId: string): void {
+    if (!session) {
+      return;
+    }
+
+    setInteraction((current) =>
+      selectMovementCreature(current, session.state, instanceId)
+    );
+  }
+
+  function undoInteraction(): void {
+    if (!session) {
+      return;
+    }
+
+    setInteraction((current) => undoMovementStep(current, session.state));
   }
 
   async function confirmInteraction(): Promise<void> {
@@ -248,7 +281,10 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
 
-    const preparation = prepareSummonConfirmation(interaction, session.state);
+    const isMovement = interaction.kind === "selecting-move";
+    const preparation = isMovement
+      ? prepareMovementConfirmation(interaction, session.state)
+      : prepareSummonConfirmation(interaction, session.state);
     if (!preparation.ok) {
       setInteraction(preparation.interaction);
       return;
@@ -261,11 +297,17 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     );
     if (!submission.ok) {
       setInteraction(
-        recoverSummonInteraction(
-          submission.session.state,
-          interaction,
-          submission.issues
-        )
+        isMovement
+          ? recoverMovementInteraction(
+              submission.session.state,
+              interaction,
+              submission.issues
+            )
+          : recoverSummonInteraction(
+              submission.session.state,
+              interaction,
+              submission.issues
+            )
       );
       return;
     }
@@ -327,7 +369,9 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       startBattle: startSelectedBattle,
       submitCommand,
       selectHandCard,
+      selectBoardCreature,
       selectBoardSquare,
+      undoInteraction,
       confirmInteraction,
       cancelInteraction,
       endPlayPhase,

@@ -1,5 +1,6 @@
 import {
-  generateLegalActions
+  generateLegalActions,
+  getShortestMovementPaths
 } from "@ankake/domain";
 import {
   attemptRuntimeCommand,
@@ -14,7 +15,10 @@ import {
 } from "../../../apps/web/src/battle/battleSetupService";
 import { createConsoleBattleDiagnostics } from "../../../apps/web/src/battle/battleDiagnostics";
 import { InMemoryDeckRepository } from "../fakes/inMemoryDeckRepository";
-import { battleReadySavedDeckArbitrary } from "../generators/battleGenerators";
+import {
+  battleReadySavedDeckArbitrary,
+  movableCreatureStateArbitrary
+} from "../generators/battleGenerators";
 import { validCatalogSnapshotFixture } from "../generators/catalogGenerators";
 import fc from "fast-check";
 
@@ -113,6 +117,46 @@ describe("battle runtime service", () => {
         "battle.card.not-found"
       ]);
     }
+  });
+
+  it("submits a complete movement command through the shared runtime path", () => {
+    const fixture = fc.sample(
+      movableCreatureStateArbitrary.filter((candidate) => {
+        return (
+          candidate.side === "player" &&
+          getShortestMovementPaths(
+            candidate.state,
+            candidate.side,
+            candidate.creatureInstanceId
+          ).length > 0
+        );
+      }),
+      { numRuns: 1, seed: 7314 }
+    )[0]!;
+    const path = getShortestMovementPaths(
+      fixture.state,
+      fixture.side,
+      fixture.creatureInstanceId
+    )[0]!;
+    const session = createBattleRuntimeSession(fixture.state, []);
+    const result = attemptRuntimeCommand(
+      session,
+      {
+        type: "moveCreature",
+        side: "player",
+        creatureInstanceId: fixture.creatureInstanceId,
+        origin: fixture.origin,
+        path
+      },
+      createConsoleBattleDiagnostics()
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.session).not.toBe(session);
+    expect(session.state.cardInstances[fixture.creatureInstanceId]?.position).toEqual(
+      fixture.origin
+    );
+    expect(result.session.log.entries.at(-1)?.type).toBe("creature.moved");
   });
 
   it("executes CPU turns with a bounded command limit", async () => {

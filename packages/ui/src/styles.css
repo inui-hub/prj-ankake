@@ -249,6 +249,61 @@
   border-color: #7db7d5;
 }
 
+.battle-square--movement-origin {
+  box-shadow: inset 0 0 0 2px rgba(125, 183, 213, 0.74);
+}
+
+.battle-square--movement-path {
+  background: rgba(53, 88, 99, 0.88);
+}
+
+.battle-square--provisional {
+  border: 3px double #f1c46f;
+  box-shadow: inset 0 0 0 2px #285f52;
+}
+
+.battle-square__movement-origin,
+.battle-square__movement-steps {
+  position: absolute;
+  z-index: 3;
+  top: 2px;
+  pointer-events: none;
+}
+
+.battle-square__movement-origin {
+  left: 2px;
+  display: grid;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+  border: 1px solid #ffffff;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #315f75;
+  font-size: 0.56rem;
+  font-weight: 900;
+}
+
+.battle-square__movement-steps {
+  right: 16px;
+  display: flex;
+  gap: 2px;
+}
+
+.battle-square__movement-steps span {
+  display: grid;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 2px;
+  place-items: center;
+  border: 1px solid #ffffff;
+  border-radius: 3px;
+  color: #171313;
+  background: #f1c46f;
+  font-size: 0.56rem;
+  font-weight: 900;
+}
+
 .battle-square__base-label {
   place-self: center;
   color: #f7fafb;
@@ -499,6 +554,10 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.battle-interaction-controls__actions--move {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .battle-side-rail,

@@ -3,13 +3,16 @@ import {
   BATTLE_BOARD_ROWS,
   CANONICAL_BOARD_COORDINATES,
   INITIAL_SUMMON_COORDINATES_BY_SIDE,
+  coordinateKey,
   createBattleState,
   createInitialBattleBoard,
   generateLegalActions,
+  getShortestMovementPaths,
   getTerrain,
   isExistingBoardCoordinate,
   isInitialSummonCoordinate,
   isNormalBoardCoordinate,
+  placeCreatureForTest,
   setBoardOccupant,
   type BattleCardInstance,
   type BattleCommand,
@@ -187,6 +190,129 @@ export const legalBattleCommandArbitrary: fc.Arbitrary<{
       command: action.command
     }))
   );
+
+export interface MovableCreatureFixture {
+  readonly state: BattleState;
+  readonly side: BattleSide;
+  readonly creatureInstanceId: string;
+  readonly origin: BoardCoordinate;
+  readonly maximumMovement: number;
+  readonly occupiedCoordinates: readonly BoardCoordinate[];
+}
+
+export const movableCreatureStateArbitrary: fc.Arbitrary<MovableCreatureFixture> =
+  eligibleHandCreatureStateArbitrary.chain((fixture) =>
+    normalBoardCoordinateArbitrary.chain((origin) =>
+      fc
+        .record({
+          maximumMovement: fc.integer({ min: 1, max: 4 }),
+          occupiedCoordinates: fc.uniqueArray(
+            normalBoardCoordinateArbitrary.filter(
+              (coordinate) => coordinateKey(coordinate) !== coordinateKey(origin)
+            ),
+            {
+              minLength: 0,
+              maxLength: 8,
+              selector: coordinateKey
+            }
+          )
+        })
+        .map(({ maximumMovement, occupiedCoordinates }) => {
+          const placed = placeCreatureForTest(
+            fixture.state,
+            fixture.handInstanceId,
+            fixture.side,
+            origin.column,
+            origin.row
+          );
+          const board = occupiedCoordinates.reduce(
+            (current, coordinate, index) =>
+              setBoardOccupant(current, coordinate, `movement-blocker-${index}`),
+            placed.board
+          );
+
+          return {
+            side: fixture.side,
+            creatureInstanceId: fixture.handInstanceId,
+            origin,
+            maximumMovement,
+            occupiedCoordinates,
+            state: {
+              ...placed,
+              board,
+              cardInstances: {
+                ...placed.cardInstances,
+                [fixture.handInstanceId]: {
+                  ...placed.cardInstances[fixture.handInstanceId]!,
+                  type: "creature",
+                  movement: maximumMovement,
+                  summonedThisTurn: false,
+                  movedThisTurn: false
+                }
+              }
+            }
+          };
+        })
+    )
+  );
+
+export interface MovementPathFixture extends MovableCreatureFixture {
+  readonly path: readonly BoardCoordinate[];
+}
+
+export const validMovementPathArbitrary: fc.Arbitrary<MovementPathFixture> =
+  movableCreatureStateArbitrary
+    .map((fixture) => ({
+      fixture,
+      paths: getShortestMovementPaths(
+        fixture.state,
+        fixture.side,
+        fixture.creatureInstanceId
+      )
+    }))
+    .filter(({ paths }) => paths.length > 0)
+    .chain(({ fixture, paths }) =>
+      fc.constantFrom(...paths).map((path) => ({ ...fixture, path }))
+    );
+
+export const invalidMovementSuffixArbitrary: fc.Arbitrary<
+  MovementPathFixture & { readonly invalidStep: BoardCoordinate }
+> = fc.tuple(
+  validMovementPathArbitrary,
+  fc.record({
+    column: fc.integer({ min: BATTLE_BOARD_COLUMNS + 1, max: BATTLE_BOARD_COLUMNS + 5 }),
+    row: fc.integer({ min: 1, max: BATTLE_BOARD_ROWS })
+  })
+).map(([fixture, invalidStep]) => ({ ...fixture, invalidStep }));
+
+export const originReturnMovementArbitrary: fc.Arbitrary<MovementPathFixture> =
+  movableCreatureStateArbitrary
+    .filter((fixture) => fixture.maximumMovement >= 2)
+    .map((fixture) => ({
+      fixture,
+      paths: getShortestMovementPaths(
+        fixture.state,
+        fixture.side,
+        fixture.creatureInstanceId
+      ).filter((path) => path.length === 1)
+    }))
+    .filter(({ paths }) => paths.length > 0)
+    .chain(({ fixture, paths }) =>
+      fc.constantFrom(...paths).map((path) => ({
+        ...fixture,
+        path: [path[0]!, fixture.origin]
+      }))
+    );
+
+export interface ReachableMovementEndpointFixture extends MovementPathFixture {
+  readonly endpoint: BoardCoordinate;
+}
+
+export const reachableMovementEndpointArbitrary: fc.Arbitrary<ReachableMovementEndpointFixture> =
+  validMovementPathArbitrary.map((fixture) => ({
+    ...fixture,
+    endpoint: fixture.path[fixture.path.length - 1]!
+  }));
 
 function timestampPlus(minutes: number): string {
   return new Date(Date.parse(BASE_TIMESTAMP) + minutes * 60_000).toISOString();

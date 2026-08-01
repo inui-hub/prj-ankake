@@ -1,4 +1,5 @@
 import { coordinateKey } from "./board";
+import { queryMovementStart } from "./movement";
 import { querySummonStart } from "./summon";
 import type {
   BattleCardInstance,
@@ -79,10 +80,11 @@ export function projectPublicBattleView(state: BattleState): PublicBattleView {
       lane: square.lane,
       terrain: square.terrain,
       occupant: square.occupantId
-        ? projectBattleCard(
+          ? projectBattleCard(
             square.occupantId,
             state.cardInstances[square.occupantId],
-            "board"
+            "board",
+            state
           )
         : undefined
     })),
@@ -117,13 +119,17 @@ function projectBattleCard(
     location === "hand" && isCreature && state
       ? querySummonStart(state, "player", card.instanceId)
       : undefined;
-  const isActionable = summonStart?.eligible ?? false;
+  const movementStart =
+    location === "board" && isCreature && state
+      ? queryMovementStart(state, "player", card.instanceId)
+      : undefined;
+  const isActionable = summonStart?.eligible ?? movementStart?.eligible ?? false;
   const disabledReason =
     card.type === "spell"
       ? "Spell effects are planned for a later cycle."
       : location === "hand"
         ? summonStart?.issues[0]?.message
-        : "Creature movement is planned for a later unit.";
+        : movementStart?.issues[0]?.message;
 
   return {
     instanceId: card.instanceId,

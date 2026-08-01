@@ -25,9 +25,11 @@ export interface BattleScreenProps {
   readonly onReturnToMenu: () => void;
   readonly onEndPlayPhase: () => void;
   readonly onHandCardIntent?: (instanceId: string) => void;
+  readonly onBoardCreatureIntent?: (instanceId: string) => void;
   readonly onBoardSquareIntent?: (coordinate: BoardCoordinate) => void;
   readonly onConfirmInteraction?: () => void;
   readonly onCancelInteraction?: () => void;
+  readonly onUndoInteraction?: () => void;
   readonly onRematch: () => void;
   readonly onQuitBattle: () => void;
 }
@@ -49,6 +51,11 @@ export function BattleScreen(props: BattleScreenProps) {
             squares={props.viewModel.boardSquares}
             candidateKeys={interaction.candidateDestinationKeys}
             selectedKey={interaction.selectedDestinationKey}
+            selectedCreatureInstanceId={interaction.selectedCreatureInstanceId}
+            movementOriginKey={interaction.movementOriginKey}
+            movementPathSteps={interaction.movementPathSteps}
+            provisionalPositionKey={interaction.provisionalPositionKey}
+            onCreatureIntent={props.onBoardCreatureIntent}
             onSquareIntent={props.onBoardSquareIntent}
           />
           <BattleHand
@@ -63,6 +70,7 @@ export function BattleScreen(props: BattleScreenProps) {
             interaction={interaction}
             onConfirm={props.onConfirmInteraction ?? noOperation}
             onCancel={props.onCancelInteraction ?? noOperation}
+            onUndo={props.onUndoInteraction ?? noOperation}
             onEndPlayPhase={props.onEndPlayPhase}
           />
           <BattleLogPanel entries={props.logEntries} />
@@ -92,6 +100,7 @@ function createIdleInteraction(viewModel: PublicBattleView): BattleInteractionCo
     kind: "idle",
     confirmEnabled: false,
     cancelEnabled: false,
+    undoEnabled: false,
     endPlayPhaseEnabled:
       viewModel.phase === "play" &&
       viewModel.activeSide === "player" &&

@@ -1,5 +1,6 @@
 import {
   createInitialBattleBoard,
+  placeCreatureForTest,
   setBoardOccupant,
   type BattleCardInstance,
   type BattleState
@@ -9,18 +10,26 @@ import {
   IDLE_BATTLE_INTERACTION,
   cancelBattleInteraction,
   guardEndPlayPhase,
+  prepareMovementConfirmation,
   prepareSummonConfirmation,
   projectBattleInteractionFromState,
+  recoverMovementInteraction,
   recoverSummonInteraction,
+  selectMovementCreature,
+  selectMovementStep,
   selectSummonDestination,
   selectSummonHandCard,
+  undoMovementStep,
   type BattleInteractionState
 } from "../../../apps/web/src/battle/battleInteraction";
 import {
   attemptRuntimeCommand,
   createBattleRuntimeSession
 } from "../../../apps/web/src/battle/battleRuntimeService";
-import { battleStateArbitrary } from "../generators/battleGenerators";
+import {
+  battleStateArbitrary,
+  movableCreatureStateArbitrary
+} from "../generators/battleGenerators";
 
 describe("battle summon interaction", () => {
   it("starts, switches directly, and cancels by re-clicking the selected card", () => {
@@ -213,6 +222,195 @@ describe("battle summon interaction", () => {
   });
 });
 
+describe("battle movement interaction", () => {
+  it("starts movement, switches directly across operation kinds, and re-click cancels", () => {
+    const { state, creatureId, handId } = createMovementInteractionState();
+    const movement = selectMovementCreature(
+      IDLE_BATTLE_INTERACTION,
+      state,
+      creatureId
+    );
+    const summon = selectSummonHandCard(movement, state, handId);
+    const movementAgain = selectMovementCreature(summon, state, creatureId);
+    const cancelled = selectMovementCreature(movementAgain, state, creatureId);
+
+    expect(movement).toMatchObject({
+      kind: "selecting-move",
+      creatureInstanceId: creatureId,
+      expectedOrigin: { column: 4, row: 5 },
+      path: []
+    });
+    expect(summon).toMatchObject({ kind: "selecting-summon", handInstanceId: handId });
+    expect(movementAgain).toMatchObject({
+      kind: "selecting-move",
+      creatureInstanceId: creatureId
+    });
+    expect(cancelled).toBe(IDLE_BATTLE_INTERACTION);
+  });
+
+  it("appends candidate steps, allows origin return, ignores non-candidates, and undoes once", () => {
+    const { state, creatureId } = createMovementInteractionState();
+    const started = selectMovementCreature(
+      IDLE_BATTLE_INTERACTION,
+      state,
+      creatureId
+    );
+    const ignored = selectMovementStep(started, state, { column: 11, row: 9 });
+    const first = selectMovementStep(started, state, { column: 5, row: 5 });
+    const returned = selectMovementStep(first, state, { column: 4, row: 5 });
+    const revisited = selectMovementStep(returned, state, { column: 5, row: 5 });
+    const undone = undoMovementStep(revisited, state);
+
+    expect(ignored).toBe(started);
+    expect(first).toMatchObject({ path: [{ column: 5, row: 5 }] });
+    expect(returned).toMatchObject({
+      path: [
+        { column: 5, row: 5 },
+        { column: 4, row: 5 }
+      ]
+    });
+    expect(revisited).toMatchObject({
+      path: [
+        { column: 5, row: 5 },
+        { column: 4, row: 5 },
+        { column: 5, row: 5 }
+      ],
+      candidateNextSteps: []
+    });
+    expect(undone).toMatchObject({
+      path: [
+        { column: 5, row: 5 },
+        { column: 4, row: 5 }
+      ]
+    });
+  });
+
+  it("prepares a complete movement command only after one path step", () => {
+    const { state, creatureId } = createMovementInteractionState();
+    const started = selectMovementCreature(
+      IDLE_BATTLE_INTERACTION,
+      state,
+      creatureId
+    );
+    const incomplete = prepareMovementConfirmation(started, state);
+    const selected = selectMovementStep(started, state, { column: 5, row: 5 });
+    const ready = prepareMovementConfirmation(selected, state);
+
+    expect(incomplete).toEqual({ ok: false, interaction: started });
+    expect(ready).toEqual({
+      ok: true,
+      command: {
+        type: "moveCreature",
+        side: "player",
+        creatureInstanceId: creatureId,
+        origin: { column: 4, row: 5 },
+        path: [{ column: 5, row: 5 }]
+      }
+    });
+  });
+
+  it("recovers the longest valid prefix and returns to idle only when source is stale", () => {
+    const { state, creatureId } = createMovementInteractionState();
+    const started = selectMovementCreature(
+      IDLE_BATTLE_INTERACTION,
+      state,
+      creatureId
+    );
+    const first = selectMovementStep(started, state, { column: 5, row: 5 });
+    const second = selectMovementStep(first, state, { column: 6, row: 4 });
+    const blocked = {
+      ...state,
+      board: setBoardOccupant(state.board, { column: 6, row: 4 }, "blocker")
+    };
+    const recovered = recoverMovementInteraction(blocked, second, [
+      { code: "battle.board.occupied", message: "The route changed." }
+    ]);
+    const movedState: BattleState = {
+      ...state,
+      cardInstances: {
+        ...state.cardInstances,
+        [creatureId]: {
+          ...state.cardInstances[creatureId]!,
+          movedThisTurn: true
+        }
+      }
+    };
+    const invalidSource = recoverMovementInteraction(movedState, first, []);
+
+    expect(recovered).toMatchObject({
+      kind: "selecting-move",
+      path: [{ column: 5, row: 5 }],
+      issue: { code: "battle.board.occupied" }
+    });
+    expect(invalidSource).toMatchObject({
+      kind: "idle",
+      issue: { code: "battle.move.already-moved" }
+    });
+  });
+
+  it("projects movement path order, repeated visits, budget, and stable controls", () => {
+    const { state, creatureId } = createMovementInteractionState();
+    const started = selectMovementCreature(
+      IDLE_BATTLE_INTERACTION,
+      state,
+      creatureId
+    );
+    const first = selectMovementStep(started, state, { column: 5, row: 5 });
+    const returned = selectMovementStep(first, state, { column: 4, row: 5 });
+    const revisited = selectMovementStep(returned, state, { column: 5, row: 5 });
+    const view = projectBattleInteractionFromState(revisited, state);
+
+    expect(view).toMatchObject({
+      kind: "selecting-move",
+      selectedCreatureInstanceId: creatureId,
+      movementOriginKey: "4:5",
+      provisionalPositionKey: "5:5",
+      movementUsed: 3,
+      movementMaximum: 3,
+      confirmEnabled: true,
+      cancelEnabled: true,
+      undoEnabled: true,
+      endPlayPhaseEnabled: false
+    });
+    expect(view.movementPathSteps).toEqual([
+      { key: "5:5", stepNumber: 1 },
+      { key: "4:5", stepNumber: 2 },
+      { key: "5:5", stepNumber: 3 }
+    ]);
+  });
+
+  it("keeps confirmed state unchanged across generated undo and cancel operations", () => {
+    fc.assert(
+      fc.property(
+        movableCreatureStateArbitrary.filter((fixture) => fixture.side === "player"),
+        (fixture) => {
+          const before = JSON.stringify(fixture.state);
+          const started = selectMovementCreature(
+            IDLE_BATTLE_INTERACTION,
+            fixture.state,
+            fixture.creatureInstanceId
+          );
+          if (started.kind !== "selecting-move" || started.candidateNextSteps.length === 0) {
+            return;
+          }
+          const stepped = selectMovementStep(
+            started,
+            fixture.state,
+            started.candidateNextSteps[0]!
+          );
+          const undone = undoMovementStep(stepped, fixture.state);
+          const cancelled = cancelBattleInteraction();
+
+          expect(undone).toMatchObject({ kind: "selecting-move", path: [] });
+          expect(cancelled).toBe(IDLE_BATTLE_INTERACTION);
+          expect(JSON.stringify(fixture.state)).toBe(before);
+        }
+      ),
+      { numRuns: 60, seed: 7313 }
+    );
+  });
+});
+
 function createInteractionState(): {
   readonly state: BattleState;
   readonly firstId: string;
@@ -255,6 +453,32 @@ function createInteractionState(): {
         ...sampled.cardInstances,
         [firstCreature.instanceId]: firstCreature,
         [secondCreature.instanceId]: secondCreature
+      }
+    }
+  };
+}
+
+function createMovementInteractionState(): {
+  readonly state: BattleState;
+  readonly creatureId: string;
+  readonly handId: string;
+} {
+  const fixture = createInteractionState();
+  const placed = placeCreatureForTest(fixture.state, fixture.firstId, "player", 4, 5);
+
+  return {
+    creatureId: fixture.firstId,
+    handId: fixture.secondId,
+    state: {
+      ...placed,
+      cardInstances: {
+        ...placed.cardInstances,
+        [fixture.firstId]: {
+          ...placed.cardInstances[fixture.firstId]!,
+          movement: 3,
+          summonedThisTurn: false,
+          movedThisTurn: false
+        }
       }
     }
   };

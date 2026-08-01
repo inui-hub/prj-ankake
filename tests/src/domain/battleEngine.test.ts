@@ -2,6 +2,7 @@ import {
   GameEngine,
   createInitialBattleBoard,
   generateLegalActions,
+  placeCreatureForTest,
   type BattleCardInstance,
   type BattleCommand,
   type BattleState
@@ -91,6 +92,83 @@ describe("battle engine", () => {
     }
   });
 
+  it("applies a confirmed multi-step move atomically", () => {
+    const { state, creatureId } = createPlayerMovementState();
+    const result = GameEngine.submitCommand(state, {
+      type: "moveCreature",
+      side: "player",
+      creatureInstanceId: creatureId,
+      origin: { column: 4, row: 5 },
+      path: [
+        { column: 5, row: 5 },
+        { column: 6, row: 4 }
+      ]
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    expect(
+      result.state.board.squares.find(
+        (square) => square.coordinate.column === 4 && square.coordinate.row === 5
+      )?.occupantId
+    ).toBeUndefined();
+    expect(
+      result.state.board.squares.find(
+        (square) => square.coordinate.column === 6 && square.coordinate.row === 4
+      )?.occupantId
+    ).toBe(creatureId);
+    expect(result.state.cardInstances[creatureId]).toMatchObject({
+      position: { column: 6, row: 4 },
+      movedThisTurn: true
+    });
+    expect(result.events.map((event) => event.type)).toEqual(["creature.moved"]);
+  });
+
+  it("accepts a path returning to origin and preserves one board occupant", () => {
+    const { state, creatureId } = createPlayerMovementState();
+    const result = GameEngine.submitCommand(state, {
+      type: "moveCreature",
+      side: "player",
+      creatureInstanceId: creatureId,
+      origin: { column: 4, row: 5 },
+      path: [
+        { column: 5, row: 5 },
+        { column: 4, row: 5 }
+      ]
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(
+        result.state.board.squares.filter((square) => square.occupantId === creatureId)
+      ).toHaveLength(1);
+      expect(result.state.cardInstances[creatureId]).toMatchObject({
+        position: { column: 4, row: 5 },
+        movedThisTurn: true
+      });
+    }
+  });
+
+  it("rejects a stale expected origin with the original state identity", () => {
+    const { state, creatureId } = createPlayerMovementState();
+    const result = GameEngine.submitCommand(state, {
+      type: "moveCreature",
+      side: "player",
+      creatureInstanceId: creatureId,
+      origin: { column: 3, row: 5 },
+      path: [{ column: 5, row: 5 }]
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.state).toBe(state);
+    if (!result.ok) {
+      expect(result.issues[0]?.code).toBe("battle.move.origin-changed");
+    }
+  });
+
   it("advances to the opposing side after end play phase", () => {
     const state = sampleBattleState();
     const result = GameEngine.submitCommand(state, {
@@ -173,6 +251,36 @@ function createPlayerSummonState(): {
         ...sampled.cardInstances,
         [summonedCreature.instanceId]: summonedCreature,
         [retainedCard.instanceId]: retainedCard
+      }
+    }
+  };
+}
+
+function createPlayerMovementState(): {
+  readonly state: BattleState;
+  readonly creatureId: string;
+} {
+  const fixture = createPlayerSummonState();
+  const placed = placeCreatureForTest(
+    fixture.state,
+    fixture.creatureId,
+    "player",
+    4,
+    5
+  );
+
+  return {
+    creatureId: fixture.creatureId,
+    state: {
+      ...placed,
+      cardInstances: {
+        ...placed.cardInstances,
+        [fixture.creatureId]: {
+          ...placed.cardInstances[fixture.creatureId]!,
+          summonedThisTurn: false,
+          movedThisTurn: false,
+          movement: 3
+        }
       }
     }
   };

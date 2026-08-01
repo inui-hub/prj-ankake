@@ -150,6 +150,14 @@ export function isAdjacentStep(from: BoardCoordinate, to: BoardCoordinate): bool
   return columnDelta <= 1 && rowDelta <= 1 && columnDelta + rowDelta > 0;
 }
 
+export function getAdjacentBoardCoordinates(
+  coordinate: BoardCoordinate
+): readonly BoardCoordinate[] {
+  return CANONICAL_BOARD_COORDINATES.filter((candidate) =>
+    isAdjacentStep(coordinate, candidate)
+  );
+}
+
 export function isInitialSummonCoordinate(
   side: BattleSide,
   coordinate: BoardCoordinate

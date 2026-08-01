@@ -4,14 +4,20 @@ import {
   INITIAL_SUMMON_COORDINATES_BY_SIDE,
   RESONANCE_MAX,
   coordinateKey,
+  evaluateMovementDraft,
   generateLegalActions,
+  getAdjacentBoardCoordinates,
   getLane,
+  getOccupantId,
+  getShortestMovementPaths,
   getTerrain,
   isExistingBoardCoordinate,
   isInitialSummonCoordinate,
   isNormalBoardCoordinate,
   projectPublicBattleView,
+  queryMovementStart,
   querySummonStart,
+  sameCoordinate,
   validateBattleCommand
 } from "@ankake/domain";
 import fc from "fast-check";
@@ -21,10 +27,15 @@ import {
   battleStateArbitrary,
   canonicalBoardCoordinateArbitrary,
   initialSummonCoordinateArbitrary,
+  invalidMovementSuffixArbitrary,
   invalidSummonCommandArbitrary,
   legalBattleCommandArbitrary,
+  movableCreatureStateArbitrary,
   normalBoardCoordinateArbitrary,
-  occupiedInitialSummonStateArbitrary
+  occupiedInitialSummonStateArbitrary,
+  originReturnMovementArbitrary,
+  reachableMovementEndpointArbitrary,
+  validMovementPathArbitrary
 } from "../generators/battleGenerators";
 
 describe("battle domain properties", () => {
@@ -267,6 +278,165 @@ describe("battle domain properties", () => {
         }
       ),
       { numRuns: 60 }
+    );
+  });
+
+  it("keeps movement candidates canonical, unique, legal, and query-pure", () => {
+    fc.assert(
+      fc.property(movableCreatureStateArbitrary, (fixture) => {
+        const before = JSON.stringify(fixture.state);
+        const first = queryMovementStart(
+          fixture.state,
+          fixture.side,
+          fixture.creatureInstanceId
+        );
+        const second = queryMovementStart(
+          fixture.state,
+          fixture.side,
+          fixture.creatureInstanceId
+        );
+        const expected = getAdjacentBoardCoordinates(fixture.origin)
+          .filter(isNormalBoardCoordinate)
+          .filter((coordinate) => {
+            const occupantId = getOccupantId(fixture.state.board, coordinate);
+            return (
+              !occupantId ||
+              (occupantId === fixture.creatureInstanceId &&
+                sameCoordinate(coordinate, fixture.origin))
+            );
+          })
+          .map(coordinateKey);
+        const actual = first.candidateNextSteps.map(coordinateKey);
+
+        expect(first).toEqual(second);
+        expect(JSON.stringify(fixture.state)).toBe(before);
+        expect(actual).toEqual(expected);
+        expect(new Set(actual).size).toBe(actual.length);
+        expect(first.eligible).toBe(expected.length > 0);
+      }),
+      { numRuns: 80, seed: 7306 }
+    );
+  });
+
+  it("keeps generated reachable movement endpoints unique, deterministic, and valid", () => {
+    fc.assert(
+      fc.property(movableCreatureStateArbitrary, (fixture) => {
+        const first = getShortestMovementPaths(
+          fixture.state,
+          fixture.side,
+          fixture.creatureInstanceId
+        );
+        const second = getShortestMovementPaths(
+          fixture.state,
+          fixture.side,
+          fixture.creatureInstanceId
+        );
+        const endpoints = first.map((path) => coordinateKey(path[path.length - 1]!));
+
+        expect(first).toEqual(second);
+        expect(new Set(endpoints).size).toBe(endpoints.length);
+        expect(endpoints).not.toContain(coordinateKey(fixture.origin));
+        for (const path of first) {
+          expect(path.length).toBeGreaterThan(0);
+          expect(path.length).toBeLessThanOrEqual(fixture.maximumMovement);
+          expect(
+            validateBattleCommand(fixture.state, {
+              type: "moveCreature",
+              side: fixture.side,
+              creatureInstanceId: fixture.creatureInstanceId,
+              origin: fixture.origin,
+              path
+            })
+          ).toEqual([]);
+        }
+      }),
+      { numRuns: 60, seed: 7307 }
+    );
+  });
+
+  it("accepts generated valid movement paths and preserves board identity invariants", () => {
+    fc.assert(
+      fc.property(validMovementPathArbitrary, (fixture) => {
+        const result = GameEngine.submitCommand(fixture.state, {
+          type: "moveCreature",
+          side: fixture.side,
+          creatureInstanceId: fixture.creatureInstanceId,
+          origin: fixture.origin,
+          path: fixture.path
+        });
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          const endpoint = fixture.path[fixture.path.length - 1]!;
+          const occupants = result.state.board.squares.filter(
+            (square) => square.occupantId === fixture.creatureInstanceId
+          );
+          expect(occupants).toHaveLength(1);
+          expect(occupants[0]?.coordinate).toEqual(endpoint);
+          expect(result.state.cardInstances[fixture.creatureInstanceId]).toMatchObject({
+            position: endpoint,
+            movedThisTurn: true
+          });
+        }
+      }),
+      { numRuns: 80, seed: 7308 }
+    );
+  });
+
+  it("retains the longest valid prefix and rejects invalid suffixes by identity", () => {
+    fc.assert(
+      fc.property(invalidMovementSuffixArbitrary, (fixture) => {
+        const proposedPath = [...fixture.path, fixture.invalidStep];
+        const evaluation = evaluateMovementDraft(
+          fixture.state,
+          fixture.side,
+          fixture.creatureInstanceId,
+          fixture.origin,
+          proposedPath
+        );
+        const result = GameEngine.submitCommand(fixture.state, {
+          type: "moveCreature",
+          side: fixture.side,
+          creatureInstanceId: fixture.creatureInstanceId,
+          origin: fixture.origin,
+          path: proposedPath
+        });
+
+        expect(evaluation.validPath).toEqual(fixture.path);
+        expect(evaluation.issues.length).toBeGreaterThan(0);
+        expect(result.ok).toBe(false);
+        expect(result.state).toBe(fixture.state);
+      }),
+      { numRuns: 80, seed: 7309 }
+    );
+  });
+
+  it("accepts generated origin-return paths and reachable endpoint fixtures", () => {
+    fc.assert(
+      fc.property(
+        originReturnMovementArbitrary,
+        reachableMovementEndpointArbitrary,
+        (returning, reachable) => {
+          const result = GameEngine.submitCommand(returning.state, {
+            type: "moveCreature",
+            side: returning.side,
+            creatureInstanceId: returning.creatureInstanceId,
+            origin: returning.origin,
+            path: returning.path
+          });
+
+          expect(result.ok).toBe(true);
+          if (result.ok) {
+            expect(result.state.cardInstances[returning.creatureInstanceId]?.position).toEqual(
+              returning.origin
+            );
+          }
+          expect(reachable.endpoint).toEqual(
+            reachable.path[reachable.path.length - 1]
+          );
+        }
+      ),
+      { numRuns: 60, seed: 7310 }
     );
   });
 });

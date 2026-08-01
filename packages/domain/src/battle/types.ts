@@ -174,6 +174,8 @@ export type BattleValidationIssueCode =
   | "battle.move.path-invalid"
   | "battle.move.too-far"
   | "battle.move.already-moved"
+  | "battle.move.no-destination"
+  | "battle.move.origin-changed"
   | "battle.effect.no-target";
 
 export interface BattleValidationIssue {
@@ -196,6 +198,34 @@ export type SummonStartResult =
       readonly issues: readonly BattleValidationIssue[];
     };
 
+export type MovementStartResult =
+  | {
+      readonly eligible: true;
+      readonly creatureInstanceId: BattleCardInstanceId;
+      readonly origin: BoardCoordinate;
+      readonly maximumMovement: number;
+      readonly candidateNextSteps: readonly BoardCoordinate[];
+      readonly issues: readonly [];
+    }
+  | {
+      readonly eligible: false;
+      readonly creatureInstanceId: BattleCardInstanceId;
+      readonly candidateNextSteps: readonly [];
+      readonly issues: readonly BattleValidationIssue[];
+    };
+
+export interface MovementDraftEvaluation {
+  readonly sourceEligible: boolean;
+  readonly creatureInstanceId: BattleCardInstanceId;
+  readonly expectedOrigin: BoardCoordinate;
+  readonly validPath: readonly BoardCoordinate[];
+  readonly provisionalPosition: BoardCoordinate;
+  readonly usedMovement: number;
+  readonly maximumMovement: number;
+  readonly candidateNextSteps: readonly BoardCoordinate[];
+  readonly issues: readonly BattleValidationIssue[];
+}
+
 export type BattleCommand =
   | {
       readonly type: "summonCreature";
@@ -213,6 +243,7 @@ export type BattleCommand =
       readonly type: "moveCreature";
       readonly side: BattleSide;
       readonly creatureInstanceId: BattleCardInstanceId;
+      readonly origin: BoardCoordinate;
       readonly path: readonly BoardCoordinate[];
     }
   | {

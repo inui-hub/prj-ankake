@@ -7,6 +7,7 @@ export * from "./resonance";
 export * from "./stateFactory";
 export * from "./validation";
 export * from "./summon";
+export * from "./movement";
 export * from "./legalActions";
 export * from "./effects";
 export * from "./automaticPhases";

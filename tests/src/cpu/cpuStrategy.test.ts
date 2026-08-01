@@ -4,14 +4,18 @@ import {
   type CpuVisibleState
 } from "@ankake/cpu";
 import {
+  coordinateKey,
   generateLegalActions,
+  getShortestMovementPaths,
   isInitialSummonCoordinate,
-  isNormalBoardCoordinate
+  isNormalBoardCoordinate,
+  validateBattleCommand
 } from "@ankake/domain";
 import fc from "fast-check";
 import {
   battleStateArbitrary,
-  eligibleHandCreatureStateArbitrary
+  eligibleHandCreatureStateArbitrary,
+  movableCreatureStateArbitrary
 } from "../generators/battleGenerators";
 import { cpuVisibleStateArbitrary } from "../generators/cpuGenerators";
 
@@ -117,6 +121,53 @@ describe("CPU strategy", () => {
         }
       ),
       { numRuns: 40 }
+    );
+  });
+
+  it("receives one deterministic shortest move per reachable non-origin endpoint", () => {
+    fc.assert(
+      fc.property(
+        movableCreatureStateArbitrary.filter((fixture) => fixture.side === "cpu"),
+        (fixture) => {
+          const actions = generateLegalActions(fixture.state, "cpu");
+          const movementActions = actions.filter(
+            (action) => action.command.type === "moveCreature"
+          );
+          const expectedPaths = getShortestMovementPaths(
+            fixture.state,
+            "cpu",
+            fixture.creatureInstanceId
+          );
+          const endpointKeys = movementActions.map((action) => {
+            if (action.command.type !== "moveCreature") {
+              throw new Error("Expected a movement action.");
+            }
+            return coordinateKey(action.command.path[action.command.path.length - 1]!);
+          });
+
+          expect(
+            movementActions.map((action) => {
+              if (action.command.type !== "moveCreature") {
+                throw new Error("Expected a movement action.");
+              }
+              return action.command.path;
+            })
+          ).toEqual(expectedPaths);
+          expect(new Set(endpointKeys).size).toBe(endpointKeys.length);
+          expect(endpointKeys).not.toContain(coordinateKey(fixture.origin));
+          for (const action of movementActions) {
+            if (action.command.type !== "moveCreature") {
+              continue;
+            }
+            expect(action.command.origin).toEqual(fixture.origin);
+            expect(validateBattleCommand(fixture.state, action.command)).toEqual([]);
+          }
+
+          const visible = projectCpuVisibleState(fixture.state, actions);
+          expect(chooseCpuAction(visible)).toEqual(chooseCpuAction(visible));
+        }
+      ),
+      { numRuns: 60, seed: 7311 }
     );
   });
 });

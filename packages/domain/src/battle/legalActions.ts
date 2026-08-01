@@ -1,7 +1,7 @@
-import { getOccupantId, isAdjacentStep } from "./board";
+import { getShortestMovementPaths } from "./movement";
 import { getSummonDestinations } from "./summon";
 import { validateBattleCommand } from "./validation";
-import type { BattleCommand, BattleSide, BattleState, BoardCoordinate, LegalAction } from "./types";
+import type { BattleCommand, BattleSide, BattleState, LegalAction } from "./types";
 
 export function generateLegalActions(state: BattleState, side: BattleSide): readonly LegalAction[] {
   if (state.phase !== "play" || state.activeSide !== side || state.terminalResult) {
@@ -54,12 +54,13 @@ export function generateLegalActions(state: BattleState, side: BattleSide): read
       continue;
     }
 
-    for (const destination of getAdjacentEmptySquares(state, card.position)) {
+    for (const path of getShortestMovementPaths(state, side, card.instanceId)) {
       const command: BattleCommand = {
         type: "moveCreature",
         side,
         creatureInstanceId: card.instanceId,
-        path: [destination]
+        origin: card.position,
+        path
       };
       if (validateBattleCommand(state, command).length === 0) {
         actions.push({
@@ -82,18 +83,4 @@ export function generateLegalActions(state: BattleState, side: BattleSide): read
   });
 
   return actions;
-}
-
-function getAdjacentEmptySquares(
-  state: BattleState,
-  coordinate: BoardCoordinate
-): readonly BoardCoordinate[] {
-  return state.board.squares
-    .filter(
-      (square) =>
-        square.terrain === "normal" &&
-        isAdjacentStep(coordinate, square.coordinate) &&
-        !getOccupantId(state.board, square.coordinate)
-    )
-    .map((square) => square.coordinate);
 }

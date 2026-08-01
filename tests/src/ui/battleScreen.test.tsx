@@ -27,8 +27,11 @@ import {
   IDLE_BATTLE_INTERACTION,
   cancelBattleInteraction,
   projectBattleInteractionFromState,
+  selectMovementCreature,
+  selectMovementStep,
   selectSummonDestination,
   selectSummonHandCard,
+  undoMovementStep,
   type BattleInteractionState
 } from "../../../apps/web/src/battle/battleInteraction";
 import { useBattleController } from "../../../apps/web/src/battle/useBattleController";
@@ -292,6 +295,85 @@ describe("battle screen", () => {
     );
   });
 
+  it("renders an ordered reversible movement draft with exactly one provisional creature", () => {
+    const state = createBattleScreenState();
+    const viewModel = projectPublicBattleView(state);
+    const boardCreature = viewModel.boardSquares.find((square) => square.occupant)
+      ?.occupant;
+    const handCreature = viewModel.playerHand.find((card) => card.isActionable);
+    if (!boardCreature || !handCreature) {
+      throw new Error("Expected actionable board and hand creatures.");
+    }
+
+    const { container } = render(<BattleScreenInteractionHarness state={state} />);
+    const boardCardTestId = `battle-board-card-${boardCreature.instanceId}`;
+
+    fireEvent.click(screen.getByTestId(`battle-hand-card-${handCreature.instanceId}`));
+    expect(screen.getByTestId("battle-summon-cancel-button")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(boardCardTestId));
+
+    expect(screen.getByTestId("battle-move-confirm-button")).toBeDisabled();
+    expect(screen.getByTestId("battle-move-undo-button")).toBeDisabled();
+    expect(screen.getByTestId("battle-move-cancel-button")).toBeEnabled();
+    expect(screen.getByTestId("battle-end-play-phase-button")).toBeDisabled();
+    expect(container.querySelectorAll(".battle-square--candidate")).toHaveLength(8);
+    expect(screen.getByTestId("battle-movement-budget")).toHaveTextContent(
+      "Movement 0 / 3"
+    );
+
+    fireEvent.click(screen.getByTestId("battle-square-9-9"));
+    expect(container.querySelectorAll(".battle-square--candidate")).toHaveLength(8);
+
+    fireEvent.click(screen.getByTestId("battle-square-5-5"));
+    expect(screen.getByTestId("battle-square-4-5")).not.toContainElement(
+      screen.getByTestId(boardCardTestId)
+    );
+    expect(screen.getByTestId("battle-square-5-5")).toContainElement(
+      screen.getByTestId(boardCardTestId)
+    );
+    expect(container.querySelectorAll(`[data-testid="${boardCardTestId}"]`)).toHaveLength(1);
+    expect(screen.getAllByTestId("battle-movement-origin-marker")).toHaveLength(1);
+    expect(screen.getByTestId("battle-movement-step-1")).toHaveTextContent("1");
+    expect(screen.getByTestId("battle-move-confirm-button")).toBeEnabled();
+    expect(screen.getByTestId("battle-move-undo-button")).toBeEnabled();
+
+    fireEvent.click(screen.getByTestId("battle-square-4-5"));
+    expect(screen.getByTestId("battle-square-4-5")).toContainElement(
+      screen.getByTestId(boardCardTestId)
+    );
+    expect(screen.getByTestId("battle-movement-step-2")).toHaveTextContent("2");
+
+    fireEvent.click(screen.getByTestId("battle-square-5-5"));
+    expect(screen.getByTestId("battle-square-5-5")).toContainElement(
+      screen.getByTestId(boardCardTestId)
+    );
+    expect(screen.getByTestId("battle-movement-step-3")).toHaveTextContent("3");
+    expect(screen.getByTestId("battle-movement-budget")).toHaveTextContent(
+      "Movement 3 / 3"
+    );
+    expect(container.querySelectorAll(".battle-square--candidate")).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId("battle-move-undo-button"));
+    expect(screen.queryByTestId("battle-movement-step-3")).not.toBeInTheDocument();
+    expect(screen.getByTestId("battle-square-4-5")).toContainElement(
+      screen.getByTestId(boardCardTestId)
+    );
+    expect(screen.getByTestId("battle-movement-budget")).toHaveTextContent(
+      "Movement 2 / 3"
+    );
+
+    fireEvent.click(screen.getByTestId("battle-move-cancel-button"));
+    expect(screen.queryByTestId("battle-move-cancel-button")).not.toBeInTheDocument();
+    expect(screen.getByTestId("battle-square-4-5")).toContainElement(
+      screen.getByTestId(boardCardTestId)
+    );
+    expect(container.querySelectorAll(".battle-square--candidate")).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId(boardCardTestId));
+    fireEvent.click(screen.getByTestId(boardCardTestId));
+    expect(screen.queryByTestId("battle-move-cancel-button")).not.toBeInTheDocument();
+  });
+
   it("cancels a controller-owned pending summon on Escape and cleans up the listener", async () => {
     const state = createBattleScreenState();
     battleSetupMocks.loadBattlePreparation.mockResolvedValue({
@@ -356,6 +438,84 @@ describe("battle screen", () => {
     unmount();
     removeListener.mockRestore();
   });
+
+  it("guards phase end, cancels movement on Escape, and confirms through the controller", async () => {
+    const state = createBattleScreenState();
+    battleSetupMocks.loadBattlePreparation.mockResolvedValue({
+      deckOptions: [
+        {
+          deckId: "deck-movement-controller",
+          name: "Movement Controller Deck",
+          cardCount: 40,
+          battleReady: true,
+          updatedAt: "2026-08-01T00:00:00.000Z"
+        }
+      ],
+      playerDeckId: "deck-movement-controller",
+      cpuDeckId: "deck-movement-controller",
+      firstPlayerMode: "player-first",
+      loading: false
+    });
+    battleSetupMocks.startBattle.mockResolvedValue({ ok: true, state, events: [] });
+    const { result } = renderHook(() =>
+      useBattleController({
+        catalog: validCatalogSnapshotFixture,
+        repository: {} as DeckRepository,
+        onReturnToMenu: vi.fn()
+      })
+    );
+
+    await waitFor(() => {
+      if (result.current.viewModel.kind === "preparation") {
+        expect(result.current.viewModel.preparation.loading).toBe(false);
+      }
+    });
+    await act(async () => {
+      await result.current.actions.startBattle();
+    });
+    if (result.current.viewModel.kind !== "battle") {
+      throw new Error("Expected a started battle controller.");
+    }
+    const creature = result.current.viewModel.publicView.boardSquares.find(
+      (square) => square.occupant?.isActionable
+    )?.occupant;
+    if (!creature) {
+      throw new Error("Expected an actionable board creature.");
+    }
+
+    act(() => result.current.actions.selectBoardCreature(creature.instanceId));
+    await act(async () => {
+      await result.current.actions.endPlayPhase();
+    });
+    if (result.current.viewModel.kind === "battle") {
+      expect(result.current.viewModel.interaction).toMatchObject({
+        kind: "selecting-move",
+        issue: "Confirm or cancel the pending action before ending the play phase."
+      });
+    }
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => {
+      if (result.current.viewModel.kind === "battle") {
+        expect(result.current.viewModel.interaction.kind).toBe("idle");
+      }
+    });
+
+    act(() => result.current.actions.selectBoardCreature(creature.instanceId));
+    act(() => result.current.actions.selectBoardSquare({ column: 5, row: 5 }));
+    await act(async () => {
+      await result.current.actions.confirmInteraction();
+    });
+
+    if (result.current.viewModel.kind === "battle") {
+      expect(result.current.viewModel.interaction.kind).toBe("idle");
+      expect(
+        result.current.viewModel.publicView.boardSquares.find(
+          (square) => square.key === "5:5"
+        )?.occupant
+      ).toMatchObject({ instanceId: creature.instanceId, movedThisTurn: true });
+    }
+  });
 });
 
 function BattleScreenInteractionHarness({ state }: { readonly state: BattleState }) {
@@ -378,10 +538,22 @@ function BattleScreenInteractionHarness({ state }: { readonly state: BattleState
         );
       }}
       onBoardSquareIntent={(coordinate) => {
-        setInteraction((current) => selectSummonDestination(current, coordinate));
+        setInteraction((current) =>
+          current.kind === "selecting-move"
+            ? selectMovementStep(current, state, coordinate)
+            : selectSummonDestination(current, coordinate)
+        );
+      }}
+      onBoardCreatureIntent={(instanceId) => {
+        setInteraction((current) =>
+          selectMovementCreature(current, state, instanceId)
+        );
       }}
       onConfirmInteraction={vi.fn()}
       onCancelInteraction={() => setInteraction(cancelBattleInteraction())}
+      onUndoInteraction={() => {
+        setInteraction((current) => undoMovementStep(current, state));
+      }}
       onRematch={vi.fn()}
       onQuitBattle={vi.fn()}
     />
@@ -455,13 +627,14 @@ function createBattleScreenState(): BattleState {
     ...boardCard,
     type: "creature",
     zone: "board",
-    position: { column: 5, row: 8 },
+    position: { column: 4, row: 5 },
     attack: boardCard.attack ?? 3,
     currentAttack: boardCard.currentAttack ?? boardCard.attack ?? 3,
     health: boardCard.health ?? 4,
     currentHp: boardCard.currentHp ?? boardCard.health ?? 4,
     maxHp: boardCard.maxHp ?? boardCard.health ?? 4,
-    summonedThisTurn: true,
+    movement: 3,
+    summonedThisTurn: false,
     movedThisTurn: false
   };
 
@@ -484,7 +657,7 @@ function createBattleScreenState(): BattleState {
     },
     board: {
       squares: sampled.board.squares.map((square) =>
-        square.coordinate.column === 5 && square.coordinate.row === 8
+        square.coordinate.column === 4 && square.coordinate.row === 5
           ? { ...square, occupantId: boardId }
           : square
       )

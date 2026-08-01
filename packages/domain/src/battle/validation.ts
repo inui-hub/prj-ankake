@@ -1,16 +1,10 @@
-import {
-  getOccupantId,
-  isAdjacentStep,
-  isExistingBoardCoordinate,
-  isNormalBoardCoordinate
-} from "./board";
+import { validateMovementPath } from "./movement";
 import { validateSummonDestination, validateSummonSource } from "./summon";
 import type {
   BattleCardInstance,
   BattleCommand,
   BattleState,
-  BattleValidationIssue,
-  BoardCoordinate
+  BattleValidationIssue
 } from "./types";
 
 export function validateBattleCommand(
@@ -114,106 +108,13 @@ function validateMove(
   state: BattleState,
   command: Extract<BattleCommand, { type: "moveCreature" }>
 ): readonly BattleValidationIssue[] {
-  const card = state.cardInstances[command.creatureInstanceId];
-
-  if (!card) {
-    return [
-      {
-        code: "battle.card.not-found",
-        message: "The selected creature no longer exists.",
-        path: "creatureInstanceId"
-      }
-    ];
-  }
-
-  if (card.type !== "creature" || card.zone !== "board" || !card.position) {
-    return [
-      {
-        code: "battle.card.zone-invalid",
-        message: "Only creatures on the board can move.",
-        path: "creatureInstanceId"
-      }
-    ];
-  }
-
-  if (card.controllerSide !== command.side) {
-    return [
-      {
-        code: "battle.card.owner-invalid",
-        message: "Only your own creatures can move.",
-        path: "creatureInstanceId"
-      }
-    ];
-  }
-
-  if (card.summonedThisTurn || card.movedThisTurn) {
-    return [
-      {
-        code: "battle.move.already-moved",
-        message: "This creature cannot move again this turn.",
-        path: "creatureInstanceId"
-      }
-    ];
-  }
-
-  if (command.path.length === 0) {
-    return [
-      {
-        code: "battle.move.path-invalid",
-        message: "Movement requires at least one path step.",
-        path: "path"
-      }
-    ];
-  }
-
-  if (command.path.length > card.movement) {
-    return [
-      {
-        code: "battle.move.too-far",
-        message: "The movement path is longer than this creature's movement.",
-        path: "path"
-      }
-    ];
-  }
-
-  let current: BoardCoordinate = card.position;
-
-  for (const [index, step] of command.path.entries()) {
-    if (!isExistingBoardCoordinate(step) || !isAdjacentStep(current, step)) {
-      return [
-        {
-          code: "battle.move.path-invalid",
-          message: "Movement paths must use adjacent existing board squares.",
-          path: `path.${index}`
-        }
-      ];
-    }
-
-    if (!isNormalBoardCoordinate(step)) {
-      return [
-        {
-          code: "battle.board.destination-invalid",
-          message: "Movement paths cannot enter base squares.",
-          path: `path.${index}`
-        }
-      ];
-    }
-
-    const occupantId = getOccupantId(state.board, step);
-    if (occupantId && occupantId !== card.instanceId) {
-      return [
-        {
-          code: "battle.board.occupied",
-          message: "Movement paths cannot enter occupied squares.",
-          path: `path.${index}`
-        }
-      ];
-    }
-
-    current = step;
-  }
-
-  return [];
+  return validateMovementPath(
+    state,
+    command.side,
+    command.creatureInstanceId,
+    command.origin,
+    command.path
+  );
 }
 
 function validateHandCard(

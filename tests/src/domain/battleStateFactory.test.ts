@@ -1,4 +1,5 @@
 import {
+  BATTLE_BASE_MOVEMENT,
   createBattleState,
   DECK_BATTLE_READY_CARD_COUNT,
   coordinateKey
@@ -32,6 +33,16 @@ describe("battle state factory", () => {
     expect(result.state.board.squares).toHaveLength(75);
     expect(new Set(result.state.board.squares.map((square) => coordinateKey(square.coordinate))).size).toBe(75);
     expect(result.state.board.squares.filter((square) => square.terrain !== "normal")).toHaveLength(5);
+    expect(
+      Object.values(result.state.cardInstances)
+        .filter((card) => card.type === "creature")
+        .every((card) => card.movement === BATTLE_BASE_MOVEMENT)
+    ).toBe(true);
+    expect(
+      Object.values(result.state.cardInstances)
+        .filter((card) => card.type === "spell")
+        .every((card) => card.movement === 0)
+    ).toBe(true);
   });
 
   it("is deterministic for identical setup input and seed", () => {

@@ -102,6 +102,7 @@ describe("battle board topology", () => {
       type: "moveCreature",
       side: "player",
       creatureInstanceId: creatureId,
+      origin: { column: 5, row: 8 },
       path: [{ column: 6, row: 9 }]
     });
 

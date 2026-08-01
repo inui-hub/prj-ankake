@@ -36,6 +36,9 @@ describe("public battle projection", () => {
     const coordinate = { column: 5, row: 8 };
     const withOccupant: BattleState = {
       ...state,
+      phase: "play",
+      activeSide: "player",
+      terminalResult: undefined,
       board: {
         squares: state.board.squares.map((square) =>
           square.coordinate.column === coordinate.column &&
@@ -50,7 +53,9 @@ describe("public battle projection", () => {
           ...creature,
           zone: "board",
           position: coordinate,
-          summonedThisTurn: true
+          movement: 2,
+          summonedThisTurn: false,
+          movedThisTurn: false
         }
       }
     };
@@ -63,7 +68,8 @@ describe("public battle projection", () => {
       instanceId: creature.instanceId,
       catalogCardId: creature.catalogCardId,
       controllerSide: "player",
-      summonedThisTurn: true
+      summonedThisTurn: false,
+      isActionable: true
     });
     expect(occupant).not.toHaveProperty("zone");
     expect(occupant).not.toHaveProperty("effectIds");

@@ -127,11 +127,13 @@ function BattleRoute({ catalog, onReturnToMenu }: BattleRouteProps) {
         void controller.actions.endPlayPhase();
       }}
       onHandCardIntent={controller.actions.selectHandCard}
+      onBoardCreatureIntent={controller.actions.selectBoardCreature}
       onBoardSquareIntent={controller.actions.selectBoardSquare}
       onConfirmInteraction={() => {
         void controller.actions.confirmInteraction();
       }}
       onCancelInteraction={controller.actions.cancelInteraction}
+      onUndoInteraction={controller.actions.undoInteraction}
       onRematch={() => {
         void controller.actions.rematch();
       }}
