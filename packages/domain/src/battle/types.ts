@@ -170,6 +170,7 @@ export type BattleValidationIssueCode =
   | "battle.board.coordinate-invalid"
   | "battle.board.occupied"
   | "battle.board.destination-invalid"
+  | "battle.summon.no-destination"
   | "battle.move.path-invalid"
   | "battle.move.too-far"
   | "battle.move.already-moved"
@@ -180,6 +181,20 @@ export interface BattleValidationIssue {
   readonly message: string;
   readonly path?: string;
 }
+
+export type SummonStartResult =
+  | {
+      readonly eligible: true;
+      readonly handInstanceId: BattleCardInstanceId;
+      readonly candidateDestinations: readonly BoardCoordinate[];
+      readonly issues: readonly [];
+    }
+  | {
+      readonly eligible: false;
+      readonly handInstanceId: BattleCardInstanceId;
+      readonly candidateDestinations: readonly [];
+      readonly issues: readonly BattleValidationIssue[];
+    };
 
 export type BattleCommand =
   | {

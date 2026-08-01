@@ -1,11 +1,10 @@
 import {
-  getBoardSquare,
   getOccupantId,
   isAdjacentStep,
   isExistingBoardCoordinate,
-  isNormalBoardCoordinate,
-  isSummonRow
+  isNormalBoardCoordinate
 } from "./board";
+import { validateSummonDestination, validateSummonSource } from "./summon";
 import type {
   BattleCardInstance,
   BattleCommand,
@@ -77,69 +76,12 @@ function validateSummon(
   state: BattleState,
   command: Extract<BattleCommand, { type: "summonCreature" }>
 ): readonly BattleValidationIssue[] {
-  const card = state.cardInstances[command.handInstanceId];
-  const issues = validateHandCard(state, command.side, card, "creature");
-
-  if (issues.length > 0) {
-    return issues;
+  const sourceIssues = validateSummonSource(state, command.side, command.handInstanceId);
+  if (sourceIssues.length > 0) {
+    return sourceIssues;
   }
 
-  const player = state.players[command.side];
-
-  if ((card as BattleCardInstance).currentCost > player.currentPp) {
-    return [
-      {
-        code: "battle.resource.pp-insufficient",
-        message: "Not enough PP to play this creature.",
-        path: "currentPp"
-      }
-    ];
-  }
-
-  if (
-    !isExistingBoardCoordinate(command.destination) ||
-    !getBoardSquare(state.board, command.destination)
-  ) {
-    return [
-      {
-        code: "battle.board.coordinate-invalid",
-        message: "The selected square does not exist on the board.",
-        path: "destination"
-      }
-    ];
-  }
-
-  if (!isNormalBoardCoordinate(command.destination)) {
-    return [
-      {
-        code: "battle.board.destination-invalid",
-        message: "Base squares cannot be used as summon destinations.",
-        path: "destination"
-      }
-    ];
-  }
-
-  if (!isSummonRow(command.side, command.destination)) {
-    return [
-      {
-        code: "battle.board.destination-invalid",
-        message: "Creatures can be summoned only to a legal friendly deployment row.",
-        path: "destination"
-      }
-    ];
-  }
-
-  if (getOccupantId(state.board, command.destination)) {
-    return [
-      {
-        code: "battle.board.occupied",
-        message: "The selected square is occupied.",
-        path: "destination"
-      }
-    ];
-  }
-
-  return [];
+  return validateSummonDestination(state, command.side, command.destination);
 }
 
 function validateSpell(

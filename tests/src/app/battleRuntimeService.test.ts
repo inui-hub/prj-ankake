@@ -2,6 +2,7 @@ import {
   generateLegalActions
 } from "@ankake/domain";
 import {
+  attemptRuntimeCommand,
   createBattleRuntimeSession,
   executeCpuTurn,
   submitRuntimeCommand
@@ -71,6 +72,47 @@ describe("battle runtime service", () => {
     );
 
     expect(next).toBe(session);
+  });
+
+  it("returns a new confirmed session for an accepted command attempt", async () => {
+    const session = await createStartedSession("player-first");
+    const result = attemptRuntimeCommand(
+      session,
+      {
+        type: "endPlayPhase",
+        side: "player",
+        reason: "manual"
+      },
+      createConsoleBattleDiagnostics()
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.session).not.toBe(session);
+    expect(result.session.state).not.toBe(session.state);
+    expect(result.session.log.entries.length).toBeGreaterThan(session.log.entries.length);
+    expect(result.session.lastEvents.length).toBeGreaterThan(0);
+  });
+
+  it("returns the original session and validation issues for a rejected attempt", async () => {
+    const session = await createStartedSession("player-first");
+    const result = attemptRuntimeCommand(
+      session,
+      {
+        type: "summonCreature",
+        side: "player",
+        handInstanceId: "missing",
+        destination: { column: 99, row: 99 }
+      },
+      createConsoleBattleDiagnostics()
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.session).toBe(session);
+    if (!result.ok) {
+      expect(result.issues.map((issue) => issue.code)).toEqual([
+        "battle.card.not-found"
+      ]);
+    }
   });
 
   it("executes CPU turns with a bounded command limit", async () => {

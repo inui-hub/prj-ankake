@@ -118,6 +118,7 @@ function BattleRoute({ catalog, onReturnToMenu }: BattleRouteProps) {
   return (
     <BattleScreen
       viewModel={controller.viewModel.publicView}
+      interaction={controller.viewModel.interaction}
       logEntries={controller.viewModel.logEntries}
       cpuStatus={controller.viewModel.cpuStatus}
       onReturnToPreparation={controller.actions.quitBattle}
@@ -125,6 +126,12 @@ function BattleRoute({ catalog, onReturnToMenu }: BattleRouteProps) {
       onEndPlayPhase={() => {
         void controller.actions.endPlayPhase();
       }}
+      onHandCardIntent={controller.actions.selectHandCard}
+      onBoardSquareIntent={controller.actions.selectBoardSquare}
+      onConfirmInteraction={() => {
+        void controller.actions.confirmInteraction();
+      }}
+      onCancelInteraction={controller.actions.cancelInteraction}
       onRematch={() => {
         void controller.actions.rematch();
       }}

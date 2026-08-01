@@ -1,11 +1,18 @@
-import type { BattleLogEntry, PublicBattleView } from "@ankake/domain";
+import type {
+  BattleLogEntry,
+  BoardCoordinate,
+  PublicBattleView
+} from "@ankake/domain";
 import { BattleBoard } from "./BattleBoard";
 import { BattleResultOverlay } from "./BattleDialogs";
 import { BattleHand } from "./BattleHand";
 import {
+  BattleInteractionControls,
+  type BattleInteractionControlsView
+} from "./BattleInteractionControls";
+import {
   BattleInfoPanels,
   BattleLogPanel,
-  BattlePhaseControls,
   BattleStatusPanel
 } from "./BattlePanels";
 
@@ -13,14 +20,21 @@ export interface BattleScreenProps {
   readonly viewModel: PublicBattleView;
   readonly logEntries: readonly BattleLogEntry[];
   readonly cpuStatus: "idle" | "thinking" | "executing" | "completed" | "limit-reached";
+  readonly interaction?: BattleInteractionControlsView;
   readonly onReturnToPreparation: () => void;
   readonly onReturnToMenu: () => void;
   readonly onEndPlayPhase: () => void;
+  readonly onHandCardIntent?: (instanceId: string) => void;
+  readonly onBoardSquareIntent?: (coordinate: BoardCoordinate) => void;
+  readonly onConfirmInteraction?: () => void;
+  readonly onCancelInteraction?: () => void;
   readonly onRematch: () => void;
   readonly onQuitBattle: () => void;
 }
 
 export function BattleScreen(props: BattleScreenProps) {
+  const interaction = props.interaction ?? createIdleInteraction(props.viewModel);
+
   return (
     <main className="battle-screen" data-testid="battle-screen">
       <BattleStatusPanel
@@ -31,17 +45,24 @@ export function BattleScreen(props: BattleScreenProps) {
       />
       <div className="battle-shell">
         <div className="battle-main-column">
-          <BattleBoard squares={props.viewModel.boardSquares} />
-          <BattleHand cards={props.viewModel.playerHand} />
+          <BattleBoard
+            squares={props.viewModel.boardSquares}
+            candidateKeys={interaction.candidateDestinationKeys}
+            selectedKey={interaction.selectedDestinationKey}
+            onSquareIntent={props.onBoardSquareIntent}
+          />
+          <BattleHand
+            cards={props.viewModel.playerHand}
+            selectedInstanceId={interaction.selectedHandInstanceId}
+            onCardIntent={props.onHandCardIntent}
+          />
         </div>
         <div className="battle-side-rail">
           <BattleInfoPanels viewModel={props.viewModel} />
-          <BattlePhaseControls
-            canEndPlayPhase={
-              props.viewModel.phase === "play" &&
-              props.viewModel.activeSide === "player" &&
-              !props.viewModel.terminalResult
-            }
+          <BattleInteractionControls
+            interaction={interaction}
+            onConfirm={props.onConfirmInteraction ?? noOperation}
+            onCancel={props.onCancelInteraction ?? noOperation}
             onEndPlayPhase={props.onEndPlayPhase}
           />
           <BattleLogPanel entries={props.logEntries} />
@@ -65,3 +86,18 @@ export function BattleScreen(props: BattleScreenProps) {
     </main>
   );
 }
+
+function createIdleInteraction(viewModel: PublicBattleView): BattleInteractionControlsView {
+  return {
+    kind: "idle",
+    confirmEnabled: false,
+    cancelEnabled: false,
+    endPlayPhaseEnabled:
+      viewModel.phase === "play" &&
+      viewModel.activeSide === "player" &&
+      !viewModel.terminalResult,
+    instruction: "Select an available creature from your hand."
+  };
+}
+
+function noOperation(): void {}

@@ -1,6 +1,7 @@
 import {
   CANONICAL_BOARD_COORDINATES,
   GameEngine,
+  INITIAL_SUMMON_COORDINATES_BY_SIDE,
   coordinateKey,
   createInitialBattleBoard,
   getLane,
@@ -65,6 +66,20 @@ describe("battle board topology", () => {
     expect(isExistingBoardCoordinate({ column: 1, row: 1 })).toBe(false);
     expect(isNormalBoardCoordinate({ column: 1, row: 1 })).toBe(false);
     expect(getTerrain({ column: 1, row: 1 })).toBeUndefined();
+  });
+
+  it("defines exactly six normal initial summon squares per side", () => {
+    expect(INITIAL_SUMMON_COORDINATES_BY_SIDE.player.map(coordinateKey)).toEqual([
+      "3:9", "4:9", "5:9", "7:9", "8:9", "9:9"
+    ]);
+    expect(INITIAL_SUMMON_COORDINATES_BY_SIDE.cpu.map(coordinateKey)).toEqual([
+      "3:1", "4:1", "5:1", "7:1", "8:1", "9:1"
+    ]);
+    expect(
+      Object.values(INITIAL_SUMMON_COORDINATES_BY_SIDE)
+        .flat()
+        .every(isNormalBoardCoordinate)
+    ).toBe(true);
   });
 
   it("rejects absent and base summon or movement destinations", () => {

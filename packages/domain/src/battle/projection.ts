@@ -1,4 +1,5 @@
 import { coordinateKey } from "./board";
+import { querySummonStart } from "./summon";
 import type {
   BattleCardInstance,
   BattleSide,
@@ -70,7 +71,7 @@ export function projectPublicBattleView(state: BattleState): PublicBattleView {
     playerDeckCount: state.players.player.deckZone.length,
     cpuDeckCount: state.players.cpu.deckZone.length,
     playerHand: state.players.player.handZone.map((instanceId) =>
-      projectBattleCard(instanceId, state.cardInstances[instanceId], "hand")
+      projectBattleCard(instanceId, state.cardInstances[instanceId], "hand", state)
     ),
     boardSquares: state.board.squares.map((square) => ({
       key: coordinateKey(square.coordinate),
@@ -92,7 +93,8 @@ export function projectPublicBattleView(state: BattleState): PublicBattleView {
 function projectBattleCard(
   instanceId: string,
   card: BattleCardInstance | undefined,
-  location: "hand" | "board"
+  location: "hand" | "board",
+  state?: BattleState
 ): BattleCardView {
   if (!card) {
     return {
@@ -111,11 +113,16 @@ function projectBattleCard(
   }
 
   const isCreature = card.type === "creature" || card.type === "creature-token";
+  const summonStart =
+    location === "hand" && isCreature && state
+      ? querySummonStart(state, "player", card.instanceId)
+      : undefined;
+  const isActionable = summonStart?.eligible ?? false;
   const disabledReason =
     card.type === "spell"
       ? "Spell effects are planned for a later cycle."
       : location === "hand"
-        ? "Creature summoning is planned for the next unit."
+        ? summonStart?.issues[0]?.message
         : "Creature movement is planned for a later unit.";
 
   return {
@@ -142,7 +149,7 @@ function projectBattleCard(
         }
       : {}),
     isInspectable: true,
-    isActionable: false,
+    isActionable,
     disabledReason,
     ownerLabel: labelSide(card.controllerSide)
   };

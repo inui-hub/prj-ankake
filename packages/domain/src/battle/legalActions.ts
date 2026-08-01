@@ -1,4 +1,5 @@
-import { getOccupantId, isAdjacentStep, isSummonRow } from "./board";
+import { getOccupantId, isAdjacentStep } from "./board";
+import { getSummonDestinations } from "./summon";
 import { validateBattleCommand } from "./validation";
 import type { BattleCommand, BattleSide, BattleState, BoardCoordinate, LegalAction } from "./types";
 
@@ -16,8 +17,8 @@ export function generateLegalActions(state: BattleState, side: BattleSide): read
       continue;
     }
 
-    if (card.type === "creature") {
-      for (const destination of getSummonDestinations(state, side)) {
+    if (card.type === "creature" || card.type === "creature-token") {
+      for (const destination of getSummonDestinations(state, side, instanceId)) {
         const command: BattleCommand = {
           type: "summonCreature",
           side,
@@ -81,20 +82,6 @@ export function generateLegalActions(state: BattleState, side: BattleSide): read
   });
 
   return actions;
-}
-
-export function getSummonDestinations(
-  state: BattleState,
-  side: BattleSide
-): readonly BoardCoordinate[] {
-  return state.board.squares
-    .filter(
-      (square) =>
-        square.terrain === "normal" &&
-        isSummonRow(side, square.coordinate) &&
-        !square.occupantId
-    )
-    .map((square) => square.coordinate);
 }
 
 function getAdjacentEmptySquares(

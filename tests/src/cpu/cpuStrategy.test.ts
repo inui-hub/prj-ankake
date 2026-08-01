@@ -5,10 +5,14 @@ import {
 } from "@ankake/cpu";
 import {
   generateLegalActions,
+  isInitialSummonCoordinate,
   isNormalBoardCoordinate
 } from "@ankake/domain";
 import fc from "fast-check";
-import { battleStateArbitrary } from "../generators/battleGenerators";
+import {
+  battleStateArbitrary,
+  eligibleHandCreatureStateArbitrary
+} from "../generators/battleGenerators";
 import { cpuVisibleStateArbitrary } from "../generators/cpuGenerators";
 
 describe("CPU strategy", () => {
@@ -66,6 +70,7 @@ describe("CPU strategy", () => {
         for (const action of visible.legalActions) {
           if (action.command.type === "summonCreature") {
             expect(isNormalBoardCoordinate(action.command.destination)).toBe(true);
+            expect(isInitialSummonCoordinate("cpu", action.command.destination)).toBe(true);
           }
 
           if (action.command.type === "moveCreature") {
@@ -76,11 +81,41 @@ describe("CPU strategy", () => {
         const decision = chooseCpuAction(visible);
         if (decision.kind === "command" && decision.command.type === "summonCreature") {
           expect(isNormalBoardCoordinate(decision.command.destination)).toBe(true);
+          expect(isInitialSummonCoordinate("cpu", decision.command.destination)).toBe(true);
         }
         if (decision.kind === "command" && decision.command.type === "moveCreature") {
           expect(decision.command.path.every(isNormalBoardCoordinate)).toBe(true);
         }
       }),
+      { numRuns: 40 }
+    );
+  });
+
+  it("chooses a deterministic summon only from CPU row 1 columns 3, 4, 5, 7, 8, and 9", () => {
+    fc.assert(
+      fc.property(
+        eligibleHandCreatureStateArbitrary.filter((fixture) => fixture.side === "cpu"),
+        (fixture) => {
+          const legalActions = generateLegalActions(fixture.state, "cpu");
+          const visible = projectCpuVisibleState(fixture.state, legalActions);
+          const summons = legalActions.filter(
+            (action) => action.command.type === "summonCreature"
+          );
+          const first = chooseCpuAction(visible);
+          const second = chooseCpuAction(visible);
+
+          expect(summons).toHaveLength(6);
+          expect(first).toEqual(second);
+          expect(first.kind).toBe("command");
+          if (first.kind !== "command" || first.command.type !== "summonCreature") {
+            return;
+          }
+
+          expect(first.command.destination.row).toBe(1);
+          expect([3, 4, 5, 7, 8, 9]).toContain(first.command.destination.column);
+          expect(isInitialSummonCoordinate("cpu", first.command.destination)).toBe(true);
+        }
+      ),
       { numRuns: 40 }
     );
   });

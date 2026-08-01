@@ -7,7 +7,10 @@ import {
   projectPublicBattleView
 } from "@ankake/domain";
 import fc from "fast-check";
-import { battleStateArbitrary } from "../generators/battleGenerators";
+import {
+  battleStateArbitrary,
+  eligibleHandCreatureStateArbitrary
+} from "../generators/battleGenerators";
 import { cpuVisibleStateArbitrary } from "../generators/cpuGenerators";
 
 describe("CPU visible state", () => {
@@ -51,6 +54,37 @@ describe("CPU visible state", () => {
           expect(serializedCpuView).not.toContain(playerHandInstanceId);
         }
       }),
+      { numRuns: 40 }
+    );
+  });
+
+  it("does not project player actionability or web-owned pending interaction", () => {
+    fc.assert(
+      fc.property(
+        eligibleHandCreatureStateArbitrary.filter((fixture) => fixture.side === "player"),
+        (fixture) => {
+          const stateWithWebInteraction = {
+            ...fixture.state,
+            pendingInteraction: {
+              type: "selecting-summon",
+              handInstanceId: fixture.handInstanceId,
+              candidateDestinations: [{ column: 3, row: 9 }]
+            }
+          };
+          const publicView = projectPublicBattleView(fixture.state);
+          const cpuView = projectCpuVisibleState(
+            stateWithWebInteraction,
+            generateLegalActions(fixture.state, "cpu")
+          );
+          const serialized = JSON.stringify(cpuView);
+
+          expect(publicView.playerHand[0]?.isActionable).toBe(true);
+          expect(serialized).not.toContain(fixture.handInstanceId);
+          expect(serialized).not.toContain("pendingInteraction");
+          expect(serialized).not.toContain("candidateDestinations");
+          expect("playerHand" in cpuView).toBe(false);
+        }
+      ),
       { numRuns: 40 }
     );
   });

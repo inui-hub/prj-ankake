@@ -15,14 +15,46 @@ import {
   act,
   fireEvent,
   render,
+  renderHook,
   screen,
+  waitFor,
   within
 } from "@testing-library/react";
 import fc from "fast-check";
+import { useState } from "react";
+import type { DeckRepository } from "@ankake/persistence";
+import {
+  IDLE_BATTLE_INTERACTION,
+  cancelBattleInteraction,
+  projectBattleInteractionFromState,
+  selectSummonDestination,
+  selectSummonHandCard,
+  type BattleInteractionState
+} from "../../../apps/web/src/battle/battleInteraction";
+import { useBattleController } from "../../../apps/web/src/battle/useBattleController";
 import {
   battleStateArbitrary,
   canonicalBoardCoordinateArbitrary
 } from "../generators/battleGenerators";
+import { validCatalogSnapshotFixture } from "../generators/catalogGenerators";
+
+const battleSetupMocks = vi.hoisted(() => ({
+  loadBattlePreparation: vi.fn(),
+  startBattle: vi.fn()
+}));
+
+vi.mock("../../../apps/web/src/battle/battleSetupService", () => ({
+  loadBattlePreparation: battleSetupMocks.loadBattlePreparation,
+  startBattle: battleSetupMocks.startBattle,
+  getBattleStartDisabledReason: (state: {
+    readonly loading: boolean;
+    readonly playerDeckId?: string;
+    readonly cpuDeckId?: string;
+  }) =>
+    state.loading || !state.playerDeckId || !state.cpuDeckId
+      ? "Battle setup is not ready."
+      : undefined
+}));
 
 const LOG_ENTRIES: readonly BattleLogEntry[] = [
   {
@@ -208,7 +240,153 @@ describe("battle screen", () => {
       { numRuns: 60 }
     );
   });
+
+  it("renders selection, direct switching, exact candidates, destination, and cancellation", () => {
+    const state = createBattleScreenState();
+    const viewModel = projectPublicBattleView(state);
+    const creatures = viewModel.playerHand.filter((card) => card.isActionable);
+    const spell = viewModel.playerHand.find((card) => card.type === "spell");
+
+    if (creatures.length < 2 || !spell) {
+      throw new Error("Expected two actionable creatures and one deferred spell.");
+    }
+
+    render(<BattleScreenInteractionHarness state={state} />);
+
+    const firstCard = screen.getByTestId(`battle-hand-card-${creatures[0].instanceId}`);
+    const secondCard = screen.getByTestId(`battle-hand-card-${creatures[1].instanceId}`);
+    fireEvent.click(firstCard);
+
+    expect(firstCard).toHaveAttribute("aria-pressed", "true");
+    expect(document.querySelectorAll(".battle-square--candidate")).toHaveLength(6);
+    expect(screen.getByTestId("battle-summon-confirm-button")).toBeDisabled();
+    expect(screen.getByTestId("battle-summon-cancel-button")).toBeEnabled();
+    expect(screen.getByTestId("battle-end-play-phase-button")).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId("battle-square-5-8"));
+    expect(document.querySelectorAll(".battle-square--selected")).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId("battle-square-3-9"));
+    expect(screen.getByTestId("battle-square-3-9")).toHaveClass(
+      "battle-square--selected"
+    );
+    expect(screen.getByTestId("battle-summon-confirm-button")).toBeEnabled();
+
+    fireEvent.click(secondCard);
+    expect(secondCard).toHaveAttribute("aria-pressed", "true");
+    expect(firstCard).toHaveAttribute("aria-pressed", "false");
+    expect(document.querySelectorAll(".battle-square--selected")).toHaveLength(0);
+    expect(screen.getByTestId("battle-summon-confirm-button")).toBeDisabled();
+
+    fireEvent.click(secondCard);
+    expect(screen.queryByTestId("battle-summon-confirm-button")).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".battle-square--candidate")).toHaveLength(0);
+    expect(screen.getByTestId("battle-end-play-phase-button")).toBeEnabled();
+
+    fireEvent.click(firstCard);
+    fireEvent.click(screen.getByTestId("battle-summon-cancel-button"));
+    expect(screen.queryByTestId("battle-summon-cancel-button")).not.toBeInTheDocument();
+    expect(screen.getByTestId(`battle-hand-card-${spell.instanceId}`)).toHaveAttribute(
+      "aria-disabled",
+      "true"
+    );
+  });
+
+  it("cancels a controller-owned pending summon on Escape and cleans up the listener", async () => {
+    const state = createBattleScreenState();
+    battleSetupMocks.loadBattlePreparation.mockResolvedValue({
+      deckOptions: [
+        {
+          deckId: "deck-controller",
+          name: "Controller Deck",
+          cardCount: 40,
+          battleReady: true,
+          updatedAt: "2026-08-01T00:00:00.000Z"
+        }
+      ],
+      playerDeckId: "deck-controller",
+      cpuDeckId: "deck-controller",
+      firstPlayerMode: "player-first",
+      loading: false
+    });
+    battleSetupMocks.startBattle.mockResolvedValue({ ok: true, state, events: [] });
+    const removeListener = vi.spyOn(window, "removeEventListener");
+    const { result, unmount } = renderHook(() =>
+      useBattleController({
+        catalog: validCatalogSnapshotFixture,
+        repository: {} as DeckRepository,
+        onReturnToMenu: vi.fn()
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.viewModel.kind).toBe("preparation");
+      if (result.current.viewModel.kind === "preparation") {
+        expect(result.current.viewModel.preparation.loading).toBe(false);
+      }
+    });
+    await act(async () => {
+      await result.current.actions.startBattle();
+    });
+
+    if (result.current.viewModel.kind !== "battle") {
+      throw new Error("Expected a started battle controller.");
+    }
+    const creature = result.current.viewModel.publicView.playerHand.find(
+      (card) => card.isActionable
+    );
+    if (!creature) {
+      throw new Error("Expected an actionable creature.");
+    }
+
+    act(() => result.current.actions.selectHandCard(creature.instanceId));
+    expect(result.current.viewModel.kind).toBe("battle");
+    if (result.current.viewModel.kind === "battle") {
+      expect(result.current.viewModel.interaction.kind).toBe("selecting-summon");
+    }
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => {
+      if (result.current.viewModel.kind === "battle") {
+        expect(result.current.viewModel.interaction.kind).toBe("idle");
+      }
+    });
+    expect(removeListener).toHaveBeenCalledWith("keydown", expect.any(Function));
+
+    unmount();
+    removeListener.mockRestore();
+  });
 });
+
+function BattleScreenInteractionHarness({ state }: { readonly state: BattleState }) {
+  const [interaction, setInteraction] = useState<BattleInteractionState>(
+    IDLE_BATTLE_INTERACTION
+  );
+
+  return (
+    <BattleScreen
+      viewModel={projectPublicBattleView(state)}
+      interaction={projectBattleInteractionFromState(interaction, state)}
+      logEntries={LOG_ENTRIES}
+      cpuStatus="idle"
+      onReturnToPreparation={vi.fn()}
+      onReturnToMenu={vi.fn()}
+      onEndPlayPhase={vi.fn()}
+      onHandCardIntent={(instanceId) => {
+        setInteraction((current) =>
+          selectSummonHandCard(current, state, instanceId)
+        );
+      }}
+      onBoardSquareIntent={(coordinate) => {
+        setInteraction((current) => selectSummonDestination(current, coordinate));
+      }}
+      onConfirmInteraction={vi.fn()}
+      onCancelInteraction={() => setInteraction(cancelBattleInteraction())}
+      onRematch={vi.fn()}
+      onQuitBattle={vi.fn()}
+    />
+  );
+}
 
 function renderBattleScreen(
   viewModel: ReturnType<typeof projectPublicBattleView>,
@@ -249,9 +427,10 @@ function createBattleScreenState(): BattleState {
     const card = nextInstances[instanceId] as BattleCardInstance;
     nextInstances[instanceId] = {
       ...card,
-      type: index === 0 ? "spell" : card.type,
+      type: index === 0 ? "spell" : "creature",
       zone: "hand",
       position: undefined,
+      currentCost: index === 0 ? card.currentCost : Math.min(card.currentCost, 3),
       ...(index === 0
         ? {
             attack: undefined,
@@ -260,7 +439,14 @@ function createBattleScreenState(): BattleState {
             currentHp: undefined,
             maxHp: undefined
           }
-        : {})
+        : {
+            attack: card.attack ?? 3,
+            currentAttack: card.currentAttack ?? card.attack ?? 3,
+            health: card.health ?? 4,
+            currentHp: card.currentHp ?? card.health ?? 4,
+            maxHp: card.maxHp ?? card.health ?? 4,
+            movement: Math.max(1, card.movement)
+          })
     };
   }
 

@@ -184,6 +184,7 @@
 }
 
 .battle-square {
+  position: relative;
   display: grid;
   align-content: stretch;
   min-width: 0;
@@ -196,6 +197,37 @@
   font-size: 0.72rem;
   text-align: left;
   cursor: pointer;
+}
+
+.battle-square--candidate {
+  border: 2px solid #f1c46f;
+  box-shadow: inset 0 0 0 2px rgba(40, 95, 82, 0.8);
+}
+
+.battle-square--candidate::after {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid #ffffff;
+  background: #285f52;
+  content: "";
+  transform: rotate(45deg);
+}
+
+.battle-square--selected {
+  border-style: double;
+  border-width: 4px;
+  box-shadow: inset 0 0 0 2px #171313;
+}
+
+.battle-square--selected::after {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f1c46f;
+  transform: none;
 }
 
 .battle-square--player-base {
@@ -306,6 +338,7 @@
 }
 
 .battle-card--hand {
+  position: relative;
   display: grid;
   width: 100%;
   min-height: 0;
@@ -317,6 +350,23 @@
   background: #1c2428;
   text-align: left;
   cursor: pointer;
+}
+
+.battle-card--hand.battle-card--selected {
+  border: 3px double #f1c46f;
+  box-shadow: inset 0 0 0 2px #285f52;
+}
+
+.battle-card--hand.battle-card--selected::after {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #285f52;
+  content: "";
 }
 
 .battle-card--hand[aria-disabled="true"] {
@@ -421,6 +471,34 @@
 .battle-phase-controls {
   display: grid;
   gap: 12px;
+}
+
+.battle-interaction-controls {
+  align-content: start;
+  min-height: 240px;
+}
+
+.battle-interaction-controls__status {
+  display: grid;
+  gap: 4px;
+  min-height: 66px;
+}
+
+.battle-interaction-controls__status strong,
+.battle-interaction-controls__status p {
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+}
+
+.battle-interaction-controls__issue {
+  min-height: 1.2em;
+  color: #ffd7a0;
+}
+
+.battle-interaction-controls__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .battle-side-rail,

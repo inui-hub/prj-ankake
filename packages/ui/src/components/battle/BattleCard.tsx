@@ -6,6 +6,7 @@ export interface BattleCardProps {
   readonly card: BattleCardView;
   readonly mode: "hand" | "board";
   readonly isFocused?: boolean;
+  readonly isSelected?: boolean;
   readonly onIntent?: (instanceId: string) => void;
   readonly onFocus?: (event: FocusEvent<HTMLElement>) => void;
 }
@@ -44,7 +45,8 @@ export function BattleCard(props: BattleCardProps) {
     props.card.presentationStatus === "unavailable"
       ? "battle-card--unavailable"
       : "",
-    props.isFocused ? "battle-card--focused" : ""
+    props.isFocused ? "battle-card--focused" : "",
+    props.isSelected ? "battle-card--selected" : ""
   ]
     .filter(Boolean)
     .join(" ");
@@ -70,6 +72,7 @@ export function BattleCard(props: BattleCardProps) {
       aria-disabled={!props.card.isActionable}
       aria-describedby={reasonId}
       aria-label={describeCard(props.card, props.mode)}
+      aria-pressed={props.isSelected ?? false}
       className={className}
       data-testid={`battle-hand-card-${props.card.instanceId}`}
       type="button"

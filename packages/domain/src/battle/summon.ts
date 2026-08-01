@@ -1,0 +1,214 @@
+import {
+  getBoardSquare,
+  getOccupantId,
+  INITIAL_SUMMON_COORDINATES_BY_SIDE,
+  isExistingBoardCoordinate,
+  isInitialSummonCoordinate,
+  isNormalBoardCoordinate
+} from "./board";
+import type {
+  BattleCardInstance,
+  BattleCardInstanceId,
+  BattleSide,
+  BattleState,
+  BattleValidationIssue,
+  BoardCoordinate,
+  SummonStartResult
+} from "./types";
+
+export function querySummonStart(
+  state: BattleState,
+  side: BattleSide,
+  handInstanceId: BattleCardInstanceId
+): SummonStartResult {
+  const sourceIssues = validateSummonSource(state, side, handInstanceId);
+  if (sourceIssues.length > 0) {
+    return ineligible(handInstanceId, sourceIssues);
+  }
+
+  const candidateDestinations = collectSummonDestinations(state, side);
+  if (candidateDestinations.length === 0) {
+    return ineligible(handInstanceId, [
+      {
+        code: "battle.summon.no-destination",
+        message: "No empty initial summon square is available.",
+        path: "destination"
+      }
+    ]);
+  }
+
+  return {
+    eligible: true,
+    handInstanceId,
+    candidateDestinations,
+    issues: []
+  };
+}
+
+export function getSummonDestinations(
+  state: BattleState,
+  side: BattleSide,
+  handInstanceId: BattleCardInstanceId
+): readonly BoardCoordinate[] {
+  const result = querySummonStart(state, side, handInstanceId);
+  return result.eligible ? result.candidateDestinations : [];
+}
+
+export function validateSummonSource(
+  state: BattleState,
+  side: BattleSide,
+  handInstanceId: BattleCardInstanceId
+): readonly BattleValidationIssue[] {
+  if (state.phase === "terminal" || state.terminalResult) {
+    return [
+      {
+        code: "battle.terminal",
+        message: "The battle has already ended."
+      }
+    ];
+  }
+
+  if (state.phase !== "play") {
+    return [
+      {
+        code: "battle.phase.invalid",
+        message: "Creatures can be summoned only during a play phase."
+      }
+    ];
+  }
+
+  if (state.activeSide !== side) {
+    return [
+      {
+        code: "battle.side.inactive",
+        message: "It is not this side's turn."
+      }
+    ];
+  }
+
+  const card = state.cardInstances[handInstanceId];
+  if (!card) {
+    return [
+      {
+        code: "battle.card.not-found",
+        message: "The selected card no longer exists.",
+        path: "handInstanceId"
+      }
+    ];
+  }
+
+  if (card.ownerSide !== side || !state.players[side].handZone.includes(card.instanceId)) {
+    return [
+      {
+        code: "battle.card.owner-invalid",
+        message: "The selected card is not in this side's hand.",
+        path: "handInstanceId"
+      }
+    ];
+  }
+
+  if (card.zone !== "hand") {
+    return [
+      {
+        code: "battle.card.zone-invalid",
+        message: "The selected card is not in hand.",
+        path: "handInstanceId"
+      }
+    ];
+  }
+
+  if (!isCreature(card)) {
+    return [
+      {
+        code: "battle.card.type-invalid",
+        message: "Only creature cards can be summoned.",
+        path: "handInstanceId"
+      }
+    ];
+  }
+
+  if (card.currentCost > state.players[side].currentPp) {
+    return [
+      {
+        code: "battle.resource.pp-insufficient",
+        message: "Not enough PP to play this creature.",
+        path: "currentPp"
+      }
+    ];
+  }
+
+  return [];
+}
+
+export function validateSummonDestination(
+  state: BattleState,
+  side: BattleSide,
+  destination: BoardCoordinate
+): readonly BattleValidationIssue[] {
+  if (!isExistingBoardCoordinate(destination) || !getBoardSquare(state.board, destination)) {
+    return [
+      {
+        code: "battle.board.coordinate-invalid",
+        message: "The selected square does not exist on the board.",
+        path: "destination"
+      }
+    ];
+  }
+
+  if (!isNormalBoardCoordinate(destination)) {
+    return [
+      {
+        code: "battle.board.destination-invalid",
+        message: "Base squares cannot be used as summon destinations.",
+        path: "destination"
+      }
+    ];
+  }
+
+  if (!isInitialSummonCoordinate(side, destination)) {
+    return [
+      {
+        code: "battle.board.destination-invalid",
+        message: "Creatures can be summoned only to a legal initial summon square.",
+        path: "destination"
+      }
+    ];
+  }
+
+  if (getOccupantId(state.board, destination)) {
+    return [
+      {
+        code: "battle.board.occupied",
+        message: "The selected square is occupied.",
+        path: "destination"
+      }
+    ];
+  }
+
+  return [];
+}
+
+function collectSummonDestinations(
+  state: BattleState,
+  side: BattleSide
+): readonly BoardCoordinate[] {
+  return INITIAL_SUMMON_COORDINATES_BY_SIDE[side].filter(
+    (coordinate) => validateSummonDestination(state, side, coordinate).length === 0
+  );
+}
+
+function isCreature(card: BattleCardInstance): boolean {
+  return card.type === "creature" || card.type === "creature-token";
+}
+
+function ineligible(
+  handInstanceId: BattleCardInstanceId,
+  issues: readonly BattleValidationIssue[]
+): SummonStartResult {
+  return {
+    eligible: false,
+    handInstanceId,
+    candidateDestinations: [],
+    issues
+  };
+}

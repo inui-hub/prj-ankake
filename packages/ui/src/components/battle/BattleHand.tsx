@@ -3,6 +3,7 @@ import { BattleCard } from "./BattleCard";
 
 export interface BattleHandProps {
   readonly cards: readonly BattleCardView[];
+  readonly selectedInstanceId?: string;
   readonly onCardIntent?: (instanceId: string) => void;
 }
 
@@ -34,6 +35,7 @@ export function BattleHand(props: BattleHandProps) {
               <BattleCard
                 card={card}
                 mode="hand"
+                isSelected={card.instanceId === props.selectedInstanceId}
                 onIntent={props.onCardIntent}
                 onFocus={(event) => {
                   event.currentTarget.scrollIntoView?.({

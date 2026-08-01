@@ -6,7 +6,8 @@ import {
   type BattleCommand,
   type BattleEvent,
   type BattleLogState,
-  type BattleState
+  type BattleState,
+  type BattleValidationIssue
 } from "@ankake/domain";
 import {
   chooseCpuAction,
@@ -28,6 +29,17 @@ export interface CpuTurnExecutionResult {
   readonly stopReason: CpuStopReason;
 }
 
+export type BattleRuntimeSubmission =
+  | {
+      readonly ok: true;
+      readonly session: BattleRuntimeSession;
+    }
+  | {
+      readonly ok: false;
+      readonly session: BattleRuntimeSession;
+      readonly issues: readonly BattleValidationIssue[];
+    };
+
 export function createBattleRuntimeSession(
   state: BattleState,
   events: readonly BattleEvent[]
@@ -44,18 +56,33 @@ export function submitRuntimeCommand(
   command: BattleCommand,
   diagnostics: BattleDiagnosticSink
 ): BattleRuntimeSession {
+  return attemptRuntimeCommand(session, command, diagnostics).session;
+}
+
+export function attemptRuntimeCommand(
+  session: BattleRuntimeSession,
+  command: BattleCommand,
+  diagnostics: BattleDiagnosticSink
+): BattleRuntimeSubmission {
   const result = GameEngine.submitCommand(session.state, command);
 
   if (!result.ok) {
     diagnostics.validationIssues(result.issues);
-    return session;
+    return {
+      ok: false,
+      session,
+      issues: result.issues
+    };
   }
 
   diagnostics.events(result.events);
   return {
-    state: result.state,
-    log: appendBattleLogEntries(session.log, result.events, result.state.terminalResult),
-    lastEvents: result.events
+    ok: true,
+    session: {
+      state: result.state,
+      log: appendBattleLogEntries(session.log, result.events, result.state.terminalResult),
+      lastEvents: result.events
+    }
   };
 }
 

@@ -3,6 +3,7 @@ import type {
   BattleBoard,
   BattleCardInstanceId,
   BattleLane,
+  BattleSide,
   BoardCoordinate,
   BoardSquare,
   BoardTerrain
@@ -41,6 +42,19 @@ export const CANONICAL_BOARD_COORDINATES: readonly BoardCoordinate[] = Object.fr
 const EXISTING_BOARD_COORDINATE_KEYS = new Set(
   CANONICAL_BOARD_COORDINATES.map(coordinateKey)
 );
+
+export const INITIAL_SUMMON_COORDINATES_BY_SIDE: Readonly<
+  Record<BattleSide, readonly BoardCoordinate[]>
+> = Object.freeze({
+  cpu: createInitialSummonCoordinates(1),
+  player: createInitialSummonCoordinates(9)
+});
+
+const INITIAL_SUMMON_COORDINATE_KEYS_BY_SIDE: Readonly<Record<BattleSide, ReadonlySet<string>>> =
+  Object.freeze({
+    cpu: new Set(INITIAL_SUMMON_COORDINATES_BY_SIDE.cpu.map(coordinateKey)),
+    player: new Set(INITIAL_SUMMON_COORDINATES_BY_SIDE.player.map(coordinateKey))
+  });
 
 export function coordinateKey(coordinate: BoardCoordinate): string {
   return `${coordinate.column}:${coordinate.row}`;
@@ -136,10 +150,15 @@ export function isAdjacentStep(from: BoardCoordinate, to: BoardCoordinate): bool
   return columnDelta <= 1 && rowDelta <= 1 && columnDelta + rowDelta > 0;
 }
 
-export function isSummonRow(side: "player" | "cpu", coordinate: BoardCoordinate): boolean {
-  if (side === "player") {
-    return coordinate.row >= 6 && coordinate.row <= 8;
-  }
+export function isInitialSummonCoordinate(
+  side: BattleSide,
+  coordinate: BoardCoordinate
+): boolean {
+  return INITIAL_SUMMON_COORDINATE_KEYS_BY_SIDE[side].has(coordinateKey(coordinate));
+}
 
-  return coordinate.row >= 2 && coordinate.row <= 4;
+function createInitialSummonCoordinates(row: number): readonly BoardCoordinate[] {
+  return Object.freeze(
+    [3, 4, 5, 7, 8, 9].map((column) => Object.freeze({ column, row }))
+  );
 }

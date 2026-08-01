@@ -1,14 +1,18 @@
 import {
   CANONICAL_BOARD_COORDINATES,
   GameEngine,
+  INITIAL_SUMMON_COORDINATES_BY_SIDE,
   RESONANCE_MAX,
   coordinateKey,
   generateLegalActions,
   getLane,
   getTerrain,
   isExistingBoardCoordinate,
+  isInitialSummonCoordinate,
   isNormalBoardCoordinate,
-  projectPublicBattleView
+  projectPublicBattleView,
+  querySummonStart,
+  validateBattleCommand
 } from "@ankake/domain";
 import fc from "fast-check";
 import {
@@ -16,8 +20,11 @@ import {
   baseBoardCoordinateArbitrary,
   battleStateArbitrary,
   canonicalBoardCoordinateArbitrary,
+  initialSummonCoordinateArbitrary,
+  invalidSummonCommandArbitrary,
   legalBattleCommandArbitrary,
-  normalBoardCoordinateArbitrary
+  normalBoardCoordinateArbitrary,
+  occupiedInitialSummonStateArbitrary
 } from "../generators/battleGenerators";
 
 describe("battle domain properties", () => {
@@ -165,6 +172,101 @@ describe("battle domain properties", () => {
         ).toEqual(state.players.player.handZone);
       }),
       { numRuns: 40 }
+    );
+  });
+
+  it("keeps summon candidates unique, ordered, and inside the side-specific initial set", () => {
+    fc.assert(
+      fc.property(occupiedInitialSummonStateArbitrary, (fixture) => {
+        const result = querySummonStart(
+          fixture.state,
+          fixture.side,
+          fixture.handInstanceId
+        );
+        const occupiedKeys = new Set(fixture.occupiedCoordinates.map(coordinateKey));
+        const expected = INITIAL_SUMMON_COORDINATES_BY_SIDE[fixture.side]
+          .filter((coordinate) => !occupiedKeys.has(coordinateKey(coordinate)))
+          .map(coordinateKey);
+        const actual = result.candidateDestinations.map(coordinateKey);
+
+        expect(actual).toEqual(expected);
+        expect(new Set(actual).size).toBe(actual.length);
+        expect(
+          result.candidateDestinations.every((coordinate) =>
+            isInitialSummonCoordinate(fixture.side, coordinate)
+          )
+        ).toBe(true);
+        expect(result.eligible).toBe(expected.length > 0);
+      }),
+      { numRuns: 80 }
+    );
+  });
+
+  it("keeps summon queries pure and repeatable", () => {
+    fc.assert(
+      fc.property(occupiedInitialSummonStateArbitrary, (fixture) => {
+        const before = JSON.stringify(fixture.state);
+        const first = querySummonStart(
+          fixture.state,
+          fixture.side,
+          fixture.handInstanceId
+        );
+        const second = querySummonStart(
+          fixture.state,
+          fixture.side,
+          fixture.handInstanceId
+        );
+
+        expect(first).toEqual(second);
+        expect(JSON.stringify(fixture.state)).toBe(before);
+      }),
+      { numRuns: 60 }
+    );
+  });
+
+  it("rejects generated invalid summon destinations without replacing state", () => {
+    fc.assert(
+      fc.property(invalidSummonCommandArbitrary, ({ state, command }) => {
+        const result = GameEngine.submitCommand(state, command);
+
+        expect(validateBattleCommand(state, command).length).toBeGreaterThan(0);
+        expect(result.ok).toBe(false);
+        expect(result.state).toBe(state);
+      }),
+      { numRuns: 80 }
+    );
+  });
+
+  it("generates valid side-tagged initial summon coordinates", () => {
+    fc.assert(
+      fc.property(initialSummonCoordinateArbitrary, ({ side, coordinate }) => {
+        expect(isInitialSummonCoordinate(side, coordinate)).toBe(true);
+        expect(isNormalBoardCoordinate(coordinate)).toBe(true);
+      }),
+      { numRuns: 40 }
+    );
+  });
+
+  it("keeps every generated CPU summon action inside the exact CPU range and valid", () => {
+    fc.assert(
+      fc.property(
+        occupiedInitialSummonStateArbitrary.filter((fixture) => fixture.side === "cpu"),
+        (fixture) => {
+          const summons = generateLegalActions(fixture.state, "cpu").filter(
+            (action) => action.command.type === "summonCreature"
+          );
+
+          for (const action of summons) {
+            if (action.command.type !== "summonCreature") {
+              continue;
+            }
+
+            expect(isInitialSummonCoordinate("cpu", action.command.destination)).toBe(true);
+            expect(validateBattleCommand(fixture.state, action.command)).toEqual([]);
+          }
+        }
+      ),
+      { numRuns: 60 }
     );
   });
 });

@@ -2,6 +2,7 @@ import {
   projectPublicBattleView,
   type BattleCommand,
   type BattleLogEntry,
+  type BoardCoordinate,
   type FirstPlayerMode,
   type StaticCatalogSnapshot
 } from "@ankake/domain";
@@ -9,6 +10,20 @@ import type { DeckRepository } from "@ankake/persistence";
 import { useEffect, useMemo, useState } from "react";
 import { createConsoleBattleDiagnostics } from "./battleDiagnostics";
 import {
+  IDLE_BATTLE_INTERACTION,
+  cancelBattleInteraction,
+  guardEndPlayPhase,
+  isBattleInteractionPending,
+  prepareSummonConfirmation,
+  projectBattleInteractionView,
+  recoverSummonInteraction,
+  selectSummonDestination,
+  selectSummonHandCard,
+  type BattleInteractionState,
+  type BattleInteractionView
+} from "./battleInteraction";
+import {
+  attemptRuntimeCommand,
   createBattleRuntimeSession,
   executeCpuTurn,
   submitRuntimeCommand,
@@ -31,6 +46,7 @@ export type BattleRouteViewModel =
   | {
       readonly kind: "battle";
       readonly publicView: ReturnType<typeof projectPublicBattleView>;
+      readonly interaction: BattleInteractionView;
       readonly logEntries: readonly BattleLogEntry[];
       readonly cpuStatus: "idle" | "thinking" | "executing" | "completed" | "limit-reached";
     };
@@ -42,6 +58,10 @@ export interface BattleControllerActions {
   readonly setFirstPlayerMode: (mode: FirstPlayerMode) => void;
   readonly startBattle: () => Promise<void>;
   readonly submitCommand: (command: BattleCommand) => Promise<void>;
+  readonly selectHandCard: (instanceId: string) => void;
+  readonly selectBoardSquare: (coordinate: BoardCoordinate) => void;
+  readonly confirmInteraction: () => Promise<void>;
+  readonly cancelInteraction: () => void;
   readonly endPlayPhase: () => Promise<void>;
   readonly rematch: () => Promise<void>;
   readonly quitBattle: () => void;
@@ -66,6 +86,9 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     loading: true
   });
   const [session, setSession] = useState<BattleRuntimeSession | undefined>();
+  const [interaction, setInteraction] = useState<BattleInteractionState>(
+    IDLE_BATTLE_INTERACTION
+  );
   const [cpuStatus, setCpuStatus] = useState<BattleRouteViewModel["kind"] extends "battle" ? never : "idle" | "thinking" | "executing" | "completed" | "limit-reached">("idle");
 
   useEffect(() => {
@@ -79,6 +102,32 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       cancelled = true;
     };
   }, [input.repository]);
+
+  useEffect(() => {
+    if (!isBattleInteractionPending(interaction)) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setInteraction(cancelBattleInteraction());
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [interaction]);
+
+  useEffect(() => {
+    if (
+      !session ||
+      session.state.activeSide === "cpu" ||
+      session.state.phase === "terminal" ||
+      session.state.terminalResult
+    ) {
+      setInteraction(IDLE_BATTLE_INTERACTION);
+    }
+  }, [session]);
 
   async function startSelectedBattle(): Promise<void> {
     const disabledReason = getBattleStartDisabledReason(preparation);
@@ -115,6 +164,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
 
     diagnostics.seed(result.state.metadata.setup.seed);
     const nextSession = createBattleRuntimeSession(result.state, result.events);
+    setInteraction(IDLE_BATTLE_INTERACTION);
     setSession(nextSession);
     setPreparation({
       ...preparation,
@@ -138,6 +188,11 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
 
+    if (isBattleInteractionPending(interaction)) {
+      setInteraction(guardEndPlayPhase(interaction));
+      return;
+    }
+
     await submitCommand({
       type: "endPlayPhase",
       side: session.state.activeSide,
@@ -147,10 +202,14 @@ export function useBattleController(input: BattleControllerInput): BattleControl
 
   async function runCpuIfNeeded(nextSession: BattleRuntimeSession): Promise<void> {
     if (nextSession.state.phase !== "play" || nextSession.state.activeSide !== "cpu") {
+      if (nextSession.state.phase === "terminal" || nextSession.state.terminalResult) {
+        setInteraction(IDLE_BATTLE_INTERACTION);
+      }
       setCpuStatus("idle");
       return;
     }
 
+    setInteraction(IDLE_BATTLE_INTERACTION);
     setCpuStatus("thinking");
     await yieldToBrowser();
     setCpuStatus("executing");
@@ -160,21 +219,77 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   }
 
   async function rematch(): Promise<void> {
+    setInteraction(IDLE_BATTLE_INTERACTION);
     setSession(undefined);
     await startSelectedBattle();
   }
 
   function quitBattle(): void {
+    setInteraction(IDLE_BATTLE_INTERACTION);
     setSession(undefined);
   }
 
+  function selectHandCard(instanceId: string): void {
+    if (!session) {
+      return;
+    }
+
+    setInteraction((current) =>
+      selectSummonHandCard(current, session.state, instanceId)
+    );
+  }
+
+  function selectBoardSquare(coordinate: BoardCoordinate): void {
+    setInteraction((current) => selectSummonDestination(current, coordinate));
+  }
+
+  async function confirmInteraction(): Promise<void> {
+    if (!session) {
+      return;
+    }
+
+    const preparation = prepareSummonConfirmation(interaction, session.state);
+    if (!preparation.ok) {
+      setInteraction(preparation.interaction);
+      return;
+    }
+
+    const submission = attemptRuntimeCommand(
+      session,
+      preparation.command,
+      diagnostics
+    );
+    if (!submission.ok) {
+      setInteraction(
+        recoverSummonInteraction(
+          submission.session.state,
+          interaction,
+          submission.issues
+        )
+      );
+      return;
+    }
+
+    setInteraction(IDLE_BATTLE_INTERACTION);
+    setSession(submission.session);
+    await runCpuIfNeeded(submission.session);
+  }
+
+  function cancelInteraction(): void {
+    setInteraction(cancelBattleInteraction());
+  }
+
   const viewModel: BattleRouteViewModel = session
-    ? {
-        kind: "battle",
-        publicView: projectPublicBattleView(session.state),
-        logEntries: session.log.entries,
-        cpuStatus
-      }
+    ? (() => {
+        const publicView = projectPublicBattleView(session.state);
+        return {
+          kind: "battle",
+          publicView,
+          interaction: projectBattleInteractionView(interaction, publicView),
+          logEntries: session.log.entries,
+          cpuStatus
+        };
+      })()
     : {
         kind: "preparation",
         preparation,
@@ -184,7 +299,10 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   return {
     viewModel,
     actions: {
-      returnToMenu: input.onReturnToMenu,
+      returnToMenu: () => {
+        setInteraction(IDLE_BATTLE_INTERACTION);
+        input.onReturnToMenu();
+      },
       selectPlayerDeck: (deckId) => {
         setPreparation({
           ...preparation,
@@ -208,6 +326,10 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       },
       startBattle: startSelectedBattle,
       submitCommand,
+      selectHandCard,
+      selectBoardSquare,
+      confirmInteraction,
+      cancelInteraction,
       endPlayPhase,
       rematch,
       quitBattle
