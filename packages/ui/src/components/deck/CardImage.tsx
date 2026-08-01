@@ -1,14 +1,5 @@
 import type { CardMasterRecord } from "@ankake/domain";
-import { useState } from "react";
-
-const cardImageUrls = import.meta.glob<string>(
-  "../../../../../images/card_illustrations/*.png",
-  {
-    eager: true,
-    query: "?url",
-    import: "default"
-  }
-);
+import { CardArtwork } from "../CardArtwork";
 
 export interface CardImageProps {
   readonly card: CardMasterRecord;
@@ -16,35 +7,16 @@ export interface CardImageProps {
 }
 
 export function CardImage({ card, className }: CardImageProps) {
-  const [failed, setFailed] = useState(false);
-
-  if (failed) {
-    return (
-      <div
-        className={`deck-card-image deck-card-image--fallback ${className ?? ""}`}
-        data-testid={`deck-card-image-fallback-${card.id}`}
-      >
-        <span>{card.name}</span>
-      </div>
-    );
-  }
-
   return (
-    <img
-      className={`deck-card-image ${className ?? ""}`}
-      src={resolveCardImageSrc(card)}
-      alt={card.name}
-      loading="lazy"
-      draggable={false}
-      data-testid={`deck-card-image-${card.id}`}
-      onError={() => setFailed(true)}
+    <CardArtwork
+      attribute={card.attribute}
+      catalogCardId={card.id}
+      className={["deck-card-image", className].filter(Boolean).join(" ")}
+      fallbackClassName="deck-card-image--fallback"
+      illustration={card.illustration}
+      name={card.name}
+      testIdPrefix="deck-card-image"
+      type={card.type}
     />
   );
-}
-
-function resolveCardImageSrc(card: CardMasterRecord): string {
-  const fileName = card.illustration.split("/").at(-1);
-  return fileName
-    ? cardImageUrls[`../../../../../images/card_illustrations/${fileName}`] ?? card.illustration
-    : card.illustration;
 }

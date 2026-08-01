@@ -1,8 +1,12 @@
 import {
   BATTLE_BOARD_COLUMNS,
   BATTLE_BOARD_ROWS,
+  CANONICAL_BOARD_COORDINATES,
   createBattleState,
   generateLegalActions,
+  getTerrain,
+  isExistingBoardCoordinate,
+  isNormalBoardCoordinate,
   type BattleCommand,
   type BattleSetupInput,
   type BattleState,
@@ -20,6 +24,26 @@ export const boardCoordinateArbitrary: fc.Arbitrary<BoardCoordinate> = fc.record
   column: fc.integer({ min: 1, max: BATTLE_BOARD_COLUMNS }),
   row: fc.integer({ min: 1, max: BATTLE_BOARD_ROWS })
 });
+
+export const canonicalBoardCoordinateArbitrary: fc.Arbitrary<BoardCoordinate> =
+  fc.constantFrom(...CANONICAL_BOARD_COORDINATES);
+
+export const normalBoardCoordinateArbitrary: fc.Arbitrary<BoardCoordinate> =
+  fc.constantFrom(
+    ...CANONICAL_BOARD_COORDINATES.filter(isNormalBoardCoordinate)
+  );
+
+export const baseBoardCoordinateArbitrary: fc.Arbitrary<BoardCoordinate> =
+  fc.constantFrom(
+    ...CANONICAL_BOARD_COORDINATES.filter(
+      (coordinate) => getTerrain(coordinate) !== "normal"
+    )
+  );
+
+export const absentBoardCoordinateArbitrary: fc.Arbitrary<BoardCoordinate> =
+  boardCoordinateArbitrary.filter(
+    (coordinate) => !isExistingBoardCoordinate(coordinate)
+  );
 
 export const firstPlayerModeArbitrary: fc.Arbitrary<FirstPlayerMode> = fc.constantFrom(
   "random",

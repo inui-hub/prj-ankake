@@ -1,5 +1,4 @@
 import {
-  generateLegalActions,
   projectPublicBattleView,
   type BattleCommand,
   type BattleLogEntry,
@@ -172,10 +171,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   const viewModel: BattleRouteViewModel = session
     ? {
         kind: "battle",
-        publicView: projectPublicBattleView(
-          session.state,
-          generateLegalActions(session.state, session.state.activeSide)
-        ),
+        publicView: projectPublicBattleView(session.state),
         logEntries: session.log.entries,
         cpuStatus
       }

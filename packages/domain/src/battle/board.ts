@@ -8,6 +8,40 @@ import type {
   BoardTerrain
 } from "./types";
 
+export const EXISTING_BOARD_COLUMNS_BY_ROW: Readonly<Record<number, readonly number[]>> =
+  Object.freeze({
+    1: Object.freeze([3, 4, 5, 6, 7, 8, 9]),
+    2: Object.freeze([2, 3, 5, 6, 7, 9, 10]),
+    3: Object.freeze([1, 2, 5, 6, 7, 10, 11]),
+    4: Object.freeze([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+    5: Object.freeze([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+    6: Object.freeze([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+    7: Object.freeze([1, 2, 5, 6, 7, 10, 11]),
+    8: Object.freeze([2, 3, 5, 6, 7, 9, 10]),
+    9: Object.freeze([3, 4, 5, 6, 7, 8, 9])
+  });
+
+const BASE_TERRAIN_BY_COORDINATE: Readonly<Record<string, Exclude<BoardTerrain, "normal">>> =
+  Object.freeze({
+    "6:1": "cpu-base",
+    "2:5": "neutral-base",
+    "6:5": "neutral-base",
+    "10:5": "neutral-base",
+    "6:9": "player-base"
+  });
+
+export const CANONICAL_BOARD_COORDINATES: readonly BoardCoordinate[] = Object.freeze(
+  Array.from({ length: BATTLE_BOARD_ROWS }, (_, index) => index + 1).flatMap((row) =>
+    (EXISTING_BOARD_COLUMNS_BY_ROW[row] ?? []).map((column) =>
+      Object.freeze({ column, row })
+    )
+  )
+);
+
+const EXISTING_BOARD_COORDINATE_KEYS = new Set(
+  CANONICAL_BOARD_COORDINATES.map(coordinateKey)
+);
+
 export function coordinateKey(coordinate: BoardCoordinate): string {
   return `${coordinate.column}:${coordinate.row}`;
 }
@@ -27,6 +61,10 @@ export function isInsideBoard(coordinate: BoardCoordinate): boolean {
   );
 }
 
+export function isExistingBoardCoordinate(coordinate: BoardCoordinate): boolean {
+  return isInsideBoard(coordinate) && EXISTING_BOARD_COORDINATE_KEYS.has(coordinateKey(coordinate));
+}
+
 export function getLane(column: number): BattleLane {
   if (column <= 4) {
     return "left";
@@ -39,37 +77,26 @@ export function getLane(column: number): BattleLane {
   return "center";
 }
 
-export function getTerrain(coordinate: BoardCoordinate): BoardTerrain {
-  if (coordinate.row === 1 && coordinate.column === 6) {
-    return "cpu-base";
+export function getTerrain(coordinate: BoardCoordinate): BoardTerrain | undefined {
+  if (!isExistingBoardCoordinate(coordinate)) {
+    return undefined;
   }
 
-  if (coordinate.row === BATTLE_BOARD_ROWS && coordinate.column === 6) {
-    return "player-base";
-  }
+  return BASE_TERRAIN_BY_COORDINATE[coordinateKey(coordinate)] ?? "normal";
+}
 
-  if (coordinate.column === 6 && coordinate.row === 5) {
-    return "neutral-base";
-  }
-
-  return "normal";
+export function isNormalBoardCoordinate(coordinate: BoardCoordinate): boolean {
+  return getTerrain(coordinate) === "normal";
 }
 
 export function createInitialBattleBoard(): BattleBoard {
-  const squares: BoardSquare[] = [];
-
-  for (let row = 1; row <= BATTLE_BOARD_ROWS; row += 1) {
-    for (let column = 1; column <= BATTLE_BOARD_COLUMNS; column += 1) {
-      const coordinate = { column, row };
-      squares.push({
-        coordinate,
-        lane: getLane(column),
-        terrain: getTerrain(coordinate)
-      });
-    }
-  }
-
-  return { squares };
+  return {
+    squares: CANONICAL_BOARD_COORDINATES.map((coordinate): BoardSquare => ({
+      coordinate,
+      lane: getLane(coordinate.column),
+      terrain: getTerrain(coordinate) as BoardTerrain
+    }))
+  };
 }
 
 export function getBoardSquare(

@@ -1,8 +1,14 @@
 import {
   chooseCpuAction,
+  projectCpuVisibleState,
   type CpuVisibleState
 } from "@ankake/cpu";
+import {
+  generateLegalActions,
+  isNormalBoardCoordinate
+} from "@ankake/domain";
 import fc from "fast-check";
+import { battleStateArbitrary } from "../generators/battleGenerators";
 import { cpuVisibleStateArbitrary } from "../generators/cpuGenerators";
 
 describe("CPU strategy", () => {
@@ -39,6 +45,40 @@ describe("CPU strategy", () => {
           expect(visible.legalActions.some((action) => action.command === first.command)).toBe(true);
         } else {
           expect(["no-legal-action", "no-beneficial-action", "terminal"]).toContain(first.reason);
+        }
+      }),
+      { numRuns: 40 }
+    );
+  });
+
+  it("receives only canonical normal summon and movement destinations", () => {
+    fc.assert(
+      fc.property(battleStateArbitrary, (state) => {
+        const cpuState = {
+          ...state,
+          phase: "play" as const,
+          activeSide: "cpu" as const,
+          terminalResult: undefined
+        };
+        const legalActions = generateLegalActions(cpuState, "cpu");
+        const visible = projectCpuVisibleState(cpuState, legalActions);
+
+        for (const action of visible.legalActions) {
+          if (action.command.type === "summonCreature") {
+            expect(isNormalBoardCoordinate(action.command.destination)).toBe(true);
+          }
+
+          if (action.command.type === "moveCreature") {
+            expect(action.command.path.every(isNormalBoardCoordinate)).toBe(true);
+          }
+        }
+
+        const decision = chooseCpuAction(visible);
+        if (decision.kind === "command" && decision.command.type === "summonCreature") {
+          expect(isNormalBoardCoordinate(decision.command.destination)).toBe(true);
+        }
+        if (decision.kind === "command" && decision.command.type === "moveCreature") {
+          expect(decision.command.path.every(isNormalBoardCoordinate)).toBe(true);
         }
       }),
       { numRuns: 40 }

@@ -1,6 +1,7 @@
 import {
   createBattleState,
-  DECK_BATTLE_READY_CARD_COUNT
+  DECK_BATTLE_READY_CARD_COUNT,
+  coordinateKey
 } from "@ankake/domain";
 import { battleSetupInputArbitrary } from "../generators/battleGenerators";
 import { battleReadySavedDeckArbitrary } from "../generators/battleGenerators";
@@ -28,6 +29,9 @@ describe("battle state factory", () => {
     expect(result.state.players.player.handZone).toHaveLength(5);
     expect(result.state.players.cpu.handZone).toHaveLength(5);
     expect(result.state.players.player.deckSnapshot).not.toBe(result.state.players.cpu.deckSnapshot);
+    expect(result.state.board.squares).toHaveLength(75);
+    expect(new Set(result.state.board.squares.map((square) => coordinateKey(square.coordinate))).size).toBe(75);
+    expect(result.state.board.squares.filter((square) => square.terrain !== "normal")).toHaveLength(5);
   });
 
   it("is deterministic for identical setup input and seed", () => {

@@ -122,9 +122,6 @@ function BattleRoute({ catalog, onReturnToMenu }: BattleRouteProps) {
       cpuStatus={controller.viewModel.cpuStatus}
       onReturnToPreparation={controller.actions.quitBattle}
       onReturnToMenu={controller.actions.returnToMenu}
-      onSubmitCommand={(command) => {
-        void controller.actions.submitCommand(command);
-      }}
       onEndPlayPhase={() => {
         void controller.actions.endPlayPhase();
       }}

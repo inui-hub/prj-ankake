@@ -1,5 +1,4 @@
-import { BATTLE_BOARD_COLUMNS, BATTLE_BOARD_ROWS } from "./constants";
-import { getBoardSquare, getOccupantId, isSummonRow } from "./board";
+import { getOccupantId, isAdjacentStep, isSummonRow } from "./board";
 import { validateBattleCommand } from "./validation";
 import type { BattleCommand, BattleSide, BattleState, BoardCoordinate, LegalAction } from "./types";
 
@@ -88,43 +87,26 @@ export function getSummonDestinations(
   state: BattleState,
   side: BattleSide
 ): readonly BoardCoordinate[] {
-  const destinations: BoardCoordinate[] = [];
-
-  for (let row = 1; row <= BATTLE_BOARD_ROWS; row += 1) {
-    for (let column = 1; column <= BATTLE_BOARD_COLUMNS; column += 1) {
-      const coordinate = { column, row };
-      if (
-        isSummonRow(side, coordinate) &&
-        getBoardSquare(state.board, coordinate)?.terrain === "normal" &&
-        !getOccupantId(state.board, coordinate)
-      ) {
-        destinations.push(coordinate);
-      }
-    }
-  }
-
-  return destinations;
+  return state.board.squares
+    .filter(
+      (square) =>
+        square.terrain === "normal" &&
+        isSummonRow(side, square.coordinate) &&
+        !square.occupantId
+    )
+    .map((square) => square.coordinate);
 }
 
 function getAdjacentEmptySquares(
   state: BattleState,
   coordinate: BoardCoordinate
 ): readonly BoardCoordinate[] {
-  const destinations: BoardCoordinate[] = [];
-
-  for (let row = coordinate.row - 1; row <= coordinate.row + 1; row += 1) {
-    for (let column = coordinate.column - 1; column <= coordinate.column + 1; column += 1) {
-      if (row === coordinate.row && column === coordinate.column) {
-        continue;
-      }
-
-      const destination = { column, row };
-      const square = getBoardSquare(state.board, destination);
-      if (square?.terrain === "normal" && !getOccupantId(state.board, destination)) {
-        destinations.push(destination);
-      }
-    }
-  }
-
-  return destinations;
+  return state.board.squares
+    .filter(
+      (square) =>
+        square.terrain === "normal" &&
+        isAdjacentStep(coordinate, square.coordinate) &&
+        !getOccupantId(state.board, square.coordinate)
+    )
+    .map((square) => square.coordinate);
 }

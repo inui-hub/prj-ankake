@@ -2,7 +2,8 @@ import {
   getBoardSquare,
   getOccupantId,
   isAdjacentStep,
-  isInsideBoard,
+  isExistingBoardCoordinate,
+  isNormalBoardCoordinate,
   isSummonRow
 } from "./board";
 import type {
@@ -95,11 +96,24 @@ function validateSummon(
     ];
   }
 
-  if (!isInsideBoard(command.destination) || !getBoardSquare(state.board, command.destination)) {
+  if (
+    !isExistingBoardCoordinate(command.destination) ||
+    !getBoardSquare(state.board, command.destination)
+  ) {
     return [
       {
         code: "battle.board.coordinate-invalid",
-        message: "The selected square is outside the board.",
+        message: "The selected square does not exist on the board.",
+        path: "destination"
+      }
+    ];
+  }
+
+  if (!isNormalBoardCoordinate(command.destination)) {
+    return [
+      {
+        code: "battle.board.destination-invalid",
+        message: "Base squares cannot be used as summon destinations.",
         path: "destination"
       }
     ];
@@ -223,11 +237,21 @@ function validateMove(
   let current: BoardCoordinate = card.position;
 
   for (const [index, step] of command.path.entries()) {
-    if (!isInsideBoard(step) || !isAdjacentStep(current, step)) {
+    if (!isExistingBoardCoordinate(step) || !isAdjacentStep(current, step)) {
       return [
         {
           code: "battle.move.path-invalid",
-          message: "Movement paths must use adjacent board squares.",
+          message: "Movement paths must use adjacent existing board squares.",
+          path: `path.${index}`
+        }
+      ];
+    }
+
+    if (!isNormalBoardCoordinate(step)) {
+      return [
+        {
+          code: "battle.board.destination-invalid",
+          message: "Movement paths cannot enter base squares.",
           path: `path.${index}`
         }
       ];

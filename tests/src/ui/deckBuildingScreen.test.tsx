@@ -82,7 +82,13 @@ describe("deck building UI", () => {
 
     expect(screen.getByTestId("card-detail-dialog")).toBeInTheDocument();
     fireEvent.error(screen.getAllByTestId(`deck-card-image-${firstCard.id}`)[0]);
-    expect(screen.getAllByTestId(`deck-card-image-fallback-${firstCard.id}`).length).toBeGreaterThan(0);
+    const fallbacks = screen.getAllByTestId(
+      `deck-card-image-fallback-${firstCard.id}`
+    );
+    expect(fallbacks.length).toBeGreaterThan(0);
+    expect(fallbacks[0]).toHaveTextContent(firstCard.name);
+    expect(fallbacks[0]).toHaveTextContent(firstCard.type);
+    expect(fallbacks[0]).toHaveTextContent(firstCard.attribute);
   });
 
   it("renders blocking unsaved changes and local data dialogs", () => {

@@ -1,4 +1,4 @@
-import type { BattleCommand, BattleLogEntry, LegalAction, PublicBattleView } from "@ankake/domain";
+import type { BattleLogEntry, PublicBattleView } from "@ankake/domain";
 
 export interface BattleStatusPanelProps {
   readonly viewModel: PublicBattleView;
@@ -14,58 +14,55 @@ export function BattleStatusPanel(props: BattleStatusPanelProps) {
     <header className="battle-status-bar" data-testid="battle-status-bar">
       <div>
         <p className="battle-kicker">Turn {viewModel.turnNumber}</p>
-        <h1>{viewModel.activeSide === "player" ? "Player" : "CPU"} play phase</h1>
+        <h1>
+          {viewModel.activeSide === "player" ? "Player" : "CPU"} -{" "}
+          {phaseLabel(viewModel.phase)}
+        </h1>
       </div>
       <span data-testid="battle-turn-timer">90s</span>
-      <span>{props.cpuStatus}</span>
-      <button className="battle-button battle-button--quiet" type="button" onClick={props.onQuitBattle}>
+      <span aria-live="polite" data-testid="battle-cpu-status">
+        CPU {props.cpuStatus}
+      </span>
+      <button
+        className="battle-button battle-button--quiet"
+        data-testid="battle-quit-button"
+        type="button"
+        onClick={props.onQuitBattle}
+      >
         Quit
       </button>
-      <button className="battle-button battle-button--quiet" type="button" onClick={props.onReturnToMenu}>
+      <button
+        className="battle-button battle-button--quiet"
+        data-testid="battle-menu-button"
+        type="button"
+        onClick={props.onReturnToMenu}
+      >
         Menu
       </button>
     </header>
   );
 }
 
-export interface BattleActionPanelProps {
-  readonly legalActions: readonly LegalAction[];
-  readonly onSubmitCommand: (command: BattleCommand) => void;
+export interface BattlePhaseControlsProps {
+  readonly canEndPlayPhase: boolean;
   readonly onEndPlayPhase: () => void;
 }
 
-export function BattleActionPanel(props: BattleActionPanelProps) {
+export function BattlePhaseControls(props: BattlePhaseControlsProps) {
   return (
-    <section className="battle-panel battle-action-panel" data-testid="battle-action-panel">
-      <h2>Actions</h2>
-      <div className="battle-action-list">
-        {props.legalActions.slice(0, 8).map((action, index) => (
-          <button
-            key={`${action.label}-${index}`}
-            className="battle-button"
-            data-testid={action.command.type === "endPlayPhase" ? "battle-end-play-phase-button" : undefined}
-            type="button"
-            onClick={() => props.onSubmitCommand(action.command)}
-          >
-            {action.label}
-          </button>
-        ))}
-      </div>
+    <section
+      className="battle-panel battle-phase-controls"
+      data-testid="battle-phase-controls"
+    >
+      <h2>Phase control</h2>
       <button
         className="battle-button battle-button--primary"
-        data-testid="battle-command-confirm-button"
-        disabled
-        type="button"
-      >
-        Confirm selected command
-      </button>
-      <button
-        className="battle-button battle-button--quiet"
-        data-testid="battle-command-cancel-button"
+        data-testid="battle-end-play-phase-button"
+        disabled={!props.canEndPlayPhase}
         type="button"
         onClick={props.onEndPlayPhase}
       >
-        Cancel / End phase
+        End Play Phase
       </button>
     </section>
   );
@@ -79,7 +76,10 @@ export function BattleInfoPanels(props: { readonly viewModel: PublicBattleView }
       <section className="battle-panel" data-testid="battle-player-info-panel">
         <h2>Player</h2>
         <p>Base HP: {viewModel.playerBaseHp}</p>
-        <p>Hand: {viewModel.playerHandCount}</p>
+        <p data-testid="battle-player-pp">
+          PP: {viewModel.playerCurrentPp}/{viewModel.playerMaxPp}
+        </p>
+        <p>Hand: {viewModel.playerHand.length}</p>
         <p>Deck: {viewModel.playerDeckCount}</p>
       </section>
       <section className="battle-panel" data-testid="battle-opponent-info-panel">
@@ -88,12 +88,19 @@ export function BattleInfoPanels(props: { readonly viewModel: PublicBattleView }
         <p>Hand: {viewModel.cpuHandCount}</p>
         <p>Deck: {viewModel.cpuDeckCount}</p>
       </section>
-      <section className="battle-panel" data-testid="battle-resonance-panel">
-        <h2>Resonance</h2>
-        <p>Lane resonance is tracked by the engine and reflected through logs.</p>
-      </section>
     </aside>
   );
+}
+
+function phaseLabel(phase: PublicBattleView["phase"]): string {
+  switch (phase) {
+    case "play":
+      return "Play phase";
+    case "automatic":
+      return "Automatic phase";
+    case "terminal":
+      return "Battle complete";
+  }
 }
 
 export function BattleLogPanel(props: { readonly entries: readonly BattleLogEntry[] }) {
