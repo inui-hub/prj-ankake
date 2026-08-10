@@ -8,6 +8,8 @@ import {
   isNormalBoardCoordinate
 } from "./board";
 import { getOwnedNeutralBases } from "./bases";
+import { getLane } from "./board";
+import { getCreaturePlayCost } from "./resonance";
 import type {
   BattleCardInstance,
   BattleCardInstanceId,
@@ -29,7 +31,18 @@ export function querySummonStart(
   }
 
   const candidateDestinations = collectSummonDestinations(state, side);
-  if (candidateDestinations.length === 0) {
+  const card = state.cardInstances[handInstanceId];
+  const affordableDestinations = card
+    ? candidateDestinations.filter((destination) => getCreaturePlayCost(state, side, card, getLane(destination.column)) <= state.players[side].currentPp)
+    : [];
+  if (affordableDestinations.length === 0) {
+    if (candidateDestinations.length > 0) {
+      return ineligible(handInstanceId, [{
+        code: "battle.resource.pp-insufficient",
+        message: "Not enough PP to play this creature.",
+        path: "currentPp"
+      }]);
+    }
     return ineligible(handInstanceId, [
       {
         code: "battle.summon.no-destination",
@@ -42,7 +55,7 @@ export function querySummonStart(
   return {
     eligible: true,
     handInstanceId,
-    candidateDestinations,
+    candidateDestinations: affordableDestinations,
     issues: []
   };
 }
@@ -125,16 +138,6 @@ export function validateSummonSource(
         code: "battle.card.type-invalid",
         message: "Only creature cards can be summoned.",
         path: "handInstanceId"
-      }
-    ];
-  }
-
-  if (card.currentCost > state.players[side].currentPp) {
-    return [
-      {
-        code: "battle.resource.pp-insufficient",
-        message: "Not enough PP to play this creature.",
-        path: "currentPp"
       }
     ];
   }

@@ -85,6 +85,14 @@ export interface BattleSetupConfig {
 
 export type ResonanceMap = Readonly<Record<BattleLane, Readonly<Record<CardAttribute, number>>>>;
 
+export type ResonanceLaneUsage = Readonly<Record<BattleLane, boolean>>;
+
+export interface ResonanceTurnUsage {
+  readonly water: ResonanceLaneUsage;
+  readonly wind: ResonanceLaneUsage;
+  readonly dark: ResonanceLaneUsage;
+}
+
 export interface PlayerBattleState {
   readonly side: BattleSide;
   readonly deckSnapshot: BattleDeckSnapshot;
@@ -94,6 +102,7 @@ export interface PlayerBattleState {
   readonly currentPp: number;
   readonly maxPp: number;
   readonly resonance: ResonanceMap;
+  readonly resonanceUsage: ResonanceTurnUsage;
   readonly turnsStarted: number;
 }
 
@@ -114,6 +123,7 @@ export interface BattleCardInstance {
   readonly currentHp?: number;
   readonly maxHp?: number;
   readonly movement: number;
+  readonly temporaryMovementBonus?: number;
   readonly isToken: boolean;
   readonly effectText: string;
   readonly effectIds: readonly string[];
@@ -231,6 +241,7 @@ export type BattleEventType =
   | "effect.fizzled"
   | "effect.partially-resolved"
   | "resonance.changed"
+  | "resonance.effect-resolved"
   | "phase.ended"
   | "standby.resolved"
   | "attack.phase-started"
@@ -265,6 +276,8 @@ export type BattleValidationIssueCode =
   | "battle.move.already-moved"
   | "battle.move.no-destination"
   | "battle.move.origin-changed"
+  | "battle.resonance.inactive"
+  | "battle.resonance.already-used"
   | "battle.effect.no-target";
 
 export interface BattleValidationIssue {
@@ -334,6 +347,11 @@ export type BattleCommand =
       readonly creatureInstanceId: BattleCardInstanceId;
       readonly origin: BoardCoordinate;
       readonly path: readonly BoardCoordinate[];
+    }
+  | {
+      readonly type: "boostCreatureMovement";
+      readonly side: BattleSide;
+      readonly creatureInstanceId: BattleCardInstanceId;
     }
   | {
       readonly type: "endPlayPhase";

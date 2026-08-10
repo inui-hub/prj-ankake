@@ -175,6 +175,23 @@ describe("creature movement", () => {
     expect(issues[0]?.code).toBe("battle.move.too-far");
   });
 
+  it("allows a board token to move like a creature", () => {
+    const fixture = createMovementState({ column: 4, row: 5 }, 1);
+    const tokenState = {
+      ...fixture.state,
+      cardInstances: {
+        ...fixture.state.cardInstances,
+        [fixture.creatureId]: {
+          ...fixture.state.cardInstances[fixture.creatureId]!,
+          type: "creature-token" as const,
+          isToken: true
+        }
+      }
+    };
+
+    expect(queryMovementStart(tokenState, "player", fixture.creatureId).eligible).toBe(true);
+  });
+
   it("enumerates one deterministic shortest path per reachable non-origin endpoint", () => {
     const fixture = createMovementState({ column: 4, row: 5 }, 2);
 

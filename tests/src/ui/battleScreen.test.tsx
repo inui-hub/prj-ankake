@@ -130,7 +130,7 @@ describe("battle screen", () => {
     expect(rowOneColumnThree).toHaveFocus();
   });
 
-  it("renders nine addressable hand cards, deferred spells, and artwork fallbacks", () => {
+  it("renders nine addressable hand cards, actionable spells, and artwork fallbacks", () => {
     const state = createBattleScreenState();
     const viewModel = projectPublicBattleView(state);
     const { container } = renderBattleScreen(viewModel);
@@ -145,8 +145,9 @@ describe("battle screen", () => {
       throw new Error("Expected a spell fixture.");
     }
     const spellButton = screen.getByTestId(`battle-hand-card-${spell.instanceId}`);
-    expect(spellButton).toHaveAttribute("aria-disabled", "true");
-    expect(spellButton).toHaveTextContent("Spell effects are planned for a later cycle.");
+    expect(spell.isActionable).toBe(true);
+    expect(spellButton).toHaveAttribute("aria-disabled", "false");
+    expect(spellButton).not.toHaveTextContent("Spell effects are planned for a later cycle.");
 
     const firstCard = viewModel.playerHand[0];
     const firstCardButton = screen.getByTestId(
@@ -270,11 +271,13 @@ describe("battle screen", () => {
   it("renders selection, direct switching, exact candidates, destination, and cancellation", () => {
     const state = createBattleScreenState();
     const viewModel = projectPublicBattleView(state);
-    const creatures = viewModel.playerHand.filter((card) => card.isActionable);
+    const creatures = viewModel.playerHand.filter(
+      (card) => card.type === "creature" && card.isActionable
+    );
     const spell = viewModel.playerHand.find((card) => card.type === "spell");
 
     if (creatures.length < 2 || !spell) {
-      throw new Error("Expected two actionable creatures and one deferred spell.");
+      throw new Error("Expected two actionable creatures and one spell.");
     }
 
     render(<BattleScreenInteractionHarness state={state} />);
@@ -312,10 +315,7 @@ describe("battle screen", () => {
     fireEvent.click(firstCard);
     fireEvent.click(screen.getByTestId("battle-summon-cancel-button"));
     expect(screen.queryByTestId("battle-summon-cancel-button")).not.toBeInTheDocument();
-    expect(screen.getByTestId(`battle-hand-card-${spell.instanceId}`)).toHaveAttribute(
-      "aria-disabled",
-      "true"
-    );
+    expect(screen.getByTestId(`battle-hand-card-${spell.instanceId}`)).toHaveAttribute("aria-disabled", "false");
   });
 
   it("renders an ordered reversible movement draft with exactly one provisional creature", () => {
@@ -323,7 +323,9 @@ describe("battle screen", () => {
     const viewModel = projectPublicBattleView(state);
     const boardCreature = viewModel.boardSquares.find((square) => square.occupant)
       ?.occupant;
-    const handCreature = viewModel.playerHand.find((card) => card.isActionable);
+    const handCreature = viewModel.playerHand.find(
+      (card) => card.type === "creature" && card.isActionable
+    );
     if (!boardCreature || !handCreature) {
       throw new Error("Expected actionable board and hand creatures.");
     }
@@ -437,8 +439,43 @@ describe("battle screen", () => {
     if (result.current.viewModel.kind !== "battle") {
       throw new Error("Expected a started battle controller.");
     }
+    const spell = result.current.viewModel.publicView.playerHand.find(
+      (card) => card.type === "spell" && card.isActionable
+    );
+    if (!spell) {
+      throw new Error("Expected an actionable spell.");
+    }
+    if (spell.attribute === "unknown") {
+      throw new Error("Expected the spell fixture to have an attribute.");
+    }
+    const spellAttribute = spell.attribute;
+    const resonanceBefore = result.current.viewModel.publicView.playerResonance;
+
+    act(() => result.current.actions.selectHandCard(spell.instanceId));
+    await waitFor(() => {
+      if (result.current.viewModel.kind !== "battle") {
+        throw new Error("Expected an active battle.");
+      }
+      expect(result.current.viewModel.publicView.playerHand).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ instanceId: spell.instanceId })])
+      );
+    });
+    if (result.current.viewModel.kind === "battle") {
+      const resonanceAfter = result.current.viewModel.publicView.playerResonance;
+      const gain = Math.min(3, spell.currentCost ?? 0);
+      for (const lane of ["left", "center", "right"] as const) {
+        expect(resonanceAfter[lane][spellAttribute]).toBe(
+          resonanceBefore[lane][spellAttribute] + gain
+        );
+      }
+      expect(result.current.viewModel.interaction.kind).toBe("idle");
+      expect(
+        result.current.viewModel.logEntries.slice(-4).map((entry) => entry.type)
+      ).toEqual(["spell.resolved", "resonance.changed", "resonance.changed", "resonance.changed"]);
+    }
+
     const creature = result.current.viewModel.publicView.playerHand.find(
-      (card) => card.isActionable
+      (card) => card.type === "creature" && card.isActionable
     );
     if (!creature) {
       throw new Error("Expected an actionable creature.");

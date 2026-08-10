@@ -24,6 +24,7 @@ export interface BattleScreenProps {
   readonly onReturnToPreparation: () => void;
   readonly onReturnToMenu: () => void;
   readonly onEndPlayPhase: () => void;
+  readonly onWaterBoost?: (instanceId: string) => void;
   readonly onHandCardIntent?: (instanceId: string) => void;
   readonly onBoardCreatureIntent?: (instanceId: string) => void;
   readonly onBoardSquareIntent?: (coordinate: BoardCoordinate) => void;
@@ -68,7 +69,10 @@ export function BattleScreen(props: BattleScreenProps) {
           />
         </div>
         <div className="battle-side-rail">
-          <BattleInfoPanels viewModel={props.viewModel} />
+          <BattleInfoPanels
+            viewModel={props.viewModel}
+            onWaterBoost={terminal ? undefined : props.onWaterBoost}
+          />
           <BattleInteractionControls
             interaction={interaction}
             onConfirm={props.onConfirmInteraction ?? noOperation}

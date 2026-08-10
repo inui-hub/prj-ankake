@@ -5,7 +5,9 @@ import {
   getBattleBaseLabel
 } from "./bases";
 import { queryMovementStart } from "./movement";
+import { getEffectiveCreatureAttack } from "./resonance";
 import { querySummonStart } from "./summon";
+import { validateBattleCommand } from "./validation";
 import type {
   BattleCardInstance,
   BattleBaseId,
@@ -18,6 +20,7 @@ import type {
   BoardTerrain,
   BattleLane
 } from "./types";
+import type { ResonanceMap } from "./types";
 
 export type BattleCardViewType = BattleCardInstance["type"] | "unknown";
 export type BattleCardViewAttribute = BattleCardInstance["attribute"] | "unknown";
@@ -38,6 +41,7 @@ export interface BattleCardView {
   readonly movement?: number;
   readonly summonedThisTurn?: boolean;
   readonly movedThisTurn?: boolean;
+  readonly canUseWaterResonance?: boolean;
   readonly isInspectable: boolean;
   readonly isActionable: boolean;
   readonly disabledReason?: string;
@@ -70,6 +74,7 @@ export interface PublicBattleView {
   readonly bases: readonly BattleBaseView[];
   readonly playerCurrentPp: number;
   readonly playerMaxPp: number;
+  readonly playerResonance: ResonanceMap;
   readonly cpuHandCount: number;
   readonly playerDeckCount: number;
   readonly cpuDeckCount: number;
@@ -89,6 +94,7 @@ export function projectPublicBattleView(state: BattleState): PublicBattleView {
     bases,
     playerCurrentPp: state.players.player.currentPp,
     playerMaxPp: state.players.player.maxPp,
+    playerResonance: state.players.player.resonance,
     cpuHandCount: state.players.cpu.handZone.length,
     playerDeckCount: state.players.player.deckZone.length,
     cpuDeckCount: state.players.cpu.deckZone.length,
@@ -160,10 +166,29 @@ function projectBattleCard(
     location === "board" && isCreature && state
       ? queryMovementStart(state, "player", card.instanceId)
       : undefined;
-  const isActionable = summonStart?.eligible ?? movementStart?.eligible ?? false;
+  const waterBoostIssues =
+    location === "board" && isCreature && card.controllerSide === "player" && state
+      ? validateBattleCommand(state, {
+          type: "boostCreatureMovement",
+          side: "player",
+          creatureInstanceId: card.instanceId
+        })
+      : undefined;
+  const spellIssues =
+    location === "hand" && card.type === "spell" && state
+      ? validateBattleCommand(state, {
+          type: "castSpell",
+          side: "player",
+          handInstanceId: card.instanceId
+        })
+      : undefined;
+  const isActionable =
+    spellIssues !== undefined
+      ? spellIssues.length === 0
+      : summonStart?.eligible ?? movementStart?.eligible ?? false;
   const disabledReason =
     card.type === "spell"
-      ? "Spell effects are planned for a later cycle."
+      ? spellIssues?.[0]?.message
       : location === "hand"
         ? summonStart?.issues[0]?.message
         : movementStart?.issues[0]?.message;
@@ -176,17 +201,28 @@ function projectBattleCard(
     attribute: card.attribute,
     controllerSide: card.controllerSide,
     presentationStatus: "available",
-    ...(location === "hand" ? { currentCost: Math.max(0, card.currentCost) } : {}),
+    ...(location === "hand" ? {
+      currentCost: Math.max(0, card.currentCost)
+    } : {}),
     ...(isCreature
       ? {
-          currentAttack: card.currentAttack ?? card.attack,
+          // Resonance bonuses are derived from the current battle state so a
+          // lane change or resonance decay is reflected without mutating the
+          // card's persistent base/current attack.
+          currentAttack: state
+            ? getEffectiveCreatureAttack(state, card)
+            : card.currentAttack ?? card.attack,
           currentHp: card.currentHp,
           maxHp: card.maxHp,
-          movement: Math.max(0, card.movement),
+          // The water resonance bonus is a temporary derived value, like the
+          // fire attack bonus.  Project it so both the card display and any
+          // caller using the public view see the actual movement limit.
+          movement: Math.max(0, card.movement + (card.temporaryMovementBonus ?? 0)),
           ...(location === "board"
             ? {
                 summonedThisTurn: card.summonedThisTurn,
-                movedThisTurn: card.movedThisTurn
+                movedThisTurn: card.movedThisTurn,
+                canUseWaterResonance: waterBoostIssues?.length === 0
               }
             : {})
         }

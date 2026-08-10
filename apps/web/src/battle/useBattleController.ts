@@ -259,6 +259,15 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
 
+    const card = session.state.cardInstances[instanceId];
+    if (card?.type === "spell") {
+      // Spells have no target-selection flow yet. Cast them immediately so the
+      // completed command applies their resonance gain while intrinsic effects remain deferred.
+      setInteraction(IDLE_BATTLE_INTERACTION);
+      void submitCommand({ type: "castSpell", side: "player", handInstanceId: instanceId });
+      return;
+    }
+
     setInteraction((current) =>
       selectSummonHandCard(current, session.state, instanceId)
     );

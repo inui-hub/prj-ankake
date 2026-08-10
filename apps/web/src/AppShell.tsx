@@ -126,6 +126,13 @@ function BattleRoute({ catalog, onReturnToMenu }: BattleRouteProps) {
       onEndPlayPhase={() => {
         void controller.actions.endPlayPhase();
       }}
+      onWaterBoost={(creatureInstanceId) => {
+        void controller.actions.submitCommand({
+          type: "boostCreatureMovement",
+          side: "player",
+          creatureInstanceId
+        });
+      }}
       onHandCardIntent={controller.actions.selectHandCard}
       onBoardCreatureIntent={controller.actions.selectBoardCreature}
       onBoardSquareIntent={controller.actions.selectBoardSquare}

@@ -8,7 +8,7 @@ import {
   BATTLE_STARTING_HAND_SIZE,
   BATTLE_STARTING_PP
 } from "./constants";
-import { createEmptyResonance } from "./resonance";
+import { createEmptyResonance, createEmptyResonanceUsage } from "./resonance";
 import { createBattleRng, shuffleWithRng, type BattleRng } from "./rng";
 import type {
   BattleCardInstance,
@@ -276,6 +276,7 @@ function createInitialPlayerState(
       currentPp: BATTLE_STARTING_PP,
       maxPp: BATTLE_STARTING_PP,
       resonance: createEmptyResonance(),
+      resonanceUsage: createEmptyResonanceUsage(),
       turnsStarted: side === "player" ? 1 : 0
     },
     events

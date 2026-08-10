@@ -50,7 +50,7 @@ export function queryMovementStart(
     eligible: true,
     creatureInstanceId,
     origin,
-    maximumMovement: Math.max(0, card.movement),
+    maximumMovement: Math.max(0, card.movement + (card.temporaryMovementBonus ?? 0)),
     candidateNextSteps,
     issues: []
   };
@@ -64,7 +64,7 @@ export function evaluateMovementDraft(
   proposedPath: readonly BoardCoordinate[]
 ): MovementDraftEvaluation {
   const card = state.cardInstances[creatureInstanceId];
-  const maximumMovement = Math.max(0, card?.movement ?? 0);
+  const maximumMovement = Math.max(0, (card?.movement ?? 0) + (card?.temporaryMovementBonus ?? 0));
   const sourceIssues = validateMovementSource(
     state,
     side,
@@ -238,7 +238,7 @@ export function validateMovementSource(
     ];
   }
 
-  if (card.type !== "creature" || card.zone !== "board" || !card.position) {
+  if ((card.type !== "creature" && card.type !== "creature-token") || card.zone !== "board" || !card.position) {
     return [
       {
         code: "battle.card.zone-invalid",
@@ -280,7 +280,7 @@ export function validateMovementSource(
     ];
   }
 
-  if (card.movement < 1) {
+  if (card.movement + (card.temporaryMovementBonus ?? 0) < 1) {
     return [
       {
         code: "battle.move.too-far",

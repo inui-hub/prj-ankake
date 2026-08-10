@@ -1,6 +1,10 @@
 import { createRngFromState } from "./rng";
 import { BATTLE_HAND_LIMIT, BATTLE_MAX_PP } from "./constants";
 import { resolveAttackPhase } from "./attack";
+import { decayResonance } from "./resonance";
+import { getLane } from "./board";
+import { BATTLE_BASE_IDS } from "./bases";
+import { BATTLE_LANES, isResonanceActive } from "./resonance";
 import { applyTerminalResult, evaluateBattleTerminal } from "./terminal";
 import type {
   BattleCardInstance,
@@ -38,10 +42,11 @@ export function resolveAfterPlayPhase(
     };
   }
 
+  const light = resolveLightResonance(attack.state, side, firstSequence + attack.events.length + 1);
   const nextSide = side === "player" ? "cpu" : "player";
   const standby = resolveStandbyPhase(
     {
-      ...attack.state,
+      ...light.state,
       activeSide: nextSide,
       metadata: {
         ...attack.state.metadata,
@@ -49,7 +54,7 @@ export function resolveAfterPlayPhase(
       }
     },
     nextSide,
-    firstSequence + attack.events.length + 1
+    light.nextSequence
   );
 
   return {
@@ -58,8 +63,24 @@ export function resolveAfterPlayPhase(
       phase: "play",
       activeSide: nextSide
     },
-    events: [phaseEnded, ...attack.events, ...standby.events]
+    events: [phaseEnded, ...attack.events, ...light.events, ...standby.events]
   };
+}
+
+function resolveLightResonance(state: BattleState, side: BattleSide, firstSequence: number): { readonly state: BattleState; readonly events: readonly BattleEvent[]; readonly nextSequence: number } {
+  const activeLanes = BATTLE_LANES.filter((lane) => isResonanceActive(state.players[side].resonance, lane, "light"));
+  if (activeLanes.length === 0) return { state, events: [], nextSequence: firstSequence };
+  const laneSet = new Set(activeLanes);
+  const cardInstances = Object.fromEntries(Object.entries(state.cardInstances).map(([id, card]) => {
+    if (card.controllerSide !== side || card.zone !== "board" || !card.position || !laneSet.has(getLane(card.position.column))) return [id, card];
+    return [id, { ...card, currentHp: Math.min(card.maxHp ?? card.currentHp ?? 0, (card.currentHp ?? 0) + 1) }];
+  }));
+  const bases = Object.fromEntries(BATTLE_BASE_IDS.map((id) => {
+    const base = state.bases[id];
+    const shouldHeal = (base.kind === "player-base" && base.owner === side) || (base.kind === "neutral-base" && base.owner === side && laneSet.has(getLane(base.coordinate.column)));
+    return [id, shouldHeal ? { ...base, currentHp: Math.min(base.maxHp, base.currentHp + (base.kind === "player-base" ? activeLanes.length : 1)) } : base];
+  })) as BattleState["bases"];
+  return { state: { ...state, cardInstances, bases, eventCursor: firstSequence }, events: [{ sequence: firstSequence, type: "resonance.effect-resolved", side, message: "Light resonance restored allied units and bases." }], nextSequence: firstSequence + 1 };
 }
 
 export function resolveStandbyPhase(
@@ -74,12 +95,24 @@ export function resolveStandbyPhase(
     ...player,
     turnsStarted: nextTurnsStarted,
     maxPp: nextMaxPp,
-    currentPp: nextMaxPp
+    currentPp: nextMaxPp,
+    resonance: nextTurnsStarted === 1 ? player.resonance : decayResonance(player.resonance),
+    resonanceUsage: {
+      water: { left: false, center: false, right: false },
+      wind: { left: false, center: false, right: false },
+      dark: player.resonanceUsage.dark
+    }
   };
   let nextCardInstances = state.cardInstances;
   const events: BattleEvent[] = [
-    {
+    ...(nextTurnsStarted === 1 ? [] : [{
       sequence: firstSequence,
+      type: "resonance.changed" as const,
+      side,
+      message: `${labelSide(side)} resonance decayed.`
+    }]),
+    {
+      sequence: firstSequence + (nextTurnsStarted === 1 ? 0 : 1),
       type: "standby.resolved",
       side,
       message: `${labelSide(side)} recovered to ${nextMaxPp} PP.`,
@@ -100,10 +133,7 @@ export function resolveStandbyPhase(
     const drawFailedState: BattleState = {
       ...state,
       activeSide: side,
-      players: {
-        ...state.players,
-        [side]: nextPlayer
-      },
+      players: resetDarkUsageAtTurnStart({ ...state.players, [side]: nextPlayer }),
       eventCursor: sequence
     };
     const terminal = evaluateBattleTerminal(
@@ -155,10 +185,7 @@ export function resolveStandbyPhase(
       ...state,
       phase: "play",
       activeSide: side,
-      players: {
-        ...state.players,
-        [side]: nextPlayer
-      },
+      players: resetDarkUsageAtTurnStart({ ...state.players, [side]: nextPlayer }),
       cardInstances: nextCardInstances,
       metadata: {
         ...state.metadata,
@@ -168,6 +195,22 @@ export function resolveStandbyPhase(
     },
     events
   };
+}
+
+function resetDarkUsageAtTurnStart(players: BattleState["players"]): BattleState["players"] {
+  return Object.fromEntries((Object.keys(players) as readonly BattleSide[]).map((side) => {
+    const player = players[side];
+    return [side, {
+      ...player,
+      resonanceUsage: {
+        ...player.resonanceUsage,
+        dark: Object.fromEntries(BATTLE_LANES.map((lane) => [
+          lane,
+          isResonanceActive(player.resonance, lane, "dark") ? false : player.resonanceUsage.dark[lane]
+        ])) as PlayerBattleState["resonanceUsage"]["dark"]
+      }
+    }];
+  })) as BattleState["players"];
 }
 
 function labelSide(side: BattleSide): string {

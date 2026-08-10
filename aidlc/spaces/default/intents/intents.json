@@ -1,0 +1,16 @@
+[
+  {
+    "uuid": "019fea9f-c44a-71f2-b772-73060216958b",
+    "slug": "resonance-feature",
+    "dirName": "260810-resonance-feature",
+    "scope": "resonance-feature",
+    "status": "complete"
+  },
+  {
+    "uuid": "019feb84-94c4-73c0-9977-affafe592a89",
+    "slug": "spec-gap-audit",
+    "dirName": "260810-spec-gap-audit",
+    "scope": "feature",
+    "status": "in-flight"
+  }
+]

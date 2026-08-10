@@ -233,7 +233,7 @@ describe("battle summon queries", () => {
     );
   });
 
-  it("projects eligible creatures as actionable and keeps spells deferred", () => {
+  it("projects eligible creatures and castable spells as actionable", () => {
     const { state, creatureId } = createSummonState("player");
     const creatureView = projectPublicBattleView(state).playerHand[0];
     const spellState: BattleState = {
@@ -250,8 +250,8 @@ describe("battle summon queries", () => {
 
     expect(creatureView?.isActionable).toBe(true);
     expect(creatureView?.disabledReason).toBeUndefined();
-    expect(spellView?.isActionable).toBe(false);
-    expect(spellView?.disabledReason).toBe("Spell effects are planned for a later cycle.");
+    expect(spellView?.isActionable).toBe(true);
+    expect(spellView?.disabledReason).toBeUndefined();
   });
 });
 

@@ -5,6 +5,8 @@ import {
 } from "./board";
 import { BATTLE_BASE_IDS, getBattleBaseById } from "./bases";
 import { applyBaseDamage, isBaseAttackable } from "./baseCombat";
+import { getLane } from "./board";
+import { getEffectiveCreatureAttack, isResonanceActive } from "./resonance";
 import type {
   AttackTarget,
   AttackTargetSnapshot,
@@ -220,10 +222,24 @@ export function destroyCreature(
     }
   };
 
+  return resolveDarkResonance(nextState, target, position, event, sequence + 1);
+}
+
+function resolveDarkResonance(state: BattleState, destroyed: BattleCardInstance, position: BoardCoordinate, destroyedEvent: BattleEvent, nextSequence: number): BattleRuleResolution {
+  const side = destroyed.controllerSide;
+  const lane = getLane(position.column);
+  const player = state.players[side];
+  if (!isResonanceActive(player.resonance, lane, "dark") || player.resonanceUsage.dark[lane]) {
+    return { state, events: [destroyedEvent], nextSequence };
+  }
+  const tokenId = `dark-resonance-${side}-${nextSequence}`;
+  const token: BattleCardInstance = {
+    instanceId: tokenId, catalogCardId: "dark-resonance-token", ownerSide: side, controllerSide: side, zone: "board", name: "Dark Resonance Token", type: "creature-token", attribute: "dark", cost: 1, currentCost: 1, attack: 1, currentAttack: 1, health: 1, currentHp: 1, maxHp: 1, movement: 1, isToken: true, effectText: "", effectIds: [], position, boardEntrySequence: nextSequence, summonedThisTurn: false, movedThisTurn: false
+  };
   return {
-    state: nextState,
-    events: [event],
-    nextSequence: sequence + 1
+    state: { ...state, board: setBoardOccupant(state.board, position, tokenId), players: { ...state.players, [side]: { ...player, resonanceUsage: { ...player.resonanceUsage, dark: { ...player.resonanceUsage.dark, [lane]: true } } } }, cardInstances: { ...state.cardInstances, [tokenId]: token }, eventCursor: nextSequence },
+    events: [destroyedEvent, { sequence: nextSequence, type: "resonance.effect-resolved", side, instanceId: tokenId, message: "Dark resonance summoned a token." }],
+    nextSequence: nextSequence + 1
   };
 }
 
@@ -241,7 +257,7 @@ export function resolveCreatureAttack(
     };
   }
 
-  const attack = Math.max(0, initialAttacker.currentAttack ?? 0);
+  const attack = getEffectiveCreatureAttack(state, initialAttacker);
   const startedEvent: BattleEvent = {
     sequence,
     type: "attack.attacker-started",
@@ -293,7 +309,7 @@ export function resolveCreatureAttack(
       continue;
     }
 
-    const currentAttack = Math.max(0, validation.attacker.currentAttack ?? 0);
+    const currentAttack = getEffectiveCreatureAttack(resolution.state, validation.attacker);
     const damageResolution =
       target.kind === "creature"
         ? applyCreatureDamage(

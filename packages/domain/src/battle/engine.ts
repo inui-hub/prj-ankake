@@ -1,7 +1,6 @@
 import { getLane, setBoardOccupant } from "./board";
 import { resolveAfterPlayPhase } from "./automaticPhases";
-import { resolveSimpleSpellEffect } from "./effects";
-import { increaseResonance } from "./resonance";
+import { BATTLE_LANES, getCreaturePlayCost, increaseResonance, isResonanceActive, isWindResonanceDiscountAvailable, resonanceGain } from "./resonance";
 import { validateBattleCommand } from "./validation";
 import type {
   BattleCardInstance,
@@ -31,6 +30,8 @@ export const GameEngine = {
         return acceptSpell(state, command);
       case "moveCreature":
         return acceptMove(state, command);
+      case "boostCreatureMovement":
+        return acceptWaterBoost(state, command);
       case "endPlayPhase":
         return acceptEndPlayPhase(state, command.side);
     }
@@ -44,11 +45,22 @@ function acceptSummon(
   const card = state.cardInstances[command.handInstanceId] as BattleCardInstance;
   const player = state.players[command.side];
   const lane = getLane(command.destination.column);
+  const windDiscountUsed = isWindResonanceDiscountAvailable(state, command.side, lane);
+  const paidCost = getCreaturePlayCost(state, command.side, card, lane);
+  const resonance = increaseResonance(player.resonance, lane, card.attribute, resonanceGain(card.cost));
   const nextPlayer: PlayerBattleState = {
     ...player,
     handZone: player.handZone.filter((id) => id !== card.instanceId),
-    currentPp: player.currentPp - card.currentCost,
-    resonance: increaseResonance(player.resonance, lane, card.attribute, Math.max(1, card.currentCost))
+    currentPp: player.currentPp - paidCost,
+    resonance,
+    resonanceUsage: {
+      ...player.resonanceUsage,
+      wind: {
+        ...player.resonanceUsage.wind,
+        [lane]: player.resonanceUsage.wind[lane] || windDiscountUsed
+      },
+      dark: refreshDarkUsageOnActivation(player.resonance, resonance, player.resonanceUsage.dark)
+    }
   };
   const sequence = state.eventCursor + 1;
   const events: readonly BattleEvent[] = [
@@ -119,15 +131,60 @@ function acceptSpell(
       [card.instanceId]: movedToGraveyard
     }
   };
-  const effect = resolveSimpleSpellEffect(spentState, movedToGraveyard, command.side, state.eventCursor + 1);
+  const nextPlayer = spentState.players[command.side];
+  const resonance = BATTLE_LANES.reduce(
+    (current, lane) => increaseResonance(current, lane, card.attribute, resonanceGain(card.cost)),
+    nextPlayer.resonance
+  );
+  const events: readonly BattleEvent[] = [
+    { sequence: state.eventCursor + 1, type: "spell.resolved", side: command.side, instanceId: card.instanceId, message: `${labelSide(command.side)} cast ${card.name}.` },
+    ...BATTLE_LANES.map((lane, index) => ({
+      sequence: state.eventCursor + 2 + index,
+      type: "resonance.changed" as const,
+      side: command.side,
+      instanceId: card.instanceId,
+      message: `${card.attribute} resonance increased in the ${lane} lane.`
+    }))
+  ];
 
   return {
     ok: true,
     state: {
-      ...effect.state,
-      eventCursor: state.eventCursor + effect.events.length
+      ...spentState,
+      players: {
+        ...spentState.players,
+        [command.side]: {
+          ...nextPlayer,
+          resonance,
+          resonanceUsage: {
+            ...nextPlayer.resonanceUsage,
+            dark: refreshDarkUsageOnActivation(nextPlayer.resonance, resonance, nextPlayer.resonanceUsage.dark)
+          }
+        }
+      },
+      eventCursor: events.at(-1)?.sequence ?? state.eventCursor
     },
-    events: effect.events
+    events
+  };
+}
+
+function acceptWaterBoost(
+  state: BattleState,
+  command: Extract<BattleCommand, { type: "boostCreatureMovement" }>
+): BattleCommandResult {
+  const card = state.cardInstances[command.creatureInstanceId] as BattleCardInstance;
+  const player = state.players[command.side];
+  const lane = getLane(card.position!.column);
+  const sequence = state.eventCursor + 1;
+  return {
+    ok: true,
+    state: {
+      ...state,
+      players: { ...state.players, [command.side]: { ...player, resonanceUsage: { ...player.resonanceUsage, water: { ...player.resonanceUsage.water, [lane]: true } } } },
+      cardInstances: { ...state.cardInstances, [card.instanceId]: { ...card, temporaryMovementBonus: (card.temporaryMovementBonus ?? 0) + 1 } },
+      eventCursor: sequence
+    },
+    events: [{ sequence, type: "resonance.effect-resolved", side: command.side, instanceId: card.instanceId, message: `Water resonance increased ${card.name}'s movement.` }]
   };
 }
 
@@ -173,7 +230,7 @@ function acceptMove(
 
 function acceptEndPlayPhase(state: BattleState, side: BattleSide): BattleCommandResult {
   const resolution = resolveAfterPlayPhase(state, side, state.eventCursor + 1);
-  const resetState = resetTurnFlags(resolution.state, resolution.state.activeSide);
+  const resetState = resetTurnFlags(resolution.state, side, resolution.state.activeSide);
 
   return {
     ok: true,
@@ -182,15 +239,18 @@ function acceptEndPlayPhase(state: BattleState, side: BattleSide): BattleCommand
   };
 }
 
-function resetTurnFlags(state: BattleState, nextSide: BattleSide): BattleState {
+function resetTurnFlags(state: BattleState, endingSide: BattleSide, nextSide: BattleSide): BattleState {
   const nextCards = Object.fromEntries(
     Object.entries(state.cardInstances).map(([id, card]) => [
       id,
-      card.controllerSide === nextSide
+      card.controllerSide === endingSide || card.controllerSide === nextSide
         ? {
-            ...card,
+          ...card,
+          ...(card.controllerSide === nextSide ? {
             summonedThisTurn: false,
             movedThisTurn: false
+          } : {}),
+          ...(card.controllerSide === endingSide ? { temporaryMovementBonus: undefined } : {})
           }
         : card
     ])
@@ -200,6 +260,19 @@ function resetTurnFlags(state: BattleState, nextSide: BattleSide): BattleState {
     ...state,
     cardInstances: nextCards
   };
+}
+
+function refreshDarkUsageOnActivation(
+  previous: PlayerBattleState["resonance"],
+  next: PlayerBattleState["resonance"],
+  usage: PlayerBattleState["resonanceUsage"]["dark"]
+): PlayerBattleState["resonanceUsage"]["dark"] {
+  return Object.fromEntries(BATTLE_LANES.map((lane) => [
+    lane,
+    !isResonanceActive(previous, lane, "dark") && isResonanceActive(next, lane, "dark")
+      ? false
+      : usage[lane]
+  ])) as PlayerBattleState["resonanceUsage"]["dark"];
 }
 
 function labelSide(side: BattleSide): string {

@@ -73,8 +73,14 @@ export function BattlePhaseControls(props: BattlePhaseControlsProps) {
   );
 }
 
-export function BattleInfoPanels(props: { readonly viewModel: PublicBattleView }) {
+export function BattleInfoPanels(props: {
+  readonly viewModel: PublicBattleView;
+  readonly onWaterBoost?: (instanceId: string) => void;
+}) {
   const { viewModel } = props;
+  const waterBoostTargets = viewModel.boardSquares.flatMap((square) =>
+    square.occupant?.canUseWaterResonance ? [square.occupant] : []
+  );
 
   return (
     <aside className="battle-info-grid">
@@ -85,6 +91,26 @@ export function BattleInfoPanels(props: { readonly viewModel: PublicBattleView }
         </p>
         <p>Hand: {viewModel.playerHand.length}</p>
         <p>Deck: {viewModel.playerDeckCount}</p>
+        <div data-testid="battle-player-resonance">
+          {(["left", "center", "right"] as const).map((lane) => (
+            <p key={lane}>{lane}: {Object.entries(viewModel.playerResonance[lane]).map(([attribute, value]) => `${attribute} ${value}`).join(" / ")}</p>
+          ))}
+        </div>
+        {waterBoostTargets.length > 0 ? (
+          <div data-testid="battle-water-resonance-controls">
+            {waterBoostTargets.map((card) => (
+              <button
+                className="battle-button battle-button--quiet"
+                data-testid={`battle-water-resonance-${card.instanceId}`}
+                key={card.instanceId}
+                type="button"
+                onClick={() => props.onWaterBoost?.(card.instanceId)}
+              >
+                Water boost {card.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </section>
       <section className="battle-panel" data-testid="battle-opponent-info-panel">
         <h2>CPU</h2>
