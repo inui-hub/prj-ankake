@@ -18,6 +18,7 @@ export interface BattleBoardProps {
     readonly stepNumber: number;
   }[];
   readonly provisionalPositionKey?: string;
+  readonly interactionDisabled?: boolean;
   readonly onCreatureIntent?: (instanceId: string) => void;
   readonly onSquareIntent?: (coordinate: BoardCoordinate) => void;
 }
@@ -96,6 +97,7 @@ export function BattleBoard(props: BattleBoardProps) {
                 isProvisional ? "battle-square--provisional" : ""
               ].join(" ")}
               data-testid={`battle-square-${square.coordinate.column}-${square.coordinate.row}`}
+              disabled={props.interactionDisabled}
               role="gridcell"
               style={{
                 gridColumn: square.coordinate.column,
@@ -162,8 +164,9 @@ export function BattleBoard(props: BattleBoardProps) {
                 </span>
               ) : null}
               {square.terrain !== "normal" ? (
-                <span className="battle-square__base-label">
-                  {terrainLabel(square.terrain)}
+                <span className={`battle-square__base-label battle-square__base-label--${square.base?.owner ?? "none"}`} data-testid={`battle-base-${square.base?.id ?? square.key}`}>
+                  <strong>{square.base?.label ?? terrainLabel(square.terrain)}</strong>
+                  {square.base ? <span>{ownerLabel(square.base.owner)} · HP {square.base.currentHp}/{square.base.maxHp}</span> : null}
                 </span>
               ) : null}
             </button>
@@ -184,6 +187,9 @@ function describeSquare(
   pathSteps: readonly number[]
 ): string {
   const prefix = `Column ${square.coordinate.column}, row ${square.coordinate.row}`;
+  const baseLabel = square.base
+    ? `, ${square.base.label}, ${ownerLabel(square.base.owner)}, health ${square.base.currentHp} of ${square.base.maxHp}`
+    : "";
   const labels = [
     isSelected ? "selected summon destination" : undefined,
     isCandidate ? "available destination" : undefined,
@@ -193,10 +199,14 @@ function describeSquare(
   ].filter((label): label is string => Boolean(label));
   const interactionLabel = labels.length > 0 ? `, ${labels.join(", ")}` : "";
   if (occupantName) {
-    return `${prefix}, ${terrainLabel(square.terrain)}, occupied by ${occupantName}${interactionLabel}`;
+    return `${prefix}, ${terrainLabel(square.terrain)}${baseLabel}, occupied by ${occupantName}${interactionLabel}`;
   }
 
-  return `${prefix}, ${terrainLabel(square.terrain)}${interactionLabel}`;
+  return `${prefix}, ${terrainLabel(square.terrain)}${baseLabel}${interactionLabel}`;
+}
+
+function ownerLabel(owner: "none" | "player" | "cpu"): string {
+  return owner === "none" ? "Unclaimed" : owner === "player" ? "Player controlled" : "CPU controlled";
 }
 
 export type BoardFocusDirection =

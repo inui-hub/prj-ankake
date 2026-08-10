@@ -36,6 +36,7 @@ export interface BattleScreenProps {
 
 export function BattleScreen(props: BattleScreenProps) {
   const interaction = props.interaction ?? createIdleInteraction(props.viewModel);
+  const terminal = Boolean(props.viewModel.terminalResult);
 
   return (
     <main className="battle-screen" data-testid="battle-screen">
@@ -55,13 +56,15 @@ export function BattleScreen(props: BattleScreenProps) {
             movementOriginKey={interaction.movementOriginKey}
             movementPathSteps={interaction.movementPathSteps}
             provisionalPositionKey={interaction.provisionalPositionKey}
-            onCreatureIntent={props.onBoardCreatureIntent}
-            onSquareIntent={props.onBoardSquareIntent}
+            interactionDisabled={terminal}
+            onCreatureIntent={terminal ? undefined : props.onBoardCreatureIntent}
+            onSquareIntent={terminal ? undefined : props.onBoardSquareIntent}
           />
           <BattleHand
             cards={props.viewModel.playerHand}
             selectedInstanceId={interaction.selectedHandInstanceId}
-            onCardIntent={props.onHandCardIntent}
+            interactionDisabled={terminal}
+            onCardIntent={terminal ? undefined : props.onHandCardIntent}
           />
         </div>
         <div className="battle-side-rail">
@@ -72,6 +75,7 @@ export function BattleScreen(props: BattleScreenProps) {
             onCancel={props.onCancelInteraction ?? noOperation}
             onUndo={props.onUndoInteraction ?? noOperation}
             onEndPlayPhase={props.onEndPlayPhase}
+            interactionDisabled={terminal}
           />
           <BattleLogPanel entries={props.logEntries} />
         </div>

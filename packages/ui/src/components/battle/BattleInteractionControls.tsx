@@ -28,6 +28,7 @@ export interface BattleInteractionControlsProps {
   readonly onCancel: () => void;
   readonly onUndo: () => void;
   readonly onEndPlayPhase: () => void;
+  readonly interactionDisabled?: boolean;
 }
 
 export function BattleInteractionControls(props: BattleInteractionControlsProps) {
@@ -78,7 +79,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
           <button
             className="battle-button battle-button--primary"
             data-testid="battle-summon-confirm-button"
-            disabled={!props.interaction.confirmEnabled}
+            disabled={props.interactionDisabled || !props.interaction.confirmEnabled}
             type="button"
             onClick={props.onConfirm}
           >
@@ -87,7 +88,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
           <button
             className="battle-button battle-button--quiet"
             data-testid="battle-summon-cancel-button"
-            disabled={!props.interaction.cancelEnabled}
+            disabled={props.interactionDisabled || !props.interaction.cancelEnabled}
             type="button"
             onClick={props.onCancel}
           >
@@ -100,7 +101,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
           <button
             className="battle-button battle-button--primary"
             data-testid="battle-move-confirm-button"
-            disabled={!props.interaction.confirmEnabled}
+            disabled={props.interactionDisabled || !props.interaction.confirmEnabled}
             type="button"
             onClick={props.onConfirm}
           >
@@ -109,7 +110,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
           <button
             className="battle-button battle-button--quiet"
             data-testid="battle-move-undo-button"
-            disabled={!props.interaction.undoEnabled}
+            disabled={props.interactionDisabled || !props.interaction.undoEnabled}
             type="button"
             onClick={props.onUndo}
           >
@@ -118,7 +119,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
           <button
             className="battle-button battle-button--quiet"
             data-testid="battle-move-cancel-button"
-            disabled={!props.interaction.cancelEnabled}
+            disabled={props.interactionDisabled || !props.interaction.cancelEnabled}
             type="button"
             onClick={props.onCancel}
           >
@@ -129,7 +130,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
       <button
         className="battle-button battle-button--primary"
         data-testid="battle-end-play-phase-button"
-        disabled={!props.interaction.endPlayPhaseEnabled}
+        disabled={props.interactionDisabled || !props.interaction.endPlayPhaseEnabled}
         type="button"
         onClick={props.onEndPlayPhase}
       >

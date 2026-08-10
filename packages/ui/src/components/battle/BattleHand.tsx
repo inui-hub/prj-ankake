@@ -5,6 +5,7 @@ export interface BattleHandProps {
   readonly cards: readonly BattleCardView[];
   readonly selectedInstanceId?: string;
   readonly onCardIntent?: (instanceId: string) => void;
+  readonly interactionDisabled?: boolean;
 }
 
 export function BattleHand(props: BattleHandProps) {
@@ -36,7 +37,8 @@ export function BattleHand(props: BattleHandProps) {
                 card={card}
                 mode="hand"
                 isSelected={card.instanceId === props.selectedInstanceId}
-                onIntent={props.onCardIntent}
+                interactionDisabled={props.interactionDisabled}
+                onIntent={props.interactionDisabled ? undefined : props.onCardIntent}
                 onFocus={(event) => {
                   event.currentTarget.scrollIntoView?.({
                     block: "nearest",

@@ -98,12 +98,10 @@ describe("battle screen", () => {
     expect(screen.getByTestId("battle-square-6-5")).toHaveTextContent("Neutral Base");
     expect(screen.getByTestId("battle-square-10-5")).toHaveTextContent("Neutral Base");
     expect(screen.getByTestId("battle-player-pp")).toHaveTextContent("PP: 10/10");
-    expect(screen.getByTestId("battle-player-info-panel")).toHaveTextContent(
-      "Base HP: 13"
-    );
-    expect(screen.getByTestId("battle-opponent-info-panel")).toHaveTextContent(
-      "Base HP: 7"
-    );
+    expect(screen.getByTestId("battle-base-summary")).toHaveTextContent("CPU Base");
+    expect(screen.getByTestId("battle-base-summary-cpu-base")).toHaveTextContent("HP 7/20");
+    expect(screen.getByTestId("battle-base-summary-player-base")).toHaveTextContent("HP 13/20");
+    expect(screen.getByTestId("battle-base-summary-neutral-left")).toHaveTextContent("Unclaimed");
     expect(screen.getByTestId("battle-opponent-info-panel")).toHaveTextContent("Hand: 5");
     expect(screen.getByTestId("battle-log-panel")).toHaveTextContent("Player drew a card.");
 
@@ -234,7 +232,14 @@ describe("battle screen", () => {
     );
 
     expect(screen.getByTestId("battle-result-overlay")).toHaveTextContent("Victory");
+    expect(screen.getByTestId("battle-result-reason")).toHaveTextContent("Enemy base destroyed");
     expect(screen.getByTestId("battle-end-play-phase-button")).toBeDisabled();
+    expect(screen.getByTestId("battle-square-3-1")).toBeDisabled();
+    expect(
+      screen.getByTestId(
+        `battle-hand-card-${terminalView.playerHand[0]!.instanceId}`
+      )
+    ).toBeDisabled();
   });
 
   it("keeps directional focus results inside the projected topology", () => {

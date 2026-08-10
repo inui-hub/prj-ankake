@@ -75,14 +75,11 @@ export function BattlePhaseControls(props: BattlePhaseControlsProps) {
 
 export function BattleInfoPanels(props: { readonly viewModel: PublicBattleView }) {
   const { viewModel } = props;
-  const playerBase = getBaseViewById(viewModel.bases, "player-base");
-  const cpuBase = getBaseViewById(viewModel.bases, "cpu-base");
 
   return (
     <aside className="battle-info-grid">
       <section className="battle-panel" data-testid="battle-player-info-panel">
         <h2>Player</h2>
-        <p>Base HP: {playerBase.currentHp}</p>
         <p data-testid="battle-player-pp">
           PP: {viewModel.playerCurrentPp}/{viewModel.playerMaxPp}
         </p>
@@ -91,24 +88,24 @@ export function BattleInfoPanels(props: { readonly viewModel: PublicBattleView }
       </section>
       <section className="battle-panel" data-testid="battle-opponent-info-panel">
         <h2>CPU</h2>
-        <p>Base HP: {cpuBase.currentHp}</p>
         <p>Hand: {viewModel.cpuHandCount}</p>
         <p>Deck: {viewModel.cpuDeckCount}</p>
+      </section>
+      <section className="battle-panel battle-base-summary" data-testid="battle-base-summary">
+        <h2>Bases</h2>
+        <ol>
+          {viewModel.bases.map((base) => (
+            <li data-testid={`battle-base-summary-${base.id}`} key={base.id}>
+              <strong>{base.label}</strong><span>{ownerLabel(base.owner)}</span><span>HP {base.currentHp}/{base.maxHp}</span>
+            </li>
+          ))}
+        </ol>
       </section>
     </aside>
   );
 }
 
-function getBaseViewById(
-  bases: readonly BattleBaseView[],
-  baseId: BattleBaseId
-): BattleBaseView {
-  const base = bases.find((candidate) => candidate.id === baseId);
-  if (!base) {
-    throw new Error(`Missing required battle base view: ${baseId}`);
-  }
-  return base;
-}
+function ownerLabel(owner: "none" | "player" | "cpu"): string { return owner === "none" ? "Unclaimed" : owner === "player" ? "Player" : "CPU"; }
 
 function phaseLabel(phase: PublicBattleView["phase"]): string {
   switch (phase) {
