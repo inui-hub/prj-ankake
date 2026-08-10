@@ -4,7 +4,9 @@ import {
   type CpuVisibleState
 } from "@ankake/cpu";
 import {
+  BATTLE_BASE_IDS,
   coordinateKey,
+  createInitialBattleBases,
   generateLegalActions,
   getShortestMovementPaths,
   isInitialSummonCoordinate,
@@ -21,6 +23,7 @@ import { cpuVisibleStateArbitrary } from "../generators/cpuGenerators";
 
 describe("CPU strategy", () => {
   it("returns a stop reason when no legal actions exist", () => {
+    const bases = createInitialBattleBases();
     const visible: CpuVisibleState = {
       activeSide: "cpu",
       phase: "play",
@@ -30,8 +33,7 @@ describe("CPU strategy", () => {
       playerHandCount: 5,
       cpuDeckCount: 35,
       playerDeckCount: 35,
-      cpuBaseHp: 20,
-      playerBaseHp: 20,
+      bases: BATTLE_BASE_IDS.map((id) => bases[id]),
       boardCards: [],
       legalActions: []
     };

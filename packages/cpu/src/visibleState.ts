@@ -1,10 +1,14 @@
 import type {
+  BattleBaseId,
+  BattleBaseKind,
+  BattleBaseOwner,
   BattleCardInstance,
   BattleSide,
   BattleState,
   BoardCoordinate,
   LegalAction
 } from "@ankake/domain";
+import { BATTLE_BASE_IDS } from "@ankake/domain";
 
 export interface CpuVisibleCard {
   readonly instanceId: string;
@@ -16,6 +20,15 @@ export interface CpuVisibleCard {
   readonly position?: BoardCoordinate;
 }
 
+export interface CpuVisibleBase {
+  readonly id: BattleBaseId;
+  readonly coordinate: BoardCoordinate;
+  readonly kind: BattleBaseKind;
+  readonly owner: BattleBaseOwner;
+  readonly currentHp: number;
+  readonly maxHp: number;
+}
+
 export interface CpuVisibleState {
   readonly activeSide: BattleSide;
   readonly phase: BattleState["phase"];
@@ -25,8 +38,7 @@ export interface CpuVisibleState {
   readonly playerHandCount: number;
   readonly cpuDeckCount: number;
   readonly playerDeckCount: number;
-  readonly cpuBaseHp: number;
-  readonly playerBaseHp: number;
+  readonly bases: readonly CpuVisibleBase[];
   readonly boardCards: readonly CpuVisibleCard[];
   readonly legalActions: readonly LegalAction[];
 }
@@ -47,8 +59,17 @@ export function projectCpuVisibleState(
     playerHandCount: state.players.player.handZone.length,
     cpuDeckCount: state.players.cpu.deckZone.length,
     playerDeckCount: state.players.player.deckZone.length,
-    cpuBaseHp: state.players.cpu.baseHp,
-    playerBaseHp: state.players.player.baseHp,
+    bases: BATTLE_BASE_IDS.map((id) => {
+      const base = state.bases[id];
+      return {
+        id: base.id,
+        coordinate: { ...base.coordinate },
+        kind: base.kind,
+        owner: base.owner,
+        currentHp: base.currentHp,
+        maxHp: base.maxHp
+      };
+    }),
     boardCards: Object.values(state.cardInstances)
       .filter((card) => card.zone === "board")
       .map(toVisibleCard),

@@ -8,6 +8,7 @@ import {
   executeCpuTurn,
   submitRuntimeCommand
 } from "../../../apps/web/src/battle/battleRuntimeService";
+import { getCpuStatusAfterExecution } from "../../../apps/web/src/battle/useBattleController";
 import {
   getBattleStartDisabledReason,
   loadBattlePreparation,
@@ -165,6 +166,41 @@ describe("battle runtime service", () => {
 
     expect(result.acceptedCommands).toBeLessThanOrEqual(1);
     expect(["processing-limit", "no-beneficial-action", "terminal"]).toContain(result.stopReason);
+  });
+
+  it("continues to the player turn when the CPU reaches a nonterminal processing limit", async () => {
+    const session = await createStartedSession("player-second");
+    const result = await executeCpuTurn(session, createConsoleBattleDiagnostics(), async () => {}, 0);
+
+    expect(result.stopReason).toBe("processing-limit");
+    expect(result.acceptedCommands).toBe(0);
+    expect(result.session.state.terminalResult).toBeUndefined();
+    expect(result.session.state.phase).toBe("play");
+    expect(result.session.state.activeSide).toBe("player");
+    expect(getCpuStatusAfterExecution(result.stopReason, false)).toBe("limit-reached");
+    expect(getCpuStatusAfterExecution(result.stopReason, true)).toBe("completed");
+  });
+
+  it("continues beyond eight turns without a fixed-turn terminal result", async () => {
+    let session = await createStartedSession("player-first");
+    const diagnostics = createConsoleBattleDiagnostics();
+
+    for (let turn = 0; turn < 8; turn += 1) {
+      session = submitRuntimeCommand(
+        session,
+        { type: "endPlayPhase", side: "player", reason: "manual" },
+        diagnostics
+      );
+      const cpuResult = await executeCpuTurn(session, diagnostics, async () => {}, 0);
+      session = cpuResult.session;
+
+      expect(cpuResult.stopReason).toBe("processing-limit");
+      expect(session.state.terminalResult).toBeUndefined();
+      expect(session.state.phase).toBe("play");
+      expect(session.state.activeSide).toBe("player");
+    }
+
+    expect(session.state.metadata.turnNumber).toBeGreaterThan(8);
   });
 
   it("exposes legal actions for the active runtime state", async () => {

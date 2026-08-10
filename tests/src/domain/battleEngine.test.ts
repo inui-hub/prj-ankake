@@ -2,6 +2,7 @@ import {
   GameEngine,
   createInitialBattleBoard,
   generateLegalActions,
+  getBattleBaseById,
   placeCreatureForTest,
   type BattleCardInstance,
   type BattleCommand,
@@ -65,6 +66,7 @@ describe("battle engine", () => {
     expect(result.state.cardInstances[creatureId]).toMatchObject({
       zone: "board",
       position: { column: 7, row: 9 },
+      boardEntrySequence: previousCursor + 1,
       summonedThisTurn: true
     });
     expect(result.events.map((event) => event.type)).toEqual([
@@ -72,6 +74,9 @@ describe("battle engine", () => {
       "resonance.changed"
     ]);
     expect(result.state.eventCursor).toBe(previousCursor + 2);
+    expect(result.state.cardInstances[creatureId]?.boardEntrySequence).toBe(
+      result.events[0]?.sequence
+    );
   });
 
   it("rejects an illegal summon destination with the original state identity", () => {
@@ -181,6 +186,58 @@ describe("battle engine", () => {
     if (result.ok && !result.state.terminalResult) {
       expect(result.state.activeSide).not.toBe(state.activeSide);
       expect(result.events.some((event) => event.type === "standby.resolved")).toBe(true);
+    }
+  });
+
+  it("assigns unique board entry sequences to repeated test placements", () => {
+    const state = sampleBattleState();
+    const [firstId, secondId] = Object.values(state.cardInstances)
+      .filter((card) => card.ownerSide === "player")
+      .map((card) => card.instanceId);
+
+    expect(firstId).toBeDefined();
+    expect(secondId).toBeDefined();
+    if (!firstId || !secondId) {
+      return;
+    }
+
+    const first = placeCreatureForTest(state, firstId, "player", 4, 5);
+    const second = placeCreatureForTest(first, secondId, "player", 5, 5);
+    const sequences = [
+      second.cardInstances[firstId]?.boardEntrySequence,
+      second.cardInstances[secondId]?.boardEntrySequence
+    ];
+
+    expect(sequences.every((sequence) => Number.isInteger(sequence))).toBe(true);
+    expect(new Set(sequences).size).toBe(2);
+    expect(second.eventCursor).toBe(sequences[1]);
+  });
+
+  it("does not damage a distant player base during automatic attack", () => {
+    const fixture = createPlayerMovementState();
+    const state: BattleState = {
+      ...fixture.state,
+      activeSide: "player",
+      phase: "play",
+      cardInstances: {
+        ...fixture.state.cardInstances,
+        [fixture.creatureId]: {
+          ...fixture.state.cardInstances[fixture.creatureId]!,
+          currentAttack: 3
+        }
+      }
+    };
+    const result = GameEngine.submitCommand(state, {
+      type: "endPlayPhase",
+      side: "player",
+      reason: "manual"
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(getBattleBaseById(result.state.bases, "cpu-base").currentHp).toBe(20);
+      expect(result.events.some((event) => event.type === "attack.phase-started")).toBe(true);
+      expect(result.events.some((event) => event.type === "attack.phase-ended")).toBe(true);
     }
   });
 });

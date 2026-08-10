@@ -1,11 +1,13 @@
 import {
+  coordinateKey,
   getBoardSquare,
+  getAdjacentBoardCoordinates,
   getOccupantId,
   INITIAL_SUMMON_COORDINATES_BY_SIDE,
   isExistingBoardCoordinate,
-  isInitialSummonCoordinate,
   isNormalBoardCoordinate
 } from "./board";
+import { getOwnedNeutralBases } from "./bases";
 import type {
   BattleCardInstance,
   BattleCardInstanceId,
@@ -31,7 +33,7 @@ export function querySummonStart(
     return ineligible(handInstanceId, [
       {
         code: "battle.summon.no-destination",
-        message: "No empty initial summon square is available.",
+        message: "No empty legal summon square is available.",
         path: "destination"
       }
     ]);
@@ -165,11 +167,11 @@ export function validateSummonDestination(
     ];
   }
 
-  if (!isInitialSummonCoordinate(side, destination)) {
+  if (!getSummonRangeCoordinates(state, side).some((coordinate) => coordinateKey(coordinate) === coordinateKey(destination))) {
     return [
       {
         code: "battle.board.destination-invalid",
-        message: "Creatures can be summoned only to a legal initial summon square.",
+        message: "Creatures can be summoned only to a legal summon square.",
         path: "destination"
       }
     ];
@@ -192,9 +194,36 @@ function collectSummonDestinations(
   state: BattleState,
   side: BattleSide
 ): readonly BoardCoordinate[] {
-  return INITIAL_SUMMON_COORDINATES_BY_SIDE[side].filter(
-    (coordinate) => validateSummonDestination(state, side, coordinate).length === 0
+  return getSummonRangeCoordinates(state, side).filter(
+    (coordinate) => !getOccupantId(state.board, coordinate)
   );
+}
+
+export function getSummonRangeCoordinates(
+  state: BattleState,
+  side: BattleSide
+): readonly BoardCoordinate[] {
+  const seen = new Set<string>();
+  const candidates = [
+    ...INITIAL_SUMMON_COORDINATES_BY_SIDE[side],
+    ...getOwnedNeutralBases(state.bases, side).flatMap((base) =>
+      getAdjacentBoardCoordinates(base.coordinate)
+    )
+  ];
+
+  return candidates.filter((coordinate) => {
+    const key = coordinateKey(coordinate);
+    if (
+      seen.has(key) ||
+      !isExistingBoardCoordinate(coordinate) ||
+      !isNormalBoardCoordinate(coordinate)
+    ) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 }
 
 function isCreature(card: BattleCardInstance): boolean {

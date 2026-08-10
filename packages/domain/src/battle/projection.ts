@@ -1,8 +1,17 @@
 import { coordinateKey } from "./board";
+import {
+  BATTLE_BASE_IDS,
+  getBattleBaseAt,
+  getBattleBaseLabel
+} from "./bases";
 import { queryMovementStart } from "./movement";
 import { querySummonStart } from "./summon";
 import type {
   BattleCardInstance,
+  BattleBaseId,
+  BattleBaseKind,
+  BattleBaseOwner,
+  BattleBaseState,
   BattleSide,
   BattleState,
   BoardCoordinate,
@@ -40,15 +49,25 @@ export interface BattleBoardSquareView {
   readonly coordinate: BoardCoordinate;
   readonly lane: BattleLane;
   readonly terrain: BoardTerrain;
+  readonly base?: BattleBaseView;
   readonly occupant?: BattleCardView;
+}
+
+export interface BattleBaseView {
+  readonly id: BattleBaseId;
+  readonly label: string;
+  readonly coordinate: BoardCoordinate;
+  readonly kind: BattleBaseKind;
+  readonly owner: BattleBaseOwner;
+  readonly currentHp: number;
+  readonly maxHp: number;
 }
 
 export interface PublicBattleView {
   readonly phase: BattleState["phase"];
   readonly activeSide: BattleSide;
   readonly turnNumber: number;
-  readonly playerBaseHp: number;
-  readonly cpuBaseHp: number;
+  readonly bases: readonly BattleBaseView[];
   readonly playerCurrentPp: number;
   readonly playerMaxPp: number;
   readonly cpuHandCount: number;
@@ -60,12 +79,14 @@ export interface PublicBattleView {
 }
 
 export function projectPublicBattleView(state: BattleState): PublicBattleView {
+  const bases = BATTLE_BASE_IDS.map((id) => projectBattleBaseView(state.bases[id]));
+  const basesById = new Map(bases.map((base) => [base.id, base]));
+
   return {
     phase: state.phase,
     activeSide: state.activeSide,
     turnNumber: state.metadata.turnNumber,
-    playerBaseHp: state.players.player.baseHp,
-    cpuBaseHp: state.players.cpu.baseHp,
+    bases,
     playerCurrentPp: state.players.player.currentPp,
     playerMaxPp: state.players.player.maxPp,
     cpuHandCount: state.players.cpu.handZone.length,
@@ -74,12 +95,15 @@ export function projectPublicBattleView(state: BattleState): PublicBattleView {
     playerHand: state.players.player.handZone.map((instanceId) =>
       projectBattleCard(instanceId, state.cardInstances[instanceId], "hand", state)
     ),
-    boardSquares: state.board.squares.map((square) => ({
-      key: coordinateKey(square.coordinate),
-      coordinate: square.coordinate,
-      lane: square.lane,
-      terrain: square.terrain,
-      occupant: square.occupantId
+    boardSquares: state.board.squares.map((square) => {
+      const base = getBattleBaseAt(state.bases, square.coordinate);
+      return {
+        key: coordinateKey(square.coordinate),
+        coordinate: square.coordinate,
+        lane: square.lane,
+        terrain: square.terrain,
+        base: base ? basesById.get(base.id) : undefined,
+        occupant: square.occupantId
           ? projectBattleCard(
             square.occupantId,
             state.cardInstances[square.occupantId],
@@ -87,8 +111,21 @@ export function projectPublicBattleView(state: BattleState): PublicBattleView {
             state
           )
         : undefined
-    })),
+      };
+    }),
     terminalResult: state.terminalResult
+  };
+}
+
+export function projectBattleBaseView(base: BattleBaseState): BattleBaseView {
+  return {
+    id: base.id,
+    label: getBattleBaseLabel(base.id),
+    coordinate: { ...base.coordinate },
+    kind: base.kind,
+    owner: base.owner,
+    currentHp: base.currentHp,
+    maxHp: base.maxHp
   };
 }
 

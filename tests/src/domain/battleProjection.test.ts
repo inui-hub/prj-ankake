@@ -1,4 +1,5 @@
 import {
+  BATTLE_BASE_IDS,
   projectPublicBattleView,
   type BattleState
 } from "@ankake/domain";
@@ -6,6 +7,26 @@ import fc from "fast-check";
 import { battleStateArbitrary } from "../generators/battleGenerators";
 
 describe("public battle projection", () => {
+  it("projects the five bases in canonical order and associates only base squares", () => {
+    const state = sampleBattleState();
+    const view = projectPublicBattleView(state);
+
+    expect(view.bases.map((base) => base.id)).toEqual(BATTLE_BASE_IDS);
+    for (const base of view.bases) {
+      expect(base).toMatchObject(state.bases[base.id]);
+      const squareBase = view.boardSquares.find(
+        (square) =>
+          square.coordinate.column === base.coordinate.column &&
+          square.coordinate.row === base.coordinate.row
+      )?.base;
+      expect(squareBase).toBe(base);
+    }
+    expect(view.boardSquares.filter((square) => square.base)).toHaveLength(5);
+    expect(view.boardSquares.find((square) => square.key === "5:5")?.base).toBeUndefined();
+    expect(view).not.toHaveProperty("playerBaseHp");
+    expect(view).not.toHaveProperty("cpuBaseHp");
+  });
+
   it("projects player hand order and PP without CPU hand identities or legal actions", () => {
     const state = sampleBattleState();
     const view = projectPublicBattleView(state);
@@ -53,6 +74,7 @@ describe("public battle projection", () => {
           ...creature,
           zone: "board",
           position: coordinate,
+          boardEntrySequence: state.eventCursor + 1,
           movement: 2,
           summonedThisTurn: false,
           movedThisTurn: false

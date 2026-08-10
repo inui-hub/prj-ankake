@@ -83,6 +83,7 @@ function acceptSummon(
           ...card,
           zone: "board",
           position: command.destination,
+          boardEntrySequence: sequence,
           summonedThisTurn: true
         }
       },
@@ -119,17 +120,14 @@ function acceptSpell(
     }
   };
   const effect = resolveSimpleSpellEffect(spentState, movedToGraveyard, command.side, state.eventCursor + 1);
-  const terminalState = maybeEndByBase(effect.state, command.side, state.eventCursor + effect.events.length + 1);
-  const terminalEvents = terminalState.terminalEvent ? [terminalState.terminalEvent] : [];
-  const events = [...effect.events, ...terminalEvents];
 
   return {
     ok: true,
     state: {
-      ...terminalState.state,
-      eventCursor: state.eventCursor + events.length
+      ...effect.state,
+      eventCursor: state.eventCursor + effect.events.length
     },
-    events
+    events: effect.events
   };
 }
 
@@ -201,40 +199,6 @@ function resetTurnFlags(state: BattleState, nextSide: BattleSide): BattleState {
   return {
     ...state,
     cardInstances: nextCards
-  };
-}
-
-function maybeEndByBase(
-  state: BattleState,
-  actingSide: BattleSide,
-  sequence: number
-): { readonly state: BattleState; readonly terminalEvent?: BattleEvent } {
-  const opponent: BattleSide = actingSide === "player" ? "cpu" : "player";
-  if (state.players[opponent].baseHp > 0) {
-    return { state };
-  }
-
-  const terminalResult = {
-    winner: actingSide,
-    loser: opponent,
-    reason: "base-destroyed" as const,
-    turnNumber: state.metadata.turnNumber,
-    elapsedSeconds: state.metadata.elapsedSeconds,
-    finalEventSequence: sequence
-  };
-
-  return {
-    state: {
-      ...state,
-      phase: "terminal",
-      terminalResult
-    },
-    terminalEvent: {
-      sequence,
-      type: "battle.ended",
-      side: actingSide,
-      message: `${labelSide(actingSide)} won by destroying the opposing base.`
-    }
   };
 }
 

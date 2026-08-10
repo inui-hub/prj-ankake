@@ -85,6 +85,19 @@ export interface BattleControllerInput {
   readonly onReturnToMenu: () => void;
 }
 
+type CpuStatus = "idle" | "thinking" | "executing" | "completed" | "limit-reached";
+
+export function getCpuStatusAfterExecution(
+  stopReason: Awaited<ReturnType<typeof executeCpuTurn>>["stopReason"],
+  hasTerminalResult: boolean
+): CpuStatus {
+  if (hasTerminalResult) {
+    return "completed";
+  }
+
+  return stopReason === "processing-limit" ? "limit-reached" : "completed";
+}
+
 export function useBattleController(input: BattleControllerInput): BattleController {
   const diagnostics = useMemo(() => createConsoleBattleDiagnostics(), []);
   const [preparation, setPreparation] = useState<BattlePreparationState>({
@@ -96,7 +109,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   const [interaction, setInteraction] = useState<BattleInteractionState>(
     IDLE_BATTLE_INTERACTION
   );
-  const [cpuStatus, setCpuStatus] = useState<BattleRouteViewModel["kind"] extends "battle" ? never : "idle" | "thinking" | "executing" | "completed" | "limit-reached">("idle");
+  const [cpuStatus, setCpuStatus] = useState<CpuStatus>("idle");
 
   useEffect(() => {
     let cancelled = false;
@@ -222,7 +235,12 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     setCpuStatus("executing");
     const result = await executeCpuTurn(nextSession, diagnostics, yieldToBrowser);
     setSession(result.session);
-    setCpuStatus(result.stopReason === "processing-limit" ? "limit-reached" : "completed");
+    setCpuStatus(
+      getCpuStatusAfterExecution(
+        result.stopReason,
+        Boolean(result.session.state.terminalResult)
+      )
+    );
   }
 
   async function rematch(): Promise<void> {

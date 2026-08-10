@@ -1,4 +1,9 @@
-import type { BattleLogEntry, PublicBattleView } from "@ankake/domain";
+import type {
+  BattleBaseId,
+  BattleBaseView,
+  BattleLogEntry,
+  PublicBattleView
+} from "@ankake/domain";
 
 export interface BattleStatusPanelProps {
   readonly viewModel: PublicBattleView;
@@ -70,12 +75,14 @@ export function BattlePhaseControls(props: BattlePhaseControlsProps) {
 
 export function BattleInfoPanels(props: { readonly viewModel: PublicBattleView }) {
   const { viewModel } = props;
+  const playerBase = getBaseViewById(viewModel.bases, "player-base");
+  const cpuBase = getBaseViewById(viewModel.bases, "cpu-base");
 
   return (
     <aside className="battle-info-grid">
       <section className="battle-panel" data-testid="battle-player-info-panel">
         <h2>Player</h2>
-        <p>Base HP: {viewModel.playerBaseHp}</p>
+        <p>Base HP: {playerBase.currentHp}</p>
         <p data-testid="battle-player-pp">
           PP: {viewModel.playerCurrentPp}/{viewModel.playerMaxPp}
         </p>
@@ -84,12 +91,23 @@ export function BattleInfoPanels(props: { readonly viewModel: PublicBattleView }
       </section>
       <section className="battle-panel" data-testid="battle-opponent-info-panel">
         <h2>CPU</h2>
-        <p>Base HP: {viewModel.cpuBaseHp}</p>
+        <p>Base HP: {cpuBase.currentHp}</p>
         <p>Hand: {viewModel.cpuHandCount}</p>
         <p>Deck: {viewModel.cpuDeckCount}</p>
       </section>
     </aside>
   );
+}
+
+function getBaseViewById(
+  bases: readonly BattleBaseView[],
+  baseId: BattleBaseId
+): BattleBaseView {
+  const base = bases.find((candidate) => candidate.id === baseId);
+  if (!base) {
+    throw new Error(`Missing required battle base view: ${baseId}`);
+  }
+  return base;
 }
 
 function phaseLabel(phase: PublicBattleView["phase"]): string {

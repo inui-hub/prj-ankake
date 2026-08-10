@@ -38,6 +38,30 @@ describe("CPU visible state", () => {
     );
   });
 
+  it("projects the same five public base values without UI labels", () => {
+    fc.assert(
+      fc.property(battleStateArbitrary, (state) => {
+        const publicView = projectPublicBattleView(state);
+        const cpuView = projectCpuVisibleState(state, generateLegalActions(state, "cpu"));
+
+        expect(cpuView.bases).toEqual(
+          publicView.bases.map((base) => ({
+            id: base.id,
+            coordinate: base.coordinate,
+            kind: base.kind,
+            owner: base.owner,
+            currentHp: base.currentHp,
+            maxHp: base.maxHp
+          }))
+        );
+        expect(cpuView).not.toHaveProperty("playerBaseHp");
+        expect(cpuView).not.toHaveProperty("cpuBaseHp");
+        expect(assertCpuVisibleStateIsRedacted(cpuView)).toBe(true);
+      }),
+      { numRuns: 50, seed: 8105 }
+    );
+  });
+
   it("keeps player hand identities out of the CPU view after player projection expands", () => {
     fc.assert(
       fc.property(battleStateArbitrary, (state) => {

@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import {
   coordinateKey,
   projectPublicBattleView,
+  updateBattleBase,
   type BattleCardInstance,
   type BattleLogEntry,
   type BattleState
@@ -70,7 +71,18 @@ const LOG_ENTRIES: readonly BattleLogEntry[] = [
 
 describe("battle screen", () => {
   it("renders the sparse board, five bases, public resources, and no visible coordinates", () => {
-    const state = createBattleScreenState();
+    const initialState = createBattleScreenState();
+    const state: BattleState = {
+      ...initialState,
+      bases: updateBattleBase(
+        updateBattleBase(initialState.bases, "player-base", (base) => ({
+          ...base,
+          currentHp: 13
+        })),
+        "cpu-base",
+        (base) => ({ ...base, currentHp: 7 })
+      )
+    };
     const viewModel = projectPublicBattleView(state);
     const { container } = renderBattleScreen(viewModel);
 
@@ -86,6 +98,12 @@ describe("battle screen", () => {
     expect(screen.getByTestId("battle-square-6-5")).toHaveTextContent("Neutral Base");
     expect(screen.getByTestId("battle-square-10-5")).toHaveTextContent("Neutral Base");
     expect(screen.getByTestId("battle-player-pp")).toHaveTextContent("PP: 10/10");
+    expect(screen.getByTestId("battle-player-info-panel")).toHaveTextContent(
+      "Base HP: 13"
+    );
+    expect(screen.getByTestId("battle-opponent-info-panel")).toHaveTextContent(
+      "Base HP: 7"
+    );
     expect(screen.getByTestId("battle-opponent-info-panel")).toHaveTextContent("Hand: 5");
     expect(screen.getByTestId("battle-log-panel")).toHaveTextContent("Player drew a card.");
 

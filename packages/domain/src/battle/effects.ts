@@ -11,10 +11,6 @@ export function resolveSimpleSpellEffect(
   side: BattleSide,
   firstSequence: number
 ): EffectResolution {
-  const opponent = side === "player" ? "cpu" : "player";
-  const damage = Math.max(1, Math.ceil(spell.currentCost / 2));
-  const opponentState = state.players[opponent];
-  const nextBaseHp = Math.max(0, opponentState.baseHp - damage);
   const events: BattleEvent[] = [
     {
       sequence: firstSequence,
@@ -25,27 +21,18 @@ export function resolveSimpleSpellEffect(
     },
     {
       sequence: firstSequence + 1,
-      type: "base.damaged",
-      side: opponent,
-      message: `${labelSide(opponent)} base took ${damage} damage.`,
+      type: "effect.fizzled",
+      side,
+      instanceId: spell.instanceId,
+      message: `${spell.name}'s card-specific effect is not implemented yet.`,
       data: {
-        damage,
-        baseHp: nextBaseHp
+        reason: "effect-deferred"
       }
     }
   ];
 
   return {
-    state: {
-      ...state,
-      players: {
-        ...state.players,
-        [opponent]: {
-          ...opponentState,
-          baseHp: nextBaseHp
-        }
-      }
-    },
+    state,
     events
   };
 }

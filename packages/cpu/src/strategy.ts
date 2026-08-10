@@ -1,5 +1,5 @@
-import type { BattleCommand, LegalAction } from "@ankake/domain";
-import type { CpuVisibleState } from "./visibleState";
+import type { BattleBaseId, BattleCommand, LegalAction } from "@ankake/domain";
+import type { CpuVisibleBase, CpuVisibleState } from "./visibleState";
 
 export type CpuStopReason =
   | "no-legal-action"
@@ -68,6 +68,8 @@ export function chooseCpuAction(visible: CpuVisibleState): CpuDecision {
 export function scoreAction(action: LegalAction, visible: CpuVisibleState): CpuActionScore {
   const reasons: string[] = [];
   let score = action.scoreHint;
+  const playerBase = getVisibleBaseById(visible.bases, "player-base");
+  const cpuBase = getVisibleBaseById(visible.bases, "cpu-base");
 
   switch (action.command.type) {
     case "summonCreature":
@@ -75,8 +77,8 @@ export function scoreAction(action: LegalAction, visible: CpuVisibleState): CpuA
       reasons.push("develop-board");
       break;
     case "castSpell":
-      score += visible.playerBaseHp <= 4 ? 20 : 5;
-      reasons.push(visible.playerBaseHp <= 4 ? "pressure-lethal" : "apply-pressure");
+      score += playerBase.currentHp <= 4 ? 20 : 5;
+      reasons.push(playerBase.currentHp <= 4 ? "pressure-lethal" : "apply-pressure");
       break;
     case "moveCreature":
       score += 2;
@@ -88,7 +90,7 @@ export function scoreAction(action: LegalAction, visible: CpuVisibleState): CpuA
       break;
   }
 
-  if (visible.cpuBaseHp <= 5 && action.command.type !== "endPlayPhase") {
+  if (cpuBase.currentHp <= 5 && action.command.type !== "endPlayPhase") {
     score += 3;
     reasons.push("urgent-defense");
   }
@@ -98,6 +100,17 @@ export function scoreAction(action: LegalAction, visible: CpuVisibleState): CpuA
     score,
     reasons
   };
+}
+
+function getVisibleBaseById(
+  bases: readonly CpuVisibleBase[],
+  baseId: BattleBaseId
+): CpuVisibleBase {
+  const base = bases.find((candidate) => candidate.id === baseId);
+  if (!base) {
+    throw new Error(`Missing required CPU-visible battle base: ${baseId}`);
+  }
+  return base;
 }
 
 function commandTieBreakKey(command: BattleCommand): string {

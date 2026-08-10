@@ -1,11 +1,12 @@
 import { createRngFromState } from "./rng";
 import { BATTLE_HAND_LIMIT, BATTLE_MAX_PP } from "./constants";
+import { resolveAttackPhase } from "./attack";
+import { applyTerminalResult, evaluateBattleTerminal } from "./terminal";
 import type {
   BattleCardInstance,
   BattleEvent,
   BattleSide,
   BattleState,
-  BattleTerminalResult,
   PlayerBattleState
 } from "./types";
 
@@ -19,9 +20,22 @@ export function resolveAfterPlayPhase(
   side: BattleSide,
   firstSequence: number
 ): AutomaticResolution {
-  const attack = resolveAttackPhase(state, side, firstSequence);
+  const phaseEnded: BattleEvent = {
+    sequence: firstSequence,
+    type: "phase.ended",
+    side,
+    message: `${labelSide(side)} ended the play phase.`
+  };
+  const attack = resolveAttackPhase(
+    { ...state, phase: "automatic", eventCursor: firstSequence },
+    side,
+    firstSequence + 1
+  );
   if (attack.state.terminalResult) {
-    return attack;
+    return {
+      state: attack.state,
+      events: [phaseEnded, ...attack.events]
+    };
   }
 
   const nextSide = side === "player" ? "cpu" : "player";
@@ -35,7 +49,7 @@ export function resolveAfterPlayPhase(
       }
     },
     nextSide,
-    firstSequence + attack.events.length
+    firstSequence + attack.events.length + 1
   );
 
   return {
@@ -44,96 +58,7 @@ export function resolveAfterPlayPhase(
       phase: "play",
       activeSide: nextSide
     },
-    events: [...attack.events, ...standby.events]
-  };
-}
-
-export function resolveAttackPhase(
-  state: BattleState,
-  side: BattleSide,
-  firstSequence: number
-): AutomaticResolution {
-  const opponent = side === "player" ? "cpu" : "player";
-  const attackers = Object.values(state.cardInstances)
-    .filter((card) => card.zone === "board" && card.controllerSide === side)
-    .sort((left, right) => left.instanceId.localeCompare(right.instanceId));
-  const totalDamage = attackers.reduce((total, card) => total + Math.max(0, card.currentAttack ?? 0), 0);
-  const opponentState = state.players[opponent];
-  const nextBaseHp = Math.max(0, opponentState.baseHp - totalDamage);
-  const events: BattleEvent[] = [
-    {
-      sequence: firstSequence,
-      type: "phase.ended",
-      side,
-      message: `${labelSide(side)} ended the play phase.`
-    },
-    {
-      sequence: firstSequence + 1,
-      type: "attack.resolved",
-      side,
-      message:
-        totalDamage > 0
-          ? `${labelSide(side)} creatures attacked for ${totalDamage} total damage.`
-          : `${labelSide(side)} had no creatures ready to attack.`,
-      data: {
-        totalDamage
-      }
-    }
-  ];
-
-  let nextState: BattleState = {
-    ...state,
-    phase: "automatic",
-    players: {
-      ...state.players,
-      [opponent]: {
-        ...opponentState,
-        baseHp: nextBaseHp
-      }
-    }
-  };
-
-  if (totalDamage > 0) {
-    events.push({
-      sequence: firstSequence + 2,
-      type: "base.damaged",
-      side: opponent,
-      message: `${labelSide(opponent)} base is at ${nextBaseHp} HP.`,
-      data: {
-        baseHp: nextBaseHp
-      }
-    });
-  }
-
-  if (nextBaseHp <= 0) {
-    const sequence = firstSequence + events.length;
-    const terminal: BattleTerminalResult = {
-      winner: side,
-      loser: opponent,
-      reason: "base-destroyed",
-      turnNumber: state.metadata.turnNumber,
-      elapsedSeconds: state.metadata.elapsedSeconds,
-      finalEventSequence: sequence
-    };
-    events.push({
-      sequence,
-      type: "battle.ended",
-      side,
-      message: `${labelSide(side)} won by destroying the opposing base.`
-    });
-    nextState = {
-      ...nextState,
-      phase: "terminal",
-      terminalResult: terminal
-    };
-  }
-
-  return {
-    state: {
-      ...nextState,
-      eventCursor: firstSequence + events.length - 1
-    },
-    events
+    events: [phaseEnded, ...attack.events, ...standby.events]
   };
 }
 
@@ -165,42 +90,34 @@ export function resolveStandbyPhase(
   ];
 
   if (nextPlayer.deckZone.length === 0) {
-    const opponent = side === "player" ? "cpu" : "player";
     const sequence = firstSequence + events.length;
-    const terminal: BattleTerminalResult = {
-      winner: opponent,
-      loser: side,
-      reason: "deck-out",
-      turnNumber: state.metadata.turnNumber,
-      elapsedSeconds: state.metadata.elapsedSeconds,
-      finalEventSequence: sequence
-    };
     events.push({
       sequence,
       type: "deck-out.occurred",
       side,
       message: `${labelSide(side)} could not draw from an empty deck.`
     });
-    events.push({
-      sequence: sequence + 1,
-      type: "battle.ended",
-      side: opponent,
-      message: `${labelSide(opponent)} won by deck-out.`
-    });
+    const drawFailedState: BattleState = {
+      ...state,
+      activeSide: side,
+      players: {
+        ...state.players,
+        [side]: nextPlayer
+      },
+      eventCursor: sequence
+    };
+    const terminal = evaluateBattleTerminal(
+      drawFailedState,
+      { kind: "draw-failed", losingSide: side },
+      sequence + 1
+    );
+    const applied = terminal
+      ? applyTerminalResult(drawFailedState, terminal, sequence + 1)
+      : { state: drawFailedState, events: [], nextSequence: sequence + 1 };
 
     return {
-      state: {
-        ...state,
-        phase: "terminal",
-        activeSide: side,
-        players: {
-          ...state.players,
-          [side]: nextPlayer
-        },
-        terminalResult: terminal,
-        eventCursor: sequence + 1
-      },
-      events
+      state: applied.state,
+      events: [...events, ...applied.events]
     };
   }
 

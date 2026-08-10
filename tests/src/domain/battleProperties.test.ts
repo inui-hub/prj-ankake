@@ -1,4 +1,5 @@
 import {
+  BATTLE_BASE_IDS,
   CANONICAL_BOARD_COORDINATES,
   GameEngine,
   INITIAL_SUMMON_COORDINATES_BY_SIDE,
@@ -7,34 +8,53 @@ import {
   evaluateMovementDraft,
   generateLegalActions,
   getAdjacentBoardCoordinates,
+  getBattleBaseAt,
+  getSummonDestinations,
+  getSummonRangeCoordinates,
   getLane,
+  getOwnedNeutralBases,
   getOccupantId,
   getShortestMovementPaths,
   getTerrain,
   isExistingBoardCoordinate,
   isInitialSummonCoordinate,
   isNormalBoardCoordinate,
+  isWithinBasicAttackRange,
+  listAttackersInBoardOrder,
   projectPublicBattleView,
   queryMovementStart,
   querySummonStart,
+  resolveAttackPhase,
+  resolveCreatureAttack,
   sameCoordinate,
+  snapshotAttackTargets,
+  updateBattleBase,
   validateBattleCommand
 } from "@ankake/domain";
 import fc from "fast-check";
 import {
   absentBoardCoordinateArbitrary,
+  attackResolutionStateArbitrary,
   baseBoardCoordinateArbitrary,
   battleStateArbitrary,
+  battleStateWithBaseStateArbitrary,
+  battleStateWithBoardEntriesArbitrary,
   canonicalBoardCoordinateArbitrary,
   initialSummonCoordinateArbitrary,
   invalidMovementSuffixArbitrary,
   invalidSummonCommandArbitrary,
+  lethalCreatureAttackStateArbitrary,
   legalBattleCommandArbitrary,
   movableCreatureStateArbitrary,
+  neutralCaptureStateArbitrary,
+  neutralVictoryStateArbitrary,
+  nonterminalAttackStateArbitrary,
   normalBoardCoordinateArbitrary,
   occupiedInitialSummonStateArbitrary,
   originReturnMovementArbitrary,
   reachableMovementEndpointArbitrary,
+  staleAttackTargetStateArbitrary,
+  validBattleBaseStateMapArbitrary,
   validMovementPathArbitrary
 } from "../generators/battleGenerators";
 
@@ -119,6 +139,94 @@ describe("battle domain properties", () => {
     );
   });
 
+  it("keeps every generated base map complete, unique, and inside domain ranges", () => {
+    fc.assert(
+      fc.property(validBattleBaseStateMapArbitrary, (bases) => {
+        const values = BATTLE_BASE_IDS.map((id) => bases[id]);
+        const coordinateKeys = values.map((base) => coordinateKey(base.coordinate));
+
+        expect(values.map((base) => base.id)).toEqual(BATTLE_BASE_IDS);
+        expect(new Set(coordinateKeys).size).toBe(BATTLE_BASE_IDS.length);
+        expect(bases["player-base"].owner).toBe("player");
+        expect(bases["cpu-base"].owner).toBe("cpu");
+        for (const base of values) {
+          expect(Number.isInteger(base.currentHp)).toBe(true);
+          expect(Number.isInteger(base.maxHp)).toBe(true);
+          expect(base.currentHp).toBeGreaterThanOrEqual(0);
+          expect(base.currentHp).toBeLessThanOrEqual(base.maxHp);
+          expect(base.maxHp).toBeGreaterThan(0);
+          expect(getBattleBaseAt(bases, base.coordinate)).toBe(base);
+        }
+      }),
+      { numRuns: 80, seed: 8101 }
+    );
+  });
+
+  it("keeps owned neutral base queries canonical, pure, and side-specific", () => {
+    fc.assert(
+      fc.property(validBattleBaseStateMapArbitrary, (bases) => {
+        const before = JSON.stringify(bases);
+
+        for (const side of ["player", "cpu"] as const) {
+          const owned = getOwnedNeutralBases(bases, side);
+          expect(owned.map((base) => base.id)).toEqual(
+            BATTLE_BASE_IDS.filter(
+              (id) => bases[id].kind === "neutral-base" && bases[id].owner === side
+            )
+          );
+          expect(owned.every((base) => base.kind === "neutral-base")).toBe(true);
+          expect(owned.every((base) => base.owner === side)).toBe(true);
+        }
+
+        expect(JSON.stringify(bases)).toBe(before);
+      }),
+      { numRuns: 80, seed: 8102 }
+    );
+  });
+
+  it("projects generated base states in canonical order without changing input", () => {
+    fc.assert(
+      fc.property(battleStateWithBaseStateArbitrary, (state) => {
+        const before = JSON.stringify(state);
+        const first = projectPublicBattleView(state);
+        const second = projectPublicBattleView(state);
+
+        expect(first).toEqual(second);
+        expect(first.bases.map((base) => base.id)).toEqual(BATTLE_BASE_IDS);
+        for (const base of first.bases) {
+          expect(base).toMatchObject(state.bases[base.id]);
+        }
+        expect(first.boardSquares.filter((square) => square.base)).toHaveLength(5);
+        expect(JSON.stringify(state)).toBe(before);
+      }),
+      { numRuns: 60, seed: 8103 }
+    );
+  });
+
+  it("keeps board entry sequences present, positive, and unique only on board cards", () => {
+    fc.assert(
+      fc.property(battleStateWithBoardEntriesArbitrary, (state) => {
+        const boardCards = Object.values(state.cardInstances).filter(
+          (card) => card.zone === "board"
+        );
+        const boardSequences = boardCards.map((card) => card.boardEntrySequence);
+
+        expect(
+          boardSequences.every(
+            (sequence) => Number.isInteger(sequence) && (sequence ?? 0) > 0
+          )
+        ).toBe(true);
+        expect(new Set(boardSequences).size).toBe(boardSequences.length);
+        expect(
+          Object.values(state.cardInstances)
+            .filter((card) => card.zone !== "board")
+            .every((card) => card.boardEntrySequence === undefined)
+        ).toBe(true);
+      }),
+      { numRuns: 60, seed: 8104 }
+    );
+  });
+
   it("keeps canonical, normal, base, and absent generators inside their domains", () => {
     fc.assert(
       fc.property(
@@ -186,7 +294,7 @@ describe("battle domain properties", () => {
     );
   });
 
-  it("keeps summon candidates unique, ordered, and inside the side-specific initial set", () => {
+  it("keeps summon candidates unique, ordered, and inside the side-specific legal range", () => {
     fc.assert(
       fc.property(occupiedInitialSummonStateArbitrary, (fixture) => {
         const result = querySummonStart(
@@ -195,7 +303,7 @@ describe("battle domain properties", () => {
           fixture.handInstanceId
         );
         const occupiedKeys = new Set(fixture.occupiedCoordinates.map(coordinateKey));
-        const expected = INITIAL_SUMMON_COORDINATES_BY_SIDE[fixture.side]
+        const expected = getSummonRangeCoordinates(fixture.state, fixture.side)
           .filter((coordinate) => !occupiedKeys.has(coordinateKey(coordinate)))
           .map(coordinateKey);
         const actual = result.candidateDestinations.map(coordinateKey);
@@ -204,7 +312,9 @@ describe("battle domain properties", () => {
         expect(new Set(actual).size).toBe(actual.length);
         expect(
           result.candidateDestinations.every((coordinate) =>
-            isInitialSummonCoordinate(fixture.side, coordinate)
+            getSummonRangeCoordinates(fixture.state, fixture.side)
+              .map(coordinateKey)
+              .includes(coordinateKey(coordinate))
           )
         ).toBe(true);
         expect(result.eligible).toBe(expected.length > 0);
@@ -235,6 +345,58 @@ describe("battle domain properties", () => {
     );
   });
 
+  it("uses the exact initial-plus-owned-base range with immediate ownership changes", () => {
+    fc.assert(
+      fc.property(battleStateWithBaseStateArbitrary, (state) => {
+        for (const side of ["player", "cpu"] as const) {
+          const expected = [
+            ...INITIAL_SUMMON_COORDINATES_BY_SIDE[side],
+            ...getOwnedNeutralBases(state.bases, side).flatMap((base) =>
+              getAdjacentBoardCoordinates(base.coordinate).filter(isNormalBoardCoordinate)
+            )
+          ].filter(
+            (coordinate, index, coordinates) =>
+              coordinates.findIndex(
+                (candidate) => coordinateKey(candidate) === coordinateKey(coordinate)
+              ) === index
+          );
+
+          expect(getSummonRangeCoordinates(state, side).map(coordinateKey)).toEqual(
+            expected.map(coordinateKey)
+          );
+        }
+
+        const gained = {
+          ...state,
+          bases: updateBattleBase(state.bases, "neutral-center", (base) => ({
+            ...base,
+            owner: "player"
+          }))
+        };
+        const lost = {
+          ...gained,
+          bases: updateBattleBase(gained.bases, "neutral-center", (base) => ({
+            ...base,
+            owner: "cpu"
+          }))
+        };
+        const centerNeighbors = getAdjacentBoardCoordinates(
+          state.bases["neutral-center"].coordinate
+        )
+          .filter(isNormalBoardCoordinate)
+          .map(coordinateKey);
+
+        expect(getSummonRangeCoordinates(gained, "player").map(coordinateKey)).toEqual(
+          expect.arrayContaining(centerNeighbors)
+        );
+        expect(getSummonRangeCoordinates(lost, "player").map(coordinateKey)).not.toEqual(
+          expect.arrayContaining(centerNeighbors)
+        );
+      }),
+      { numRuns: 80, seed: 8302 }
+    );
+  });
+
   it("rejects generated invalid summon destinations without replacing state", () => {
     fc.assert(
       fc.property(invalidSummonCommandArbitrary, ({ state, command }) => {
@@ -258,7 +420,7 @@ describe("battle domain properties", () => {
     );
   });
 
-  it("keeps every generated CPU summon action inside the exact CPU range and valid", () => {
+  it("keeps every generated CPU summon action inside the shared CPU range and valid", () => {
     fc.assert(
       fc.property(
         occupiedInitialSummonStateArbitrary.filter((fixture) => fixture.side === "cpu"),
@@ -272,12 +434,41 @@ describe("battle domain properties", () => {
               continue;
             }
 
-            expect(isInitialSummonCoordinate("cpu", action.command.destination)).toBe(true);
+            expect(getSummonRangeCoordinates(fixture.state, "cpu")).toContainEqual(
+              action.command.destination
+            );
             expect(validateBattleCommand(fixture.state, action.command)).toEqual([]);
           }
         }
       ),
       { numRuns: 60 }
+    );
+  });
+
+  it("keeps player destinations and CPU summon actions equivalent for the same state", () => {
+    fc.assert(
+      fc.property(
+        occupiedInitialSummonStateArbitrary.filter((fixture) => fixture.side === "cpu"),
+        (fixture) => {
+          const destinations = getSummonDestinations(
+            fixture.state,
+            "cpu",
+            fixture.handInstanceId
+          ).map(coordinateKey);
+          const actionDestinations: string[] = [];
+          for (const action of generateLegalActions(fixture.state, "cpu")) {
+            if (
+              action.command.type === "summonCreature" &&
+              action.command.handInstanceId === fixture.handInstanceId
+            ) {
+              actionDestinations.push(coordinateKey(action.command.destination));
+            }
+          }
+
+          expect(actionDestinations).toEqual(destinations);
+        }
+      ),
+      { numRuns: 60, seed: 8301 }
     );
   });
 
@@ -437,6 +628,158 @@ describe("battle domain properties", () => {
         }
       ),
       { numRuns: 60, seed: 7310 }
+    );
+  });
+
+  it("keeps the generated attacker set and board-entry ordering exact", () => {
+    fc.assert(
+      fc.property(attackResolutionStateArbitrary, (fixture) => {
+        const actual = listAttackersInBoardOrder(fixture.state, fixture.side);
+        const expected = Object.values(fixture.state.cardInstances)
+          .filter(
+            (card) =>
+              card.zone === "board" &&
+              card.type !== "spell" &&
+              card.controllerSide === fixture.side
+          )
+          .sort(
+            (left, right) =>
+              (left.boardEntrySequence ?? Number.MAX_SAFE_INTEGER) -
+                (right.boardEntrySequence ?? Number.MAX_SAFE_INTEGER) ||
+              left.instanceId.localeCompare(right.instanceId, "en")
+          )
+          .map((card) => card.instanceId);
+
+        expect(actual).toEqual(expected);
+        expect(new Set(actual)).toEqual(new Set(fixture.attackerIds));
+      }),
+      { numRuns: 80, seed: 8201 }
+    );
+  });
+
+  it("matches target snapshots to the adjacency oracle with creature-first ordering", () => {
+    fc.assert(
+      fc.property(attackResolutionStateArbitrary, (fixture) => {
+        const attacker = fixture.state.cardInstances[fixture.attackerId]!;
+        const snapshot = snapshotAttackTargets(fixture.state, fixture.attackerId);
+        const kinds = snapshot.targets.map((target) => target.kind);
+        const firstBaseIndex = kinds.indexOf("base");
+
+        expect(new Set(snapshot.targets.map((target) => JSON.stringify(target))).size).toBe(
+          snapshot.targets.length
+        );
+        if (firstBaseIndex >= 0) {
+          expect(kinds.slice(0, firstBaseIndex).every((kind) => kind === "creature")).toBe(true);
+          expect(kinds.slice(firstBaseIndex).every((kind) => kind === "base")).toBe(true);
+        }
+        for (const target of snapshot.targets) {
+          const coordinate =
+            target.kind === "creature"
+              ? fixture.state.cardInstances[target.instanceId]?.position
+              : fixture.state.bases[target.baseId].coordinate;
+          expect(coordinate).toBeDefined();
+          expect(isWithinBasicAttackRange(attacker.position!, coordinate!)).toBe(true);
+        }
+      }),
+      { numRuns: 80, seed: 8202 }
+    );
+  });
+
+  it("resolves nonterminal attacks deterministically with contiguous events and no input mutation", () => {
+    fc.assert(
+      fc.property(nonterminalAttackStateArbitrary, (fixture) => {
+        const before = JSON.stringify(fixture.state);
+        const first = resolveAttackPhase(fixture.state, fixture.side, 1000);
+        const second = resolveAttackPhase(fixture.state, fixture.side, 1000);
+
+        expect(first).toEqual(second);
+        expect(JSON.stringify(fixture.state)).toBe(before);
+        expect(first.events.map((event) => event.sequence)).toEqual(
+          first.events.map((_, index) => 1000 + index)
+        );
+        expect(first.state.eventCursor).toBe(first.events.at(-1)?.sequence);
+      }),
+      { numRuns: 60, seed: 8203 }
+    );
+  });
+
+  it("keeps lethal damage consistent across card, board, and graveyard aggregates", () => {
+    fc.assert(
+      fc.property(lethalCreatureAttackStateArbitrary, (fixture) => {
+        const targetId = fixture.enemyIds[0];
+        const result = resolveAttackPhase(fixture.state, fixture.side, 1100);
+        const target = result.state.cardInstances[targetId]!;
+
+        expect(target.zone).toBe("graveyard");
+        expect(target.currentHp).toBe(0);
+        expect(target.position).toBeUndefined();
+        expect(target.boardEntrySequence).toBeUndefined();
+        expect(
+          result.state.board.squares.some((square) => square.occupantId === targetId)
+        ).toBe(false);
+        expect(result.state.players.cpu.graveyardZone.filter((id) => id === targetId)).toHaveLength(1);
+      }),
+      { numRuns: 60, seed: 8204 }
+    );
+  });
+
+  it("preserves base identity and resets HP after generated capture or recapture", () => {
+    fc.assert(
+      fc.property(neutralCaptureStateArbitrary, (fixture) => {
+        const before = fixture.state.bases["neutral-center"];
+        const result = resolveAttackPhase(fixture.state, fixture.side, 1200);
+        const captured = result.state.bases["neutral-center"];
+
+        expect(captured).toMatchObject({
+          id: before.id,
+          coordinate: before.coordinate,
+          kind: before.kind,
+          maxHp: before.maxHp,
+          owner: fixture.side,
+          currentHp: before.maxHp
+        });
+      }),
+      { numRuns: 60, seed: 8205 }
+    );
+  });
+
+  it("produces a stable neutral-control terminal and stops subsequent resolution", () => {
+    fc.assert(
+      fc.property(neutralVictoryStateArbitrary, (fixture) => {
+        const result = resolveAttackPhase(fixture.state, fixture.side, 1300);
+
+        expect(result.state.terminalResult).toMatchObject({
+          winner: fixture.side,
+          reason: "neutral-bases-controlled"
+        });
+        expect(result.state.terminalResult?.finalEventSequence).toBe(
+          result.events.at(-1)?.sequence
+        );
+        const repeated = resolveAttackPhase(
+          result.state,
+          fixture.side,
+          result.state.eventCursor + 1
+        );
+        expect(repeated.state).toBe(result.state);
+        expect(repeated.events).toEqual([]);
+      }),
+      { numRuns: 60, seed: 8206 }
+    );
+  });
+
+  it("emits a reproducible skip for generated stale targets", () => {
+    fc.assert(
+      fc.property(staleAttackTargetStateArbitrary, (fixture) => {
+        const result = resolveCreatureAttack(fixture.state, fixture.snapshot, 1400);
+        const skipped = result.events.find(
+          (event) =>
+            event.type === "attack.target-skipped" &&
+            event.data?.targetId === fixture.staleTargetId
+        );
+
+        expect(skipped?.data?.reason).toBe("target-left-board");
+      }),
+      { numRuns: 60, seed: 8207 }
     );
   });
 });

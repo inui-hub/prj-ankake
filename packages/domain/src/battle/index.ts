@@ -1,5 +1,6 @@
 export * from "./constants";
 export * from "./types";
+export * from "./bases";
 export * from "./board";
 export * from "./rng";
 export * from "./log";
@@ -10,6 +11,9 @@ export * from "./summon";
 export * from "./movement";
 export * from "./legalActions";
 export * from "./effects";
+export * from "./terminal";
+export * from "./baseCombat";
+export * from "./attack";
 export * from "./automaticPhases";
 export * from "./engine";
 export * from "./projection";

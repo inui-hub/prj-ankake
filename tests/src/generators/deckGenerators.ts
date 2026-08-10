@@ -5,6 +5,7 @@ import {
   DECK_MAX_SAVED_DECKS,
   createDraftFromSavedDeck,
   normalizeDeckCards,
+  normalizeDeckName,
   type CardSearchCriteria,
   type DeckCardCount,
   type DeckDraft,
@@ -26,7 +27,7 @@ export const deckIdArbitrary: fc.Arbitrary<string> = fc
 
 export const deckNameArbitrary: fc.Arbitrary<string> = fc
   .string({ minLength: 1, maxLength: 24 })
-  .map((value) => value.trim() || DECK_DEFAULT_NAME);
+  .map((value) => normalizeDeckName(value) || DECK_DEFAULT_NAME);
 
 export const deckCardCountsArbitrary: fc.Arbitrary<readonly DeckCardCount[]> = fc
   .uniqueArray(fc.constantFrom(...NORMAL_CARD_IDS), {

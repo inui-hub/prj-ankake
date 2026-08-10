@@ -2,10 +2,14 @@ import {
   INITIAL_SUMMON_COORDINATES_BY_SIDE,
   coordinateKey,
   createInitialBattleBoard,
+  getAdjacentBoardCoordinates,
+  getSummonRangeCoordinates,
   getSummonDestinations,
+  isNormalBoardCoordinate,
   projectPublicBattleView,
   querySummonStart,
   setBoardOccupant,
+  updateBattleBase,
   validateSummonDestination,
   type BattleCardInstance,
   type BattleSide,
@@ -152,6 +156,60 @@ describe("battle summon queries", () => {
     expect(result.issues.map((issue) => issue.code)).toEqual([
       "battle.summon.no-destination"
     ]);
+  });
+
+  it("adds owned neutral-base neighbors after initial destinations in canonical order", () => {
+    const { state, creatureId } = createSummonState("player");
+    const withOwnedBase = {
+      ...state,
+      bases: updateBattleBase(state.bases, "neutral-left", (base) => ({
+        ...base,
+        owner: "player"
+      }))
+    };
+    const expectedRange = [
+      ...INITIAL_SUMMON_COORDINATES_BY_SIDE.player,
+      ...getAdjacentBoardCoordinates(withOwnedBase.bases["neutral-left"].coordinate).filter(
+        isNormalBoardCoordinate
+      )
+    ];
+
+    expect(getSummonRangeCoordinates(withOwnedBase, "player").map(coordinateKey)).toEqual(
+      expectedRange.map(coordinateKey)
+    );
+    expect(getSummonDestinations(withOwnedBase, "player", creatureId).map(coordinateKey)).toEqual(
+      expectedRange.map(coordinateKey)
+    );
+  });
+
+  it("removes an extra range immediately after neutral-base ownership is lost without moving creatures", () => {
+    const { state, creatureId } = createSummonState("player");
+    const owned = {
+      ...state,
+      bases: updateBattleBase(state.bases, "neutral-center", (base) => ({
+        ...base,
+        owner: "player"
+      }))
+    };
+    const destination = getAdjacentBoardCoordinates(owned.bases["neutral-center"].coordinate).find(
+      isNormalBoardCoordinate
+    );
+    expect(destination).toBeDefined();
+    if (!destination) {
+      return;
+    }
+
+    const lost = {
+      ...owned,
+      bases: updateBattleBase(owned.bases, "neutral-center", (base) => ({
+        ...base,
+        owner: "cpu"
+      }))
+    };
+
+    expect(getSummonDestinations(owned, "player", creatureId)).toContainEqual(destination);
+    expect(getSummonDestinations(lost, "player", creatureId)).not.toContainEqual(destination);
+    expect(lost.cardInstances[creatureId]?.zone).toBe("hand");
   });
 
   it("distinguishes occupied, base, absent, and out-of-range destinations", () => {

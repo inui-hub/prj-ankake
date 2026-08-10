@@ -18,6 +18,27 @@ export interface BoardCoordinate {
   readonly row: number;
 }
 
+export type BattleBaseId =
+  | "cpu-base"
+  | "neutral-left"
+  | "neutral-center"
+  | "neutral-right"
+  | "player-base";
+
+export type BattleBaseKind = "player-base" | "neutral-base";
+export type BattleBaseOwner = BattleSide | "none";
+
+export interface BattleBaseState {
+  readonly id: BattleBaseId;
+  readonly coordinate: BoardCoordinate;
+  readonly kind: BattleBaseKind;
+  readonly owner: BattleBaseOwner;
+  readonly currentHp: number;
+  readonly maxHp: number;
+}
+
+export type BattleBaseStateMap = Readonly<Record<BattleBaseId, BattleBaseState>>;
+
 export type BoardTerrain = "normal" | "player-base" | "cpu-base" | "neutral-base";
 
 export interface BoardSquare {
@@ -72,7 +93,6 @@ export interface PlayerBattleState {
   readonly graveyardZone: readonly BattleCardInstanceId[];
   readonly currentPp: number;
   readonly maxPp: number;
-  readonly baseHp: number;
   readonly resonance: ResonanceMap;
   readonly turnsStarted: number;
 }
@@ -98,15 +118,16 @@ export interface BattleCardInstance {
   readonly effectText: string;
   readonly effectIds: readonly string[];
   readonly position?: BoardCoordinate;
+  readonly boardEntrySequence?: number;
   readonly summonedThisTurn: boolean;
   readonly movedThisTurn: boolean;
 }
 
 export type BattleTerminalReason =
   | "base-destroyed"
+  | "neutral-bases-controlled"
   | "deck-out"
-  | "quit"
-  | "processing-limit";
+  | "quit";
 
 export interface BattleTerminalResult {
   readonly winner: BattleSide;
@@ -122,12 +143,72 @@ export interface BattleState {
   readonly phase: BattlePhase;
   readonly activeSide: BattleSide;
   readonly board: BattleBoard;
+  readonly bases: BattleBaseStateMap;
   readonly players: Readonly<Record<BattleSide, PlayerBattleState>>;
   readonly cardInstances: Readonly<Record<BattleCardInstanceId, BattleCardInstance>>;
   readonly metadata: BattleMetadata;
   readonly eventCursor: number;
   readonly terminalResult?: BattleTerminalResult;
 }
+
+export type AttackTarget =
+  | {
+      readonly kind: "creature";
+      readonly instanceId: BattleCardInstanceId;
+    }
+  | {
+      readonly kind: "base";
+      readonly baseId: BattleBaseId;
+    };
+
+export interface AttackTargetSnapshot {
+  readonly attackerId: BattleCardInstanceId;
+  readonly targets: readonly AttackTarget[];
+}
+
+export type AttackTargetSkipReason =
+  | "target-missing"
+  | "target-left-board"
+  | "target-no-longer-enemy"
+  | "target-out-of-range"
+  | "attacker-unavailable";
+
+export type AttackTargetValidation =
+  | {
+      readonly valid: true;
+      readonly attacker: BattleCardInstance;
+      readonly target: BattleCardInstance | BattleBaseState;
+    }
+  | {
+      readonly valid: false;
+      readonly reason: AttackTargetSkipReason;
+    };
+
+export interface BattleRuleResolution {
+  readonly state: BattleState;
+  readonly events: readonly BattleEvent[];
+  readonly nextSequence: number;
+}
+
+export type BattleTerminalTrigger =
+  | {
+      readonly kind: "player-base-damaged";
+      readonly attackingSide: BattleSide;
+      readonly baseId: BattleBaseId;
+    }
+  | {
+      readonly kind: "neutral-base-captured";
+      readonly capturingSide: BattleSide;
+      readonly baseId: BattleBaseId;
+    }
+  | {
+      readonly kind: "draw-failed";
+      readonly losingSide: BattleSide;
+    }
+  | {
+      readonly kind: "quit";
+      readonly losingSide: BattleSide;
+    };
 
 export interface BattleEvent {
   readonly sequence: number;
@@ -152,8 +233,16 @@ export type BattleEventType =
   | "resonance.changed"
   | "phase.ended"
   | "standby.resolved"
-  | "attack.resolved"
+  | "attack.phase-started"
+  | "attack.attacker-started"
+  | "attack.attacker-skipped"
+  | "attack.targeted"
+  | "attack.target-skipped"
+  | "creature.damaged"
+  | "creature.destroyed"
   | "base.damaged"
+  | "base.captured"
+  | "attack.phase-ended"
   | "deck-out.occurred"
   | "cpu.processing-limit-reached"
   | "battle.ended";

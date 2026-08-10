@@ -1,4 +1,5 @@
 import {
+  BATTLE_BASE_IDS,
   BATTLE_BASE_MOVEMENT,
   createBattleState,
   DECK_BATTLE_READY_CARD_COUNT,
@@ -33,6 +34,16 @@ describe("battle state factory", () => {
     expect(result.state.board.squares).toHaveLength(75);
     expect(new Set(result.state.board.squares.map((square) => coordinateKey(square.coordinate))).size).toBe(75);
     expect(result.state.board.squares.filter((square) => square.terrain !== "normal")).toHaveLength(5);
+    expect(BATTLE_BASE_IDS.map((id) => result.state.bases[id].id)).toEqual(
+      BATTLE_BASE_IDS
+    );
+    expect("baseHp" in result.state.players.player).toBe(false);
+    expect("baseHp" in result.state.players.cpu).toBe(false);
+    expect(
+      Object.values(result.state.cardInstances).every(
+        (card) => card.boardEntrySequence === undefined
+      )
+    ).toBe(true);
     expect(
       Object.values(result.state.cardInstances)
         .filter((card) => card.type === "creature")

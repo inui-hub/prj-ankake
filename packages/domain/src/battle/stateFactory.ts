@@ -1,9 +1,9 @@
 import type { CardMasterRecord, StaticCatalogSnapshot } from "../catalog/types";
 import { getDeckTotalCount, normalizeDeckCards } from "../deck/operations";
 import { DECK_BATTLE_READY_CARD_COUNT, type SavedDeck } from "../deck/types";
+import { createInitialBattleBases } from "./bases";
 import { createInitialBattleBoard, getLane, setBoardOccupant } from "./board";
 import {
-  BATTLE_BASE_HP,
   BATTLE_BASE_MOVEMENT,
   BATTLE_STARTING_HAND_SIZE,
   BATTLE_STARTING_PP
@@ -95,6 +95,7 @@ export function createBattleState(input: BattleSetupInput): BattleSetupResult {
       phase: "play",
       activeSide: firstPlayer,
       board: createInitialBattleBoard(),
+      bases: createInitialBattleBases(),
       players: {
         player: playerState,
         cpu: cpuState
@@ -135,6 +136,12 @@ export function placeCreatureForTest(
 
   const coordinate = { column, row };
   const player = state.players[side];
+  const boardEntrySequence = Math.max(
+    state.eventCursor,
+    ...Object.values(state.cardInstances)
+      .filter((instance) => instance.zone === "board")
+      .map((instance) => instance.boardEntrySequence ?? 0)
+  ) + 1;
   return {
     ...state,
     board: setBoardOccupant(state.board, coordinate, instanceId),
@@ -150,9 +157,11 @@ export function placeCreatureForTest(
       [instanceId]: {
         ...card,
         zone: "board",
-        position: coordinate
+        position: coordinate,
+        boardEntrySequence
       }
-    }
+    },
+    eventCursor: boardEntrySequence
   };
 }
 
@@ -266,7 +275,6 @@ function createInitialPlayerState(
       graveyardZone: [],
       currentPp: BATTLE_STARTING_PP,
       maxPp: BATTLE_STARTING_PP,
-      baseHp: BATTLE_BASE_HP,
       resonance: createEmptyResonance(),
       turnsStarted: side === "player" ? 1 : 0
     },
