@@ -1,10 +1,13 @@
 # AI-DLC files
-AGENTS.md
 .aidlc-rule-details/
 aidlc-docs/
-.agents/
-.codex/
-aidlc/
+### v2 files
+aidlc/active-space
+aidlc/spaces/*/intents/active-intent
+aidlc/.aidlc-clone-id
+aidlc/.aidlc-sessions/
+aidlc/spaces/*/intents/*/runtime-graph.json
+aidlc/spaces/*/intents/*/.aidlc-*
 
 # Node modules
 node_modules/
