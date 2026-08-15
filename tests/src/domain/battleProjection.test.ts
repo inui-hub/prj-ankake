@@ -1,5 +1,6 @@
 import {
   BATTLE_BASE_IDS,
+  getPublicEffectChoices,
   projectPublicBattleView,
   type BattleState
 } from "@ankake/domain";
@@ -133,6 +134,24 @@ describe("public battle projection", () => {
       presentationStatus: "unavailable",
       isInspectable: true
     });
+  });
+
+  it("does not expose an opponent creature name through AK-019 effect choices", () => {
+    const state = sampleBattleState();
+    const handId = state.players.player.handZone[0]!;
+    const cpuId = Object.values(state.cardInstances).find((card) => card.ownerSide === "cpu" && card.type !== "spell")!.instanceId;
+    const coordinate = { column: 5, row: 8 };
+    const secured: BattleState = {
+      ...state, phase: "play", activeSide: "player", terminalResult: undefined,
+      players: { ...state.players, player: { ...state.players.player, currentPp: 10 } },
+      board: { squares: state.board.squares.map((square) => square.coordinate.column === coordinate.column && square.coordinate.row === coordinate.row ? { ...square, occupantId: cpuId } : square) },
+      cardInstances: { ...state.cardInstances,
+        [handId]: { ...state.cardInstances[handId]!, type: "spell", catalogCardId: "AK-019", effectIds: ["AK-019.primary"], currentCost: 1 },
+        [cpuId]: { ...state.cardInstances[cpuId]!, name: "SENTINEL_SECRET", zone: "board", position: coordinate, controllerSide: "cpu" }
+      }
+    };
+    const choice = getPublicEffectChoices(secured, "player").find((candidate) => candidate.sourceInstanceId === handId)!;
+    expect(choice.candidates.map((candidate) => candidate.label).join(" ")).not.toContain("SENTINEL_SECRET");
   });
 });
 

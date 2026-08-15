@@ -124,6 +124,15 @@ export interface BattleCardInstance {
   readonly maxHp?: number;
   readonly movement: number;
   readonly temporaryMovementBonus?: number;
+  /** A turn-bounded movement lock (for example AK-023). */
+  readonly movementOverride?: number;
+  readonly movementOverrideExpiresOnSide?: BattleSide;
+  /** Card-effect state.  These values are intentionally instance-local so a
+   * returned or resurrected card does not retain board-only effects. */
+  readonly temporaryAttackBonus?: number;
+  readonly temporaryHealthBonus?: number;
+  readonly effectsDisabled?: boolean;
+  readonly effectUsesThisTurn?: readonly string[];
   readonly isToken: boolean;
   readonly effectText: string;
   readonly effectIds: readonly string[];
@@ -159,6 +168,19 @@ export interface BattleState {
   readonly metadata: BattleMetadata;
   readonly eventCursor: number;
   readonly terminalResult?: BattleTerminalResult;
+}
+
+/**
+ * The complete input surface required by documented card effects.  Existing
+ * single-target spell fields remain supported for backwards compatibility;
+ * clients use this value for lane, square, graveyard and multi-target cards.
+ */
+export interface BattleEffectSelection {
+  readonly creatureIds?: readonly BattleCardInstanceId[];
+  readonly baseIds?: readonly BattleBaseId[];
+  readonly lane?: BattleLane;
+  readonly coordinates?: readonly BoardCoordinate[];
+  readonly graveyardCardIds?: readonly BattleCardInstanceId[];
 }
 
 export type AttackTarget =
@@ -278,7 +300,9 @@ export type BattleValidationIssueCode =
   | "battle.move.origin-changed"
   | "battle.resonance.inactive"
   | "battle.resonance.already-used"
-  | "battle.effect.no-target";
+  | "battle.effect.no-target"
+  | "battle.effect.unsupported"
+  | "battle.effect.trigger-loop";
 
 export interface BattleValidationIssue {
   readonly code: BattleValidationIssueCode;
@@ -334,12 +358,15 @@ export type BattleCommand =
       readonly side: BattleSide;
       readonly handInstanceId: BattleCardInstanceId;
       readonly destination: BoardCoordinate;
+      readonly effectSelection?: BattleEffectSelection;
     }
   | {
       readonly type: "castSpell";
       readonly side: BattleSide;
       readonly handInstanceId: BattleCardInstanceId;
       readonly targetInstanceId?: BattleCardInstanceId;
+      readonly targetBaseId?: BattleBaseId;
+      readonly effectSelection?: BattleEffectSelection;
     }
   | {
       readonly type: "moveCreature";
@@ -364,6 +391,11 @@ export type BattleCommandResult =
       readonly ok: true;
       readonly state: BattleState;
       readonly events: readonly BattleEvent[];
+      readonly effect?: {
+        readonly status: "resolved" | "fizzled";
+        readonly completedOperationCount: number;
+        readonly failedOperation?: { readonly operationIndex: number; readonly reason: "target-count" | "target-invalid" | "operation-invalid" };
+      };
     }
   | {
       readonly ok: false;
@@ -407,6 +439,21 @@ export interface LegalAction {
   readonly command: BattleCommand;
   readonly label: string;
   readonly scoreHint: number;
+}
+
+export interface PublicEffectCandidate {
+  readonly kind: "creature" | "base" | "lane" | "coordinate" | "graveyard";
+  readonly id: string;
+  readonly label: string;
+}
+
+export interface PublicEffectChoice {
+  readonly effectId: string;
+  readonly sourceInstanceId: BattleCardInstanceId;
+  readonly selectionKinds: readonly PublicEffectCandidate["kind"][];
+  readonly candidates: readonly PublicEffectCandidate[];
+  readonly minimumTargets?: number;
+  readonly maximumTargets?: number;
 }
 
 export interface BattleLogEntry {

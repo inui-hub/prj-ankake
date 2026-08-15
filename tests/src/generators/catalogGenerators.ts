@@ -1,6 +1,7 @@
 import {
   CARD_ATTRIBUTES,
   buildStaticCatalogSnapshot,
+  effectTextDigest,
   type CardAttribute,
   type CardMasterRecord,
   type StaticCatalogInput,
@@ -78,19 +79,23 @@ export const validCatalogInputArbitrary: fc.Arbitrary<StaticCatalogInput> = fc
     fc.array(validCardTemplateArbitrary, { minLength: NORMAL_CARD_IDS.length, maxLength: NORMAL_CARD_IDS.length }),
     fc.array(validTokenTemplateArbitrary, { minLength: TOKEN_IDS.length, maxLength: TOKEN_IDS.length })
   )
-  .map(([cards, tokens]) => ({
-    cards: cards.map((card, index) => ({
+  .map(([cards, tokens]) => {
+    const catalogCards = cards.map((card, index) => ({
       ...card,
       id: NORMAL_CARD_IDS[index],
       illustration: illustrationFor(NORMAL_CARD_IDS[index])
-    })),
-    tokens: tokens.map((token, index) => ({
+    }));
+    const catalogTokens = tokens.map((token, index) => ({
       ...token,
       id: TOKEN_IDS[index],
       illustration: illustrationFor(TOKEN_IDS[index])
-    })),
-    version: catalogVersionFixture
-  }));
+    }));
+    return { cards: catalogCards, tokens: catalogTokens, version: catalogVersionFixture, effectManifest: [...catalogCards, ...catalogTokens].map((record) => ({
+      cardId: record.id,
+      textDigest: effectTextDigest(record.effectText),
+      effects: "none" as const
+    })) };
+  });
 
 export const duplicateNormalCardIdCatalogArbitrary: fc.Arbitrary<StaticCatalogInput> = validCatalogInputArbitrary.map((catalog) => {
   const cards = catalog.cards as CardMasterRecord[];

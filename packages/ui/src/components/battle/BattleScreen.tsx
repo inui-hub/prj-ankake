@@ -31,6 +31,7 @@ export interface BattleScreenProps {
   readonly onConfirmInteraction?: () => void;
   readonly onCancelInteraction?: () => void;
   readonly onUndoInteraction?: () => void;
+  readonly onEffectCandidateIntent?: (id: string) => void;
   readonly onRematch: () => void;
   readonly onQuitBattle: () => void;
 }
@@ -79,6 +80,7 @@ export function BattleScreen(props: BattleScreenProps) {
             onCancel={props.onCancelInteraction ?? noOperation}
             onUndo={props.onUndoInteraction ?? noOperation}
             onEndPlayPhase={props.onEndPlayPhase}
+            onEffectCandidate={props.onEffectCandidateIntent}
             interactionDisabled={terminal}
           />
           <BattleLogPanel entries={props.logEntries} />

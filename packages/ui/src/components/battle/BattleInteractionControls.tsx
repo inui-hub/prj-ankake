@@ -1,11 +1,12 @@
 export interface BattleInteractionControlsView {
-  readonly kind: "idle" | "selecting-summon" | "selecting-move";
+  readonly kind: "idle" | "selecting-summon" | "selecting-move" | "selecting-effect";
   readonly selectedHandInstanceId?: string;
   readonly selectedCreatureInstanceId?: string;
   readonly candidateDestinationKeys?: readonly string[];
   readonly selectedDestinationKey?: string;
   readonly selectedCardName?: string;
   readonly selectedCardCost?: number;
+  readonly effectCandidates?: readonly { readonly kind: "creature" | "base" | "lane" | "coordinate" | "graveyard"; readonly id: string; readonly label: string; readonly selected: boolean }[];
   readonly movementOriginKey?: string;
   readonly movementPathSteps?: readonly {
     readonly key: string;
@@ -28,13 +29,15 @@ export interface BattleInteractionControlsProps {
   readonly onCancel: () => void;
   readonly onUndo: () => void;
   readonly onEndPlayPhase: () => void;
+  readonly onEffectCandidate?: (id: string) => void;
   readonly interactionDisabled?: boolean;
 }
 
 export function BattleInteractionControls(props: BattleInteractionControlsProps) {
   const selectingSummon = props.interaction.kind === "selecting-summon";
   const selectingMove = props.interaction.kind === "selecting-move";
-  const selecting = selectingSummon || selectingMove;
+  const selectingEffect = props.interaction.kind === "selecting-effect";
+  const selecting = selectingSummon || selectingMove || selectingEffect;
 
   return (
     <section
@@ -46,6 +49,8 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
           ? "Summon creature"
           : selectingMove
             ? "Move creature"
+            : selectingEffect
+              ? "Choose spell target"
             : "Phase control"}
       </h2>
       <div className="battle-interaction-controls__status">
@@ -61,6 +66,18 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
           <span data-testid="battle-movement-budget">
             Movement {props.interaction.movementUsed ?? 0} / {props.interaction.movementMaximum ?? 0}
           </span>
+        ) : null}
+        {selectingEffect ? (
+          <div data-testid="battle-effect-candidates">
+            {props.interaction.effectCandidates?.map((candidate) => (
+              <button key={`${candidate.kind}:${candidate.id}`} type="button"
+                className="battle-button battle-button--quiet" data-testid={`battle-effect-target-${candidate.kind}-${candidate.id}`}
+                aria-pressed={candidate.selected} disabled={props.interactionDisabled}
+                onClick={() => props.onEffectCandidate?.(candidate.id)}>
+                {candidate.selected ? "Selected: " : "Select: "}{candidate.label}
+              </button>
+            ))}
+          </div>
         ) : null}
         <p data-testid="battle-interaction-instruction">
           {props.interaction.instruction}
@@ -125,6 +142,12 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
           >
             Cancel Move
           </button>
+        </div>
+      ) : null}
+      {selectingEffect ? (
+        <div className="battle-interaction-controls__actions">
+          <button className="battle-button battle-button--primary" data-testid="battle-effect-confirm-button" disabled={props.interactionDisabled || !props.interaction.confirmEnabled} type="button" onClick={props.onConfirm}>Confirm Spell</button>
+          <button className="battle-button battle-button--quiet" data-testid="battle-effect-cancel-button" disabled={props.interactionDisabled || !props.interaction.cancelEnabled} type="button" onClick={props.onCancel}>Cancel Spell</button>
         </div>
       ) : null}
       <button

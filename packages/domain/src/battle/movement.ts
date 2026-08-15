@@ -7,6 +7,7 @@ import {
   isNormalBoardCoordinate,
   sameCoordinate
 } from "./board";
+import { getEffectiveCreatureMovement } from "./resonance";
 import type {
   BattleCardInstance,
   BattleCardInstanceId,
@@ -50,7 +51,7 @@ export function queryMovementStart(
     eligible: true,
     creatureInstanceId,
     origin,
-    maximumMovement: Math.max(0, card.movement + (card.temporaryMovementBonus ?? 0)),
+    maximumMovement: effectiveMovement(state, card),
     candidateNextSteps,
     issues: []
   };
@@ -64,7 +65,7 @@ export function evaluateMovementDraft(
   proposedPath: readonly BoardCoordinate[]
 ): MovementDraftEvaluation {
   const card = state.cardInstances[creatureInstanceId];
-  const maximumMovement = Math.max(0, (card?.movement ?? 0) + (card?.temporaryMovementBonus ?? 0));
+  const maximumMovement = card ? effectiveMovement(state, card) : 0;
   const sourceIssues = validateMovementSource(
     state,
     side,
@@ -137,6 +138,10 @@ export function evaluateMovementDraft(
     candidateNextSteps,
     issues: firstIssue ? [firstIssue] : []
   };
+}
+
+function effectiveMovement(state: BattleState, card: BattleCardInstance): number {
+  return getEffectiveCreatureMovement(state, card);
 }
 
 export function getNextMovementSteps(
@@ -280,7 +285,7 @@ export function validateMovementSource(
     ];
   }
 
-  if (card.movement + (card.temporaryMovementBonus ?? 0) < 1) {
+  if (effectiveMovement(state, card) < 1) {
     return [
       {
         code: "battle.move.too-far",

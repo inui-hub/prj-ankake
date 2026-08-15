@@ -103,7 +103,11 @@ export function resolveStandbyPhase(
       dark: player.resonanceUsage.dark
     }
   };
-  let nextCardInstances = state.cardInstances;
+  let nextCardInstances = Object.fromEntries(Object.entries(state.cardInstances).map(([id, card]) => [id,
+    card.movementOverrideExpiresOnSide === side
+      ? { ...card, movementOverride: undefined, movementOverrideExpiresOnSide: undefined }
+      : card
+  ])) as BattleState["cardInstances"];
   const events: BattleEvent[] = [
     ...(nextTurnsStarted === 1 ? [] : [{
       sequence: firstSequence,

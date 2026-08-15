@@ -1,6 +1,6 @@
 import type { BattleCardInstance, BattleEvent, BattleSide, BattleState } from "./types";
 
-export interface EffectResolution {
+export interface SimpleEffectResolution {
   readonly state: BattleState;
   readonly events: readonly BattleEvent[];
 }
@@ -10,7 +10,7 @@ export function resolveSimpleSpellEffect(
   spell: BattleCardInstance,
   side: BattleSide,
   firstSequence: number
-): EffectResolution {
+): SimpleEffectResolution {
   const events: BattleEvent[] = [
     {
       sequence: firstSequence,

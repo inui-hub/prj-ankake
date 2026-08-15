@@ -218,7 +218,9 @@ export function destroyCreature(
     message: `${target.name} was destroyed.`,
     data: {
       targetId,
-      controllerSide: target.controllerSide
+      controllerSide: target.controllerSide,
+      previousColumn: position.column,
+      previousRow: position.row
     }
   };
 

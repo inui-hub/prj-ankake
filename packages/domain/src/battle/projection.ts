@@ -5,9 +5,10 @@ import {
   getBattleBaseLabel
 } from "./bases";
 import { queryMovementStart } from "./movement";
-import { getEffectiveCreatureAttack } from "./resonance";
+import { getEffectiveCreatureAttack, getEffectiveCreatureCurrentHp, getEffectiveCreatureMaxHp, getEffectiveCreatureMovement } from "./resonance";
 import { querySummonStart } from "./summon";
 import { validateBattleCommand } from "./validation";
+import { getPublicEffectChoices } from "./legalActions";
 import type {
   BattleCardInstance,
   BattleBaseId,
@@ -79,6 +80,7 @@ export interface PublicBattleView {
   readonly playerDeckCount: number;
   readonly cpuDeckCount: number;
   readonly playerHand: readonly BattleCardView[];
+  readonly effectChoices: readonly import("./types").PublicEffectChoice[];
   readonly boardSquares: readonly BattleBoardSquareView[];
   readonly terminalResult: BattleState["terminalResult"];
 }
@@ -101,6 +103,7 @@ export function projectPublicBattleView(state: BattleState): PublicBattleView {
     playerHand: state.players.player.handZone.map((instanceId) =>
       projectBattleCard(instanceId, state.cardInstances[instanceId], "hand", state)
     ),
+    effectChoices: getPublicEffectChoices(state, "player"),
     boardSquares: state.board.squares.map((square) => {
       const base = getBattleBaseAt(state.bases, square.coordinate);
       return {
@@ -212,12 +215,12 @@ function projectBattleCard(
           currentAttack: state
             ? getEffectiveCreatureAttack(state, card)
             : card.currentAttack ?? card.attack,
-          currentHp: card.currentHp,
-          maxHp: card.maxHp,
+          currentHp: state ? getEffectiveCreatureCurrentHp(state, card) : card.currentHp,
+          maxHp: state ? getEffectiveCreatureMaxHp(state, card) : card.maxHp,
           // The water resonance bonus is a temporary derived value, like the
           // fire attack bonus.  Project it so both the card display and any
           // caller using the public view see the actual movement limit.
-          movement: Math.max(0, card.movement + (card.temporaryMovementBonus ?? 0)),
+          movement: state ? getEffectiveCreatureMovement(state, card) : Math.max(0, card.movementOverride ?? card.movement + (card.temporaryMovementBonus ?? 0)),
           ...(location === "board"
             ? {
                 summonedThisTurn: card.summonedThisTurn,

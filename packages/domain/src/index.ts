@@ -1,6 +1,7 @@
 export * from "./catalog/types";
 export * from "./catalog/validation";
 export * from "./catalog/snapshot";
+export * from "./catalog/effectManifest";
 export * from "./app-state/types";
 export * from "./app-state/reducer";
 export * from "./deck/types";

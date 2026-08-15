@@ -2,6 +2,11 @@ import { getLane, setBoardOccupant } from "./board";
 import { resolveAfterPlayPhase } from "./automaticPhases";
 import { BATTLE_LANES, getCreaturePlayCost, increaseResonance, isResonanceActive, isWindResonanceDiscountAvailable, resonanceGain } from "./resonance";
 import { validateBattleCommand } from "./validation";
+import { getExecutablePlayEffects } from "./effectPrograms";
+import { resolveEffect } from "./effectResolver";
+import type { ExecutableEffectDefinition } from "./effectTypes";
+import { toEffectSelection } from "./effectTypes";
+import { resolveLifecycleEffects } from "./lifecycleEffects";
 import type {
   BattleCardInstance,
   BattleCommand,
@@ -80,9 +85,7 @@ function acceptSummon(
     }
   ];
 
-  return {
-    ok: true,
-    state: {
+  const summonedState: BattleState = {
       ...state,
       board: setBoardOccupant(state.board, command.destination, card.instanceId),
       players: {
@@ -100,8 +103,25 @@ function acceptSummon(
         }
       },
       eventCursor: sequence + events.length - 1
-    },
-    events
+    };
+  const resolution = resolveOrderedEffects(summonedState, card.instanceId, command.side,
+    getExecutablePlayEffects({ ...card, zone: "board", position: command.destination }), toEffectSelection(command.effectSelection));
+  const effectEvents = resolution.events;
+  // The played creature's summon effect was resolved above with the command
+  // selection.  Drain only resulting events here so it cannot fire twice.
+  // Lifecycle events allocate from eventCursor; advance it past resolved
+  // summon-effect events before draining triggered summons.
+  const stateBeforeLifecycle = {
+    ...resolution.state,
+    eventCursor: effectEvents.at(-1)?.sequence ?? summonedState.eventCursor
+  };
+  const lifecycle = resolveLifecycleEffects(stateBeforeLifecycle, effectEvents);
+  if (!lifecycle.accepted) return triggerLoopRejected(state);
+  return {
+    ok: true,
+    state: { ...lifecycle.state, eventCursor: lifecycle.events.at(-1)?.sequence ?? effectEvents.at(-1)?.sequence ?? summonedState.eventCursor },
+    events: [...events, ...effectEvents, ...lifecycle.events],
+    ...(resolution.effect ? { effect: resolution.effect } : {})
   };
 }
 
@@ -131,41 +151,71 @@ function acceptSpell(
       [card.instanceId]: movedToGraveyard
     }
   };
-  const nextPlayer = spentState.players[command.side];
-  const resonance = BATTLE_LANES.reduce(
-    (current, lane) => increaseResonance(current, lane, card.attribute, resonanceGain(card.cost)),
-    nextPlayer.resonance
-  );
+  const resolution = resolveOrderedEffects(spentState, card.instanceId, command.side, getExecutablePlayEffects(card),
+    toEffectSelection(command.effectSelection, command.targetInstanceId, command.targetBaseId));
+  const resolvedState = resolution.state;
+  const effectEvents = resolution.events;
+  const firstEventSequence = state.eventCursor + effectEvents.length + 1;
   const events: readonly BattleEvent[] = [
-    { sequence: state.eventCursor + 1, type: "spell.resolved", side: command.side, instanceId: card.instanceId, message: `${labelSide(command.side)} cast ${card.name}.` },
-    ...BATTLE_LANES.map((lane, index) => ({
-      sequence: state.eventCursor + 2 + index,
-      type: "resonance.changed" as const,
-      side: command.side,
-      instanceId: card.instanceId,
-      message: `${card.attribute} resonance increased in the ${lane} lane.`
-    }))
+    ...effectEvents,
+    { sequence: firstEventSequence, type: "spell.resolved", side: command.side, instanceId: card.instanceId, message: `${labelSide(command.side)} cast ${card.name}.` },
+    ...BATTLE_LANES.map((lane, index) => ({ sequence: firstEventSequence + 1 + index, type: "resonance.changed" as const, side: command.side, instanceId: card.instanceId, message: `${card.attribute} resonance increased in the ${lane} lane.` }))
   ];
-
+  const nextPlayer = resolvedState.players[command.side];
+  const resonance = BATTLE_LANES.reduce((current, lane) => increaseResonance(current, lane, card.attribute, resonanceGain(card.cost)), nextPlayer.resonance);
+  // Lifecycle resolution allocates from state.eventCursor.  Advance the
+  // staged cursor past *all* spell events first, otherwise a trigger emitted
+  // by the effect can reuse an effect/spell sequence number.
+  const stateBeforeLifecycle = { ...resolvedState, eventCursor: events.at(-1)?.sequence ?? state.eventCursor };
+  const lifecycle = resolveLifecycleEffects(stateBeforeLifecycle, effectEvents);
+  if (!lifecycle.accepted) return triggerLoopRejected(state);
+  const lifecycleEvents = lifecycle.events;
   return {
     ok: true,
     state: {
-      ...spentState,
+      ...lifecycle.state,
       players: {
-        ...spentState.players,
+        ...lifecycle.state.players,
         [command.side]: {
-          ...nextPlayer,
+          ...lifecycle.state.players[command.side],
           resonance,
           resonanceUsage: {
-            ...nextPlayer.resonanceUsage,
-            dark: refreshDarkUsageOnActivation(nextPlayer.resonance, resonance, nextPlayer.resonanceUsage.dark)
+            ...lifecycle.state.players[command.side].resonanceUsage,
+            dark: refreshDarkUsageOnActivation(nextPlayer.resonance, resonance, lifecycle.state.players[command.side].resonanceUsage.dark)
           }
         }
       },
-      eventCursor: events.at(-1)?.sequence ?? state.eventCursor
+      eventCursor: lifecycleEvents.at(-1)?.sequence ?? events.at(-1)?.sequence ?? state.eventCursor
     },
-    events
+    events: [...events, ...lifecycleEvents],
+    ...(resolution.effect ? { effect: resolution.effect } : {})
   };
+}
+
+/** Resolves catalog effect IDs in their declared order, feeding staged state
+ * (including metadata.rng) and generated-event sequence into the next ID. */
+function resolveOrderedEffects(
+  initialState: BattleState,
+  sourceInstanceId: string,
+  controllerSide: BattleSide,
+  effects: readonly ExecutableEffectDefinition[],
+  selection: ReturnType<typeof toEffectSelection>
+): { readonly state: BattleState; readonly events: readonly BattleEvent[]; readonly effect?: NonNullable<Extract<BattleCommandResult, { readonly ok: true }> ["effect"]> } {
+  let state = initialState;
+  const events: BattleEvent[] = [];
+  let completedOperationCount = 0;
+  let resolved = false;
+  let firstFailure: NonNullable<Extract<BattleCommandResult, { readonly ok: true }> ["effect"]>["failedOperation"];
+  for (const effect of effects) {
+    const result = resolveEffect({ state, sourceInstanceId, controllerSide, effect, selection, firstSequence: initialState.eventCursor + events.length + 1 });
+    if (!result.accepted) continue;
+    state = result.state;
+    events.push(...result.events);
+    completedOperationCount += result.effect.completedOperationCount;
+    resolved ||= result.effect.status === "resolved";
+    firstFailure ??= result.effect.failedOperation;
+  }
+  return effects.length === 0 ? { state, events } : { state, events, effect: { status: resolved ? "resolved" : "fizzled", completedOperationCount, ...(firstFailure ? { failedOperation: firstFailure } : {}) } };
 }
 
 function acceptWaterBoost(
@@ -205,9 +255,7 @@ function acceptMove(
     }
   ];
 
-  return {
-    ok: true,
-    state: {
+  const movedState: BattleState = {
       ...state,
       board: setBoardOccupant(
         setBoardOccupant(state.board, command.origin, undefined),
@@ -223,19 +271,22 @@ function acceptMove(
         }
       },
       eventCursor: sequence
-    },
-    events
-  };
+    };
+  const lifecycle = resolveLifecycleEffects(movedState, events);
+  if (!lifecycle.accepted) return triggerLoopRejected(state);
+  return { ok: true, state: { ...lifecycle.state, eventCursor: lifecycle.events.at(-1)?.sequence ?? sequence }, events: [...events, ...lifecycle.events] };
 }
 
 function acceptEndPlayPhase(state: BattleState, side: BattleSide): BattleCommandResult {
   const resolution = resolveAfterPlayPhase(state, side, state.eventCursor + 1);
-  const resetState = resetTurnFlags(resolution.state, side, resolution.state.activeSide);
+  const lifecycle = resolveLifecycleEffects(resolution.state, resolution.events);
+  if (!lifecycle.accepted) return triggerLoopRejected(state);
+  const resetState = resetTurnFlags(lifecycle.state, side, lifecycle.state.activeSide);
 
   return {
     ok: true,
     state: resetState,
-    events: resolution.events
+    events: [...resolution.events, ...lifecycle.events]
   };
 }
 
@@ -277,4 +328,8 @@ function refreshDarkUsageOnActivation(
 
 function labelSide(side: BattleSide): string {
   return side === "player" ? "Player" : "CPU";
+}
+
+function triggerLoopRejected(state: BattleState): BattleCommandResult {
+  return { ok: false, state, issues: [{ code: "battle.effect.trigger-loop", path: "effects", message: "Lifecycle effect trigger limit was exceeded." }] };
 }

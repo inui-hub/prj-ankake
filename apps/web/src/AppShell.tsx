@@ -136,6 +136,7 @@ function BattleRoute({ catalog, onReturnToMenu }: BattleRouteProps) {
       onHandCardIntent={controller.actions.selectHandCard}
       onBoardCreatureIntent={controller.actions.selectBoardCreature}
       onBoardSquareIntent={controller.actions.selectBoardSquare}
+      onEffectCandidateIntent={controller.actions.selectEffectCandidate}
       onConfirmInteraction={() => {
         void controller.actions.confirmInteraction();
       }}

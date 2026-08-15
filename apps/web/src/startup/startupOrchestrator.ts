@@ -1,5 +1,6 @@
 import {
   buildStaticCatalogSnapshot,
+  CANONICAL_EFFECT_MANIFEST,
   catalogIssuesToFatalError,
   fatalErrorToDiagnosticEvent,
   type AppEvent,
@@ -18,7 +19,14 @@ export interface StartupOrchestratorOptions extends StaticAssetClientOptions {
 export async function runStartup(options: StartupOrchestratorOptions): Promise<AppEvent> {
   try {
     const payload = await fetchStaticAssetPayload(options);
-    const catalog = buildStaticCatalogSnapshot(payload);
+    // The shipped JSON still owns card art/stats, while the canonical manifest
+    // owns rules text and ordered effect IDs.  Materialize those authoritative
+    // fields before validation so placeholder asset text can never disable the
+    // effect registry at startup.
+    const catalog = buildStaticCatalogSnapshot({
+      ...withCanonicalEffects(payload),
+      effectManifest: CANONICAL_EFFECT_MANIFEST
+    });
 
     if (!catalog.ok) {
       const error = catalogIssuesToFatalError(catalog.issues);
@@ -45,6 +53,21 @@ export async function runStartup(options: StartupOrchestratorOptions): Promise<A
       error
     };
   }
+}
+
+function withCanonicalEffects(payload: Awaited<ReturnType<typeof fetchStaticAssetPayload>>) {
+  const entries = new Map(CANONICAL_EFFECT_MANIFEST.map((entry) => [entry.cardId, entry]));
+  const apply = (records: unknown): unknown => Array.isArray(records) ? records.map((record) => {
+    if (typeof record !== "object" || record === null || Array.isArray(record)) return record;
+    const entry = entries.get((record as { id?: unknown }).id as string);
+    if (!entry) return record;
+    return {
+      ...record,
+      effectText: entry.effects === "none" ? "なし" : entry.effects[0]!.operations[0]!.text,
+      effectIds: entry.effects === "none" ? [] : entry.effects.map((effect) => effect.effectId)
+    };
+  }) : records;
+  return { ...payload, cards: apply(payload.cards), tokens: apply(payload.tokens) };
 }
 
 async function loadEmptyDeckSummaryStub(): Promise<readonly DeckSummary[]> {

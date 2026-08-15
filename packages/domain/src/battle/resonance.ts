@@ -66,9 +66,19 @@ export function isResonanceActive(
 }
 
 export function getCreaturePlayCost(state: BattleState, side: BattleSide, card: BattleCardInstance, lane: BattleLane): number {
+  const activeWindLanes = BATTLE_LANES.filter((candidate) =>
+    isResonanceActive(state.players[side].resonance, candidate, "wind")
+  ).length;
+  // These are intrinsic hand-cost effects, so they are evaluated before the
+  // lane-specific wind-resonance discount that every creature can use.
+  const intrinsicCost = card.catalogCardId === "AK-028"
+    ? activeWindLanes > 0 ? 1 : card.currentCost
+    : card.catalogCardId === "AK-036"
+      ? Math.max(0, card.currentCost - activeWindLanes * 3)
+      : card.currentCost;
   return isWindResonanceDiscountAvailable(state, side, lane)
-    ? Math.max(1, card.currentCost - 1)
-    : Math.max(0, card.currentCost);
+    ? Math.max(1, intrinsicCost - 1)
+    : Math.max(0, intrinsicCost);
 }
 
 export function isWindResonanceDiscountAvailable(
@@ -91,5 +101,42 @@ export function getEffectiveCreatureAttack(state: BattleState, card: BattleCardI
   }
   const lane = getLane(card.position.column);
   const fireBonus = isResonanceActive(state.players[card.controllerSide].resonance, lane, "fire") ? 1 : 0;
-  return baseAttack + fireBonus;
+  const berserkerBonus = card.catalogCardId === "AK-004" && !card.effectsDisabled && fireBonus > 0 ? 2 : 0;
+  const captainBonus = laneAuraSources(state, card, "AK-009").length;
+  const tokenBonus = card.isToken ? laneAuraSources(state, card, "AK-043").length : 0;
+  return baseAttack + fireBonus + berserkerBonus + captainBonus + tokenBonus;
+}
+
+/** The movement display and path validator must agree on continuous auras. */
+export function getEffectiveCreatureMovement(state: BattleState, card: BattleCardInstance): number {
+  const baseMovement = card.movementOverride ?? card.movement + (card.temporaryMovementBonus ?? 0);
+  const intrinsicMovement = card.catalogCardId === "AK-013" ? Math.max(2, baseMovement) : baseMovement;
+  if (card.zone !== "board" || !card.position) return Math.max(0, intrinsicMovement);
+  return Math.max(0, intrinsicMovement + laneAuraSources(state, card, "AK-021").length);
+}
+
+export function getEffectiveCreatureMaxHp(state: BattleState, card: BattleCardInstance): number {
+  const baseHp = card.maxHp ?? card.currentHp ?? 0;
+  if (!card.isToken || card.zone !== "board" || !card.position) return baseHp;
+  return baseHp + laneAuraSources(state, card, "AK-043").length * 2;
+}
+
+export function getEffectiveCreatureCurrentHp(state: BattleState, card: BattleCardInstance): number {
+  const baseHp = card.currentHp ?? 0;
+  if (!card.isToken || card.zone !== "board" || !card.position) return baseHp;
+  return baseHp + laneAuraSources(state, card, "AK-043").length * 2;
+}
+
+function laneAuraSources(state: BattleState, target: BattleCardInstance, sourceCardId: string): readonly BattleCardInstance[] {
+  if (!target.position) return [];
+  const lane = getLane(target.position.column);
+  return Object.values(state.cardInstances).filter((source) =>
+    source.catalogCardId === sourceCardId &&
+    source.instanceId !== target.instanceId &&
+    source.zone === "board" &&
+    source.controllerSide === target.controllerSide &&
+    source.position !== undefined &&
+    !source.effectsDisabled &&
+    getLane(source.position.column) === lane
+  );
 }

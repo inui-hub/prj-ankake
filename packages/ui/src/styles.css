@@ -616,7 +616,10 @@
   justify-content: flex-end;
 }
 
-@media (min-width: 901px) {
+/* The board has a 680px minimum; together with the rail, gutters, and page
+ * margins it needs about 1,280px. Below that, two columns overlap controls
+ * (such as Confirm) with board squares. */
+@media (min-width: 1281px) {
   .battle-screen {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
@@ -678,7 +681,7 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1280px) {
   .battle-prep-grid,
   .battle-shell {
     grid-template-columns: 1fr;

@@ -1,5 +1,6 @@
 import {
   buildStaticCatalogSnapshot,
+  CANONICAL_EFFECT_MANIFEST,
   validateStaticCatalog,
   type StaticCatalogInput
 } from "@ankake/domain";
@@ -16,11 +17,7 @@ import {
 
 describe("static catalog validation", () => {
   it("accepts the compiled UOW-001 static catalog", () => {
-    const result = buildStaticCatalogSnapshot({
-      cards,
-      tokens,
-      version
-    });
+    const result = buildStaticCatalogSnapshot(canonicalCatalogInput());
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -29,6 +26,54 @@ describe("static catalog validation", () => {
       expect(result.snapshot.cardsById.has("AK-001")).toBe(true);
       expect(result.snapshot.tokensById.has("AK-T-001")).toBe(true);
     }
+  });
+
+  it("builds an immutable lookup for all 62 canonical effect entries", () => {
+    const entriesById = new Map(CANONICAL_EFFECT_MANIFEST.map((entry) => [entry.cardId, entry]));
+    const applyManifest = (record: Record<string, unknown>) => {
+      const entry = entriesById.get(record.id as string)!;
+      return {
+        ...record,
+        effectText: entry.effects === "none" ? "なし" : entry.effects[0].operations[0].text,
+        effectIds: entry.effects === "none" ? [] : entry.effects.map((definition) => definition.effectId)
+      };
+    };
+    const result = buildStaticCatalogSnapshot({
+      cards: (cards as Record<string, unknown>[]).map(applyManifest),
+      tokens: (tokens as Record<string, unknown>[]).map(applyManifest),
+      version,
+      effectManifest: CANONICAL_EFFECT_MANIFEST
+    });
+
+    expect(CANONICAL_EFFECT_MANIFEST).toHaveLength(62);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.snapshot.effectsByCardId.size).toBe(62);
+      expect(result.snapshot.effectsByCardId.get("AK-001")).toBe("none");
+      const effect = result.snapshot.effectsByCardId.get("AK-002");
+      expect(effect === "none" ? undefined : effect?.[0]?.effectId).toBe("AK-002.primary");
+    }
+  });
+
+  it("rejects placeholder text when validating a manifest", () => {
+    const result = buildStaticCatalogSnapshot({ cards, tokens, version, effectManifest: CANONICAL_EFFECT_MANIFEST });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.issues.some((issue) => issue.code === "catalog.effect-manifest.placeholder")).toBe(true);
+  });
+
+  it("rejects duplicate IDs and malformed nested manifest definitions", () => {
+    const input = canonicalCatalogInput();
+    const duplicate = [...CANONICAL_EFFECT_MANIFEST, CANONICAL_EFFECT_MANIFEST[0]!];
+    const duplicateResult = buildStaticCatalogSnapshot({ ...input, effectManifest: duplicate });
+    expect(duplicateResult.ok).toBe(false);
+    if (!duplicateResult.ok) expect(duplicateResult.issues.some((issue) => issue.code === "catalog.effect-manifest.duplicate-card")).toBe(true);
+
+    const malformed = CANONICAL_EFFECT_MANIFEST.map((entry, index) => index === 1
+      ? { ...entry, effects: [{ effectId: "AK-002.primary", trigger: "play", target: "documented", operations: [] }] }
+      : entry);
+    const malformedResult = buildStaticCatalogSnapshot({ ...input, effectManifest: malformed });
+    expect(malformedResult.ok).toBe(false);
+    if (!malformedResult.ok) expect(malformedResult.issues.some((issue) => issue.code === "catalog.effect-manifest.definition-missing")).toBe(true);
   });
 
   it("rejects a catalog with the wrong normal card count", () => {
@@ -64,6 +109,15 @@ describe("static catalog validation", () => {
     assertInvalidCatalogIncludes(invalidSpellStatsCatalogArbitrary, "catalog.spell.attack-forbidden");
   });
 });
+
+function canonicalCatalogInput() {
+  const entriesById = new Map(CANONICAL_EFFECT_MANIFEST.map((entry) => [entry.cardId, entry]));
+  const applyManifest = (record: Record<string, unknown>) => {
+    const entry = entriesById.get(record.id as string)!;
+    return { ...record, effectText: entry.effects === "none" ? "なし" : entry.effects[0]!.operations[0]!.text, effectIds: entry.effects === "none" ? [] : entry.effects.map((definition) => definition.effectId) };
+  };
+  return { cards: (cards as Record<string, unknown>[]).map(applyManifest), tokens: (tokens as Record<string, unknown>[]).map(applyManifest), version, effectManifest: CANONICAL_EFFECT_MANIFEST };
+}
 
 function assertInvalidCatalogIncludes(
   arbitrary: fc.Arbitrary<StaticCatalogInput>,

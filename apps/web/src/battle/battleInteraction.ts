@@ -6,6 +6,7 @@ import {
   querySummonStart,
   validateSummonDestination,
   type BattleCommand,
+  type BattleEffectSelection,
   type BattleValidationIssue,
   type BattleValidationIssueCode,
   type BattleState,
@@ -42,6 +43,17 @@ export type BattleInteractionState =
       readonly candidateNextSteps: readonly BoardCoordinate[];
       readonly maximumMovement: number;
       readonly issue?: BattleInteractionIssue;
+    }
+  | {
+      readonly kind: "selecting-effect";
+      readonly handInstanceId: string;
+      readonly summonDestination?: BoardCoordinate;
+      readonly candidates: readonly { readonly kind: "creature" | "base" | "lane" | "coordinate" | "graveyard"; readonly id: string; readonly label: string }[];
+      readonly selectedIds: readonly string[];
+      readonly minimumTargets: number;
+      readonly maximumTargets: number;
+      readonly requirements?: Readonly<Partial<Record<"creature" | "base" | "lane" | "coordinate" | "graveyard", number>>>;
+      readonly issue?: BattleInteractionIssue;
     };
 
 export interface MovementPathStepView {
@@ -57,6 +69,8 @@ export interface BattleInteractionView {
   readonly selectedDestinationKey?: string;
   readonly selectedCardName?: string;
   readonly selectedCardCost?: number;
+  readonly effectCandidates?: readonly { readonly kind: "creature" | "base" | "lane" | "coordinate" | "graveyard"; readonly id: string; readonly label: string; readonly selected: boolean }[];
+  readonly selectedEffectTargetIds?: readonly string[];
   readonly movementOriginKey?: string;
   readonly movementPathSteps: readonly MovementPathStepView[];
   readonly provisionalPositionKey?: string;
@@ -93,6 +107,64 @@ export type MovementConfirmationPreparation =
 export const IDLE_BATTLE_INTERACTION: BattleInteractionState = Object.freeze({
   kind: "idle"
 });
+
+export function selectSpellHandCard(
+  interaction: BattleInteractionState,
+  state: BattleState,
+  handInstanceId: string
+): BattleInteractionState | undefined {
+  const choices = projectPublicBattleView(state).effectChoices.filter((choice) => choice.sourceInstanceId === handInstanceId);
+  const candidates = choices.flatMap((choice) => choice.candidates);
+  if (candidates.length === 0) return undefined;
+  if (interaction.kind === "selecting-effect" && interaction.handInstanceId === handInstanceId) return IDLE_BATTLE_INTERACTION;
+  return {
+    kind: "selecting-effect", handInstanceId,
+    candidates: candidates.filter((candidate, index, all) => all.findIndex((other) => other.kind === candidate.kind && other.id === candidate.id) === index),
+    selectedIds: [], minimumTargets: Math.max(...choices.map((choice) => choice.minimumTargets ?? 1)), maximumTargets: Math.max(...choices.map((choice) => choice.maximumTargets ?? 1)), requirements: requirementsFor(state.cardInstances[handInstanceId]?.catalogCardId)
+  };
+}
+
+export function startSummonEffectSelection(state: BattleState, handInstanceId: string, destination: BoardCoordinate): BattleInteractionState | undefined {
+  const card = state.cardInstances[handInstanceId];
+  if (!card) return undefined;
+  const counts: Readonly<Record<string, number>> = { "AK-038": 1, "AK-042": 1, "AK-046": 2, "AK-048": 3, "AK-057": 1 };
+  const count = counts[card.catalogCardId]; if (!count) return undefined;
+  const coordinates = state.board.squares.filter((square) => {
+    if (square.terrain !== "normal" || square.occupantId || (square.coordinate.column === destination.column && square.coordinate.row === destination.row)) return false;
+    if (card.catalogCardId === "AK-038" || card.catalogCardId === "AK-057") return Math.abs(square.coordinate.column - destination.column) <= 1 && Math.abs(square.coordinate.row - destination.row) <= 1;
+    return ["AK-042", "AK-046", "AK-048"].includes(card.catalogCardId) ? square.lane === state.board.squares.find((candidate) => candidate.coordinate.column === destination.column && candidate.coordinate.row === destination.row)?.lane : true;
+  }).map((square) => ({ kind: "coordinate" as const, id: `${square.coordinate.column}:${square.coordinate.row}`, label: `Cell ${square.coordinate.column},${square.coordinate.row}` }));
+  const graveyard = card.catalogCardId === "AK-057" ? state.players.player.graveyardZone.filter((id) => { const target = state.cardInstances[id]; return Boolean(target && (target.type === "creature" || target.type === "creature-token") && target.cost <= 3); }).map((id, index) => ({ kind: "graveyard" as const, id, label: `Graveyard card ${index + 1}` })) : [];
+  if (card.catalogCardId === "AK-057" && graveyard.length === 0) return { kind: "selecting-effect", handInstanceId, summonDestination: destination, candidates: [], selectedIds: [], minimumTargets: 2, maximumTargets: 2, requirements: { graveyard: 1, coordinate: 1 }, issue: { code: "battle.effect.no-target", message: "No eligible creature is available in your graveyard." } };
+  return { kind: "selecting-effect", handInstanceId, summonDestination: destination, candidates: [...graveyard, ...coordinates], selectedIds: [], minimumTargets: count + (graveyard.length ? 1 : 0), maximumTargets: count + (graveyard.length ? 1 : 0), requirements: card.catalogCardId === "AK-057" ? { graveyard: 1, coordinate: 1 } : { coordinate: count } };
+}
+
+export function selectEffectTarget(interaction: BattleInteractionState, id: string): BattleInteractionState {
+  if (interaction.kind !== "selecting-effect" || !interaction.candidates.some((candidate) => candidate.id === id)) return interaction;
+  const selectedIds = interaction.selectedIds.includes(id)
+    ? interaction.selectedIds.filter((selected) => selected !== id)
+    : interaction.selectedIds.length >= interaction.maximumTargets
+      ? [...interaction.selectedIds.slice(1), id]
+      : [...interaction.selectedIds, id];
+  return { ...interaction, selectedIds, issue: undefined };
+}
+
+export function prepareEffectConfirmation(interaction: BattleInteractionState):
+  | { readonly ok: true; readonly command: Extract<BattleCommand, { type: "castSpell" | "summonCreature" }> }
+  | { readonly ok: false; readonly interaction: BattleInteractionState } {
+  if (interaction.kind !== "selecting-effect" || !selectionComplete(interaction)) {
+    return { ok: false, interaction: interaction.kind === "selecting-effect" ? { ...interaction, issue: { code: "battle.effect.no-target", message: "Select a valid target before confirming." } } : interaction };
+  }
+  const creatures = interaction.candidates.filter((candidate) => candidate.kind === "creature" && interaction.selectedIds.includes(candidate.id)).map((candidate) => candidate.id);
+  const bases = interaction.candidates.filter((candidate) => candidate.kind === "base" && interaction.selectedIds.includes(candidate.id)).map((candidate) => candidate.id);
+  const lane = interaction.candidates.find((candidate) => candidate.kind === "lane" && interaction.selectedIds.includes(candidate.id))?.id;
+  const coordinates = interaction.candidates.filter((candidate) => candidate.kind === "coordinate" && interaction.selectedIds.includes(candidate.id)).map((candidate) => { const [column, row] = candidate.id.split(":").map(Number); return { column: column!, row: row! }; });
+  const graveyardCardIds = interaction.candidates.filter((candidate) => candidate.kind === "graveyard" && interaction.selectedIds.includes(candidate.id)).map((candidate) => candidate.id);
+  const effectSelection: BattleEffectSelection = { ...(creatures.length ? { creatureIds: creatures } : {}), ...(bases.length ? { baseIds: bases as never } : {}), ...(lane ? { lane: lane as never } : {}), ...(coordinates.length ? { coordinates } : {}), ...(graveyardCardIds.length ? { graveyardCardIds } : {}) };
+  return { ok: true, command: interaction.summonDestination
+    ? { type: "summonCreature", side: "player", handInstanceId: interaction.handInstanceId, destination: interaction.summonDestination, effectSelection }
+    : { type: "castSpell", side: "player", handInstanceId: interaction.handInstanceId, effectSelection, ...(creatures.length === 1 ? { targetInstanceId: creatures[0] } : {}), ...(bases.length === 1 ? { targetBaseId: bases[0] as never } : {}) } };
+}
 
 export function selectSummonHandCard(
   interaction: BattleInteractionState,
@@ -458,6 +530,19 @@ export function projectBattleInteractionView(
     };
   }
 
+  if (interaction.kind === "selecting-effect") {
+    const selectedCard = publicView.playerHand.find((card) => card.instanceId === interaction.handInstanceId);
+    const coordinateCandidateKeys = interaction.candidates
+      .filter((candidate) => candidate.kind === "coordinate")
+      .map((candidate) => candidate.id);
+    return { kind: "selecting-effect", selectedHandInstanceId: interaction.handInstanceId, selectedCardName: selectedCard?.name,
+      selectedCardCost: selectedCard?.currentCost, candidateDestinationKeys: coordinateCandidateKeys, movementPathSteps: [],
+      effectCandidates: interaction.candidates.map((candidate) => ({ ...candidate, selected: interaction.selectedIds.includes(candidate.id) })),
+      selectedEffectTargetIds: interaction.selectedIds, confirmEnabled: selectionComplete(interaction),
+      cancelEnabled: true, undoEnabled: false, endPlayPhaseEnabled: false,
+      instruction: `Select ${interaction.minimumTargets === interaction.maximumTargets ? interaction.minimumTargets : `${interaction.minimumTargets}-${interaction.maximumTargets}`} target${interaction.maximumTargets === 1 ? "" : "s"}, then confirm.`, issue: interaction.issue?.message };
+  }
+
   const selectedCard = publicView.playerHand.find(
     (card) => card.instanceId === interaction.handInstanceId
   );
@@ -481,6 +566,21 @@ export function projectBattleInteractionView(
       : "Choose a highlighted summon destination.",
     issue: interaction.issue?.message
   };
+}
+
+function requirementsFor(cardId: string | undefined): Readonly<Partial<Record<"creature" | "base" | "lane" | "coordinate" | "graveyard", number>>> | undefined {
+  if (cardId === "AK-019") return { creature: 1, coordinate: 1 };
+  if (cardId === "AK-044") return { lane: 1, coordinate: 3 };
+  if (cardId === "AK-054") return { graveyard: 2 };
+  if (cardId === "AK-059") return { graveyard: 2, coordinate: 2 };
+  if (cardId === "AK-011") return { lane: 1 };
+  return undefined;
+}
+function selectionComplete(interaction: Extract<BattleInteractionState, { kind: "selecting-effect" }>): boolean {
+  if (!interaction.requirements) return interaction.selectedIds.length >= interaction.minimumTargets;
+  const selected = interaction.candidates.filter((candidate) => interaction.selectedIds.includes(candidate.id));
+  const requiredTotal = Object.values(interaction.requirements).reduce((total, count) => total + (count ?? 0), 0);
+  return selected.length === requiredTotal && requiredTotal === interaction.minimumTargets && selected.every((candidate) => interaction.requirements![candidate.kind] !== undefined) && Object.entries(interaction.requirements).every(([kind, count]) => selected.filter((candidate) => candidate.kind === kind).length === count);
 }
 
 export function projectBattleInteractionFromState(

@@ -1,9 +1,13 @@
 import {
   BATTLE_LANES,
   GameEngine,
+  createInitialBattleBoard,
   createEmptyResonance,
   decayResonance,
   getEffectiveCreatureAttack,
+  getEffectiveCreatureCurrentHp,
+  getEffectiveCreatureMaxHp,
+  getEffectiveCreatureMovement,
   getCreaturePlayCost,
   increaseResonance,
   placeCreatureForTest,
@@ -154,6 +158,24 @@ describe("resonance", () => {
     }
   });
 
+  it("AK-004/009/013/021/028/036/043 derive their continuous values from the current board", () => {
+    const state = continuousEffectState();
+    const active = withResonance(withResonance(withResonance(state, "player", "center", "fire", 5), "player", "left", "wind", 5), "player", "center", "wind", 5);
+    const berserker = active.cardInstances["ak-004"]!;
+    const seeker = active.cardInstances["ak-013"]!;
+    const token = active.cardInstances["ak-token"]!;
+    const sprite: BattleCardInstance = { ...seeker, catalogCardId: "AK-028", currentCost: 3 };
+    const giant: BattleCardInstance = { ...seeker, catalogCardId: "AK-036", currentCost: 10 };
+
+    expect(getEffectiveCreatureAttack(active, berserker)).toBe(7); // 3 + fire + AK-004 + AK-009
+    expect(getEffectiveCreatureMovement(active, seeker)).toBe(3); // AK-013's two steps + AK-021
+    expect(getEffectiveCreatureAttack(active, token)).toBe(4); // base + fire + AK-009 + AK-043
+    expect(getEffectiveCreatureCurrentHp(active, token)).toBe(3);
+    expect(getEffectiveCreatureMaxHp(active, token)).toBe(3);
+    expect(getCreaturePlayCost(active, "player", sprite, "right")).toBe(1);
+    expect(getCreaturePlayCost(active, "player", giant, "right")).toBe(4);
+  });
+
   it("heals each active light lane's allies and owned bases, including the player base once per lane", () => {
     const state = lightResonanceState();
     const result = resolveAfterPlayPhase(state, "player", 100);
@@ -264,6 +286,23 @@ function boardCreatureState(): BattleState {
       [ally.instanceId]: ally
     }
   };
+}
+
+function continuousEffectState(): BattleState {
+  const state = baseState();
+  const source = Object.values(state.cardInstances).find((card) => card.ownerSide === "player") as BattleCardInstance;
+  const make = (instanceId: string, catalogCardId: string, column: number, row: number, isToken = false): BattleCardInstance => ({
+    ...source, instanceId, catalogCardId, type: isToken ? "creature-token" : "creature", zone: "hand", position: undefined,
+    attack: isToken ? 1 : 3, currentAttack: isToken ? 1 : 3, health: isToken ? 1 : 4, currentHp: isToken ? 1 : 4, maxHp: isToken ? 1 : 4,
+    movement: 1, isToken, summonedThisTurn: false, movedThisTurn: false
+  });
+  const cards = [
+    make("ak-004", "AK-004", 5, 8), make("ak-009", "AK-009", 6, 8), make("ak-013", "AK-013", 7, 8),
+    make("ak-021", "AK-021", 5, 7), make("ak-043", "AK-043", 6, 7), make("ak-token", "AK-T-001", 5, 9, true)
+  ];
+  let next: BattleState = { ...state, board: createInitialBattleBoard(), cardInstances: { ...state.cardInstances, ...Object.fromEntries(cards.map((card) => [card.instanceId, card])) } };
+  for (const [index, card] of cards.entries()) next = placeCreatureForTest(next, card.instanceId, "player", card.position?.column ?? [5, 6, 7, 5, 6, 5][index]!, card.position?.row ?? [8, 8, 8, 7, 7, 9][index]!);
+  return next;
 }
 
 function withResonance(

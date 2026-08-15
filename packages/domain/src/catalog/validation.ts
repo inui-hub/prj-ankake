@@ -6,6 +6,7 @@ import {
   type StaticCatalogInput,
   type StaticCatalogValidationIssue,
   type StaticCatalogValidationResult,
+  type EffectManifest,
   type TokenMasterRecord
 } from "./types";
 
@@ -44,6 +45,84 @@ export function validateStaticCatalog(input: Pick<StaticCatalogInput, "cards" | 
         tokens: tokens as readonly TokenMasterRecord[]
       }
     : { ok: false, issues };
+}
+
+export function validateEffectManifest(
+  manifest: unknown,
+  records: readonly (CardMasterRecord | TokenMasterRecord)[]
+): readonly StaticCatalogValidationIssue[] {
+  const issues: StaticCatalogValidationIssue[] = [];
+  if (!Array.isArray(manifest)) {
+    return [issue("catalog.effect-manifest.missing", "effectManifest", "Effect manifest must be an array.")];
+  }
+
+  const recordsById = new Map(records.map((record) => [record.id, record]));
+  const entriesById = new Map<string, unknown>();
+  manifest.forEach((entry, index) => {
+    const path = `effectManifest[${index}]`;
+    if (!isRecord(entry) || !readString(entry.cardId)) {
+      issues.push(issue("catalog.effect-manifest.definition-missing", path, "Manifest entry must have a card id."));
+      return;
+    }
+    const cardId = readString(entry.cardId)!;
+    if (entriesById.has(cardId)) {
+      issues.push(issue("catalog.effect-manifest.duplicate-card", `${path}.cardId`, `Duplicate manifest entry for ${cardId}.`));
+      return;
+    }
+    if (!recordsById.has(cardId)) {
+      issues.push(issue("catalog.effect-manifest.unknown-card", `${path}.cardId`, `Unknown catalog id ${cardId}.`));
+    }
+    entriesById.set(cardId, entry);
+  });
+
+  records.forEach((record) => {
+    const entry = entriesById.get(record.id);
+    const path = `effectManifest.${record.id}`;
+    if (!isRecord(entry)) {
+      issues.push(issue("catalog.effect-manifest.missing", path, `Missing manifest entry for ${record.id}.`));
+      return;
+    }
+    if (entry.textDigest !== effectTextDigest(record.effectText)) {
+      issues.push(issue("catalog.effect-manifest.text-mismatch", `${path}.textDigest`, `Effect text does not match ${record.id}.`));
+    }
+    if (record.effectText.includes("placeholder")) {
+      issues.push(issue("catalog.effect-manifest.placeholder", `${path}.effectText`, "Placeholder effect text is forbidden."));
+    }
+    if (entry.effects === "none") {
+      if (record.effectIds.length > 0) issues.push(issue("catalog.effect-manifest.none-has-definition", `${path}.effects`, "No-effect cards cannot have effect ids."));
+      return;
+    }
+    if (!Array.isArray(entry.effects) || entry.effects.length === 0) {
+      issues.push(issue("catalog.effect-manifest.definition-missing", `${path}.effects`, "Effect cards require definitions."));
+      return;
+    }
+    const ids = entry.effects.map((definition, index) => {
+      if (!isRecord(definition) || !readString(definition.effectId) || !isEffectTrigger(definition.trigger) || (definition.target !== "none" && definition.target !== "documented") || !Array.isArray(definition.operations) || definition.operations.length === 0 || definition.operations.some((operation) => !isDocumentedOperation(operation))) {
+        issues.push(issue("catalog.effect-manifest.definition-missing", `${path}.effects[${index}]`, "Effect definition must have a valid id, trigger, target, and documented operations."));
+        return undefined;
+      }
+      return definition.effectId;
+    });
+    if (ids.some((id) => !readString(id)) || ids.length !== new Set(ids).size || record.effectIds.length !== ids.length || record.effectIds.some((id, index) => id !== ids[index])) {
+      issues.push(issue("catalog.effect-manifest.definition-missing", `${path}.effects`, "Effect definitions must match ordered card effect ids."));
+    }
+  });
+  return issues;
+}
+
+function isEffectTrigger(value: unknown): boolean {
+  return value === "play" || value === "summon" || value === "destroyed" || value === "continuous" || value === "conditional";
+}
+
+function isDocumentedOperation(value: unknown): boolean {
+  return isRecord(value) && value.kind === "documented" && Boolean(readString(value.text));
+}
+
+export function effectTextDigest(effectText: string): string {
+  // Stable, dependency-free digest: text is authoritative and the prefix prevents accidental raw-text comparison.
+  let hash = 2166136261;
+  for (const character of effectText) hash = Math.imul(hash ^ character.codePointAt(0)!, 16777619);
+  return `fnv1a-${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
 
 function validateRecords(
@@ -166,7 +245,7 @@ function validateEffectFields(record: JsonRecord, path: string, issues: StaticCa
     return;
   }
 
-  if (effectText && effectText !== "No effect." && effectIds.length === 0) {
+  if (effectText && effectText !== "No effect." && effectText !== "なし" && effectIds.length === 0) {
     issues.push(issue("catalog.effect-ids.missing-for-effect", `${path}.effectIds`, "Cards with effect text must provide effect ids."));
   }
 }

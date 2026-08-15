@@ -21,6 +21,10 @@ import {
   recoverSummonInteraction,
   selectMovementCreature,
   selectMovementStep,
+  selectSpellHandCard,
+  selectEffectTarget,
+  prepareEffectConfirmation,
+  startSummonEffectSelection,
   selectSummonDestination,
   selectSummonHandCard,
   undoMovementStep,
@@ -66,6 +70,7 @@ export interface BattleControllerActions {
   readonly selectHandCard: (instanceId: string) => void;
   readonly selectBoardCreature: (instanceId: string) => void;
   readonly selectBoardSquare: (coordinate: BoardCoordinate) => void;
+  readonly selectEffectCandidate: (id: string) => void;
   readonly undoInteraction: () => void;
   readonly confirmInteraction: () => Promise<void>;
   readonly cancelInteraction: () => void;
@@ -261,10 +266,13 @@ export function useBattleController(input: BattleControllerInput): BattleControl
 
     const card = session.state.cardInstances[instanceId];
     if (card?.type === "spell") {
-      // Spells have no target-selection flow yet. Cast them immediately so the
-      // completed command applies their resonance gain while intrinsic effects remain deferred.
-      setInteraction(IDLE_BATTLE_INTERACTION);
-      void submitCommand({ type: "castSpell", side: "player", handInstanceId: instanceId });
+      const next = selectSpellHandCard(interaction, session.state, instanceId);
+      if (next) {
+        setInteraction(next);
+      } else {
+        setInteraction(IDLE_BATTLE_INTERACTION);
+        void submitCommand({ type: "castSpell", side: "player", handInstanceId: instanceId });
+      }
       return;
     }
 
@@ -281,6 +289,8 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     setInteraction((current) =>
       current.kind === "selecting-move"
         ? selectMovementStep(current, session.state, coordinate)
+        : current.kind === "selecting-effect"
+          ? selectEffectTarget(current, `${coordinate.column}:${coordinate.row}`)
         : selectSummonDestination(current, coordinate)
     );
   }
@@ -290,9 +300,13 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
 
-    setInteraction((current) =>
-      selectMovementCreature(current, session.state, instanceId)
-    );
+    setInteraction((current) => current.kind === "selecting-effect"
+      ? selectEffectTarget(current, instanceId)
+      : selectMovementCreature(current, session.state, instanceId));
+  }
+
+  function selectEffectCandidate(id: string): void {
+    setInteraction((current) => selectEffectTarget(current, id));
   }
 
   function undoInteraction(): void {
@@ -308,8 +322,15 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
 
+    if (interaction.kind === "selecting-summon" && interaction.destination) {
+      const nextEffect = startSummonEffectSelection(session.state, interaction.handInstanceId, interaction.destination);
+      if (nextEffect) { setInteraction(nextEffect); return; }
+    }
     const isMovement = interaction.kind === "selecting-move";
-    const preparation = isMovement
+    const isEffect = interaction.kind === "selecting-effect";
+    const preparation = isEffect
+      ? prepareEffectConfirmation(interaction)
+      : isMovement
       ? prepareMovementConfirmation(interaction, session.state)
       : prepareSummonConfirmation(interaction, session.state);
     if (!preparation.ok) {
@@ -324,7 +345,9 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     );
     if (!submission.ok) {
       setInteraction(
-        isMovement
+        isEffect
+          ? { ...interaction, issue: { code: submission.issues[0]?.code ?? "battle.effect.no-target", message: submission.issues[0]?.message ?? "Selected targets are no longer valid." } }
+          : isMovement
           ? recoverMovementInteraction(
               submission.session.state,
               interaction,
@@ -398,6 +421,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       selectHandCard,
       selectBoardCreature,
       selectBoardSquare,
+      selectEffectCandidate,
       undoInteraction,
       confirmInteraction,
       cancelInteraction,

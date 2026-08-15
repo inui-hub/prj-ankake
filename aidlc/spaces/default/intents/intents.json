@@ -12,5 +12,12 @@
     "dirName": "260810-spec-gap-audit",
     "scope": "feature",
     "status": "in-flight"
+  },
+  {
+    "uuid": "01a003c9-2364-7ee0-92f5-cd59370738db",
+    "slug": "card-effects",
+    "dirName": "260815-card-effects",
+    "scope": "card-effects-implementation",
+    "status": "complete"
   }
 ]
