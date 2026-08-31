@@ -11,3 +11,6 @@ aidlc/spaces/*/intents/*/.aidlc-*
 
 # Node modules
 node_modules/
+
+# VSCode settings files
+.vscode/
