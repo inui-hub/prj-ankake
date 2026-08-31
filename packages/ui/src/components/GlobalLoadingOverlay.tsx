@@ -1,10 +1,12 @@
 import type { LoadingOverlayViewModel } from "@ankake/domain";
+import { localizeLoadingLabel, type UiLocale } from "../localization";
 
 export interface GlobalLoadingOverlayProps {
   readonly overlay: LoadingOverlayViewModel;
+  readonly locale?: UiLocale;
 }
 
-export function GlobalLoadingOverlay({ overlay }: GlobalLoadingOverlayProps) {
+export function GlobalLoadingOverlay({ overlay, locale }: GlobalLoadingOverlayProps) {
   if (!overlay.visible) {
     return null;
   }
@@ -13,7 +15,7 @@ export function GlobalLoadingOverlay({ overlay }: GlobalLoadingOverlayProps) {
     <div className="blocking-overlay blocking-overlay--loading" data-testid="global-loading-overlay">
       <div className="loading-panel" role="status" aria-live="polite">
         <span className="loading-panel__spinner" />
-        <span>{overlay.label}</span>
+        <span>{localizeLoadingLabel(locale, overlay.label)}</span>
       </div>
     </div>
   );

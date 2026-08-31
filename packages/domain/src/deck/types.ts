@@ -98,6 +98,12 @@ export interface CardSearchCriteria {
   readonly cost: DeckCostFilter;
   readonly sortKey: CardSortKey;
   readonly sortDirection: CardSortDirection;
+  /**
+   * Presentation-only comparison inputs.  They are deliberately part of the
+   * transient search criteria, never a saved deck.
+   */
+  readonly comparisonLocale?: string;
+  readonly localizedNames?: Readonly<Record<CardId, string>>;
 }
 
 export interface DeckCardRow {

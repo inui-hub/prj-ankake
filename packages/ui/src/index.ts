@@ -5,5 +5,6 @@ export * from "./components/GlobalLoadingOverlay";
 export * from "./components/FatalErrorDialog";
 export * from "./components/BackgroundScene";
 export * from "./components/CardArtwork";
+export * from "./localization";
 export * from "./components/deck";
 export * from "./components/battle";

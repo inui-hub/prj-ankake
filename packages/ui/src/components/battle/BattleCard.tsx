@@ -1,6 +1,8 @@
 import type { BattleCardView } from "@ankake/domain";
-import type { FocusEvent } from "react";
+import type { FocusEvent, PointerEvent } from "react";
+import { useRef } from "react";
 import { CardArtwork } from "../CardArtwork";
+import { localizeBattleReason, type UiLocale, uiText } from "../../localization";
 
 export interface BattleCardProps {
   readonly card: BattleCardView;
@@ -10,15 +12,22 @@ export interface BattleCardProps {
   readonly interactionDisabled?: boolean;
   readonly onIntent?: (instanceId: string) => void;
   readonly onFocus?: (event: FocusEvent<HTMLElement>) => void;
+  readonly onBlur?: (event: FocusEvent<HTMLElement>) => void;
+  readonly onPointerEnter?: (event: PointerEvent<HTMLElement>) => void;
+  readonly onPointerLeave?: () => void;
+  readonly onTouchTap?: (event: PointerEvent<HTMLElement>) => void;
+  readonly locale?: UiLocale;
 }
 
 export function BattleCard(props: BattleCardProps) {
+  const suppressTouchClick = useRef(false);
   const artwork = (
     <CardArtwork
       attribute={props.card.attribute}
       catalogCardId={props.card.catalogCardId}
       className="battle-card__artwork"
       fallbackClassName="battle-card__artwork--fallback"
+      locale={props.locale}
       name={props.card.name}
       testIdPrefix="battle-card-artwork"
       type={props.card.type}
@@ -28,14 +37,14 @@ export function BattleCard(props: BattleCardProps) {
     props.mode === "board" ? (
       <>
         {artwork}
-        <BoardCardDetails card={props.card} />
+        <BoardCardDetails card={props.card} locale={props.locale} />
       </>
     ) : (
       <>
         {artwork}
         <div className="battle-card__body">
           <strong className="battle-card__name">{props.card.name}</strong>
-          <HandCardDetails card={props.card} />
+          <HandCardDetails card={props.card} locale={props.locale} />
         </div>
       </>
     );
@@ -55,9 +64,11 @@ export function BattleCard(props: BattleCardProps) {
   if (props.mode === "board") {
     return (
       <div
-        aria-label={describeCard(props.card, props.mode)}
+        aria-label={describeCard(props.card, props.mode, props.locale)}
         className={className}
         data-testid={`battle-board-card-${props.card.instanceId}`}
+        onPointerEnter={props.onPointerEnter}
+        onPointerLeave={props.onPointerLeave}
       >
         {content}
       </div>
@@ -73,18 +84,34 @@ export function BattleCard(props: BattleCardProps) {
     <button
       aria-disabled={isDisabled}
       aria-describedby={reasonId}
-      aria-label={describeCard(props.card, props.mode)}
+      aria-label={describeCard(props.card, props.mode, props.locale)}
       aria-pressed={props.isSelected ?? false}
       className={className}
       data-testid={`battle-hand-card-${props.card.instanceId}`}
       disabled={isDisabled}
       type="button"
-      onClick={() => {
+      onClick={(event) => {
+        if (suppressTouchClick.current) {
+          suppressTouchClick.current = false;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
         if (!isDisabled) {
           props.onIntent?.(props.card.instanceId);
         }
       }}
       onFocus={props.onFocus}
+      onBlur={props.onBlur}
+      onPointerEnter={props.onPointerEnter}
+      onPointerLeave={props.onPointerLeave}
+      onPointerUp={(event) => {
+        // jsdom does not populate pointerType; non-mouse pointers are taps.
+        if (event.pointerType !== "mouse") {
+          suppressTouchClick.current = true;
+          props.onTouchTap?.(event);
+        }
+      }}
     >
       {content}
       {props.card.disabledReason ? (
@@ -92,39 +119,39 @@ export function BattleCard(props: BattleCardProps) {
           className="battle-card__reason"
           id={reasonId}
         >
-          {props.card.disabledReason}
+          {localizeBattleReason(props.locale, props.card.disabledReason)}
         </span>
       ) : null}
     </button>
   );
 }
 
-function HandCardDetails({ card }: { readonly card: BattleCardView }) {
+function HandCardDetails({ card, locale }: { readonly card: BattleCardView; readonly locale: UiLocale | undefined }) {
   return (
     <>
       <span className="battle-card__meta">
         {card.attribute} / {card.type}
       </span>
       {card.currentCost !== undefined ? (
-        <span className="battle-card__cost">Cost {card.currentCost}</span>
+        <span className="battle-card__cost">{uiText(locale, "battle.cost")} {card.currentCost}</span>
       ) : null}
       {isCreature(card) ? (
         <span className="battle-card__stats">
-          ATK {card.currentAttack ?? "?"} / HP {formatHp(card)}
+          {uiText(locale, "battle.attack")} {card.currentAttack ?? "?"} / {uiText(locale, "battle.health")} {formatHp(card)}
         </span>
       ) : null}
     </>
   );
 }
 
-function BoardCardDetails({ card }: { readonly card: BattleCardView }) {
+function BoardCardDetails({ card, locale }: { readonly card: BattleCardView; readonly locale: UiLocale | undefined }) {
   return (
     <span className="battle-card__board-stats">
       <span className="battle-card__board-stat battle-card__board-stat--attack">
-        ATK {card.currentAttack ?? "?"}
+        {uiText(locale, "battle.attack")} {card.currentAttack ?? "?"}
       </span>
       <span className="battle-card__board-stat battle-card__board-stat--health">
-        HP {card.currentHp ?? "?"}
+        {uiText(locale, "battle.health")} {card.currentHp ?? "?"}
       </span>
     </span>
   );
@@ -132,22 +159,36 @@ function BoardCardDetails({ card }: { readonly card: BattleCardView }) {
 
 function describeCard(
   card: BattleCardView,
-  mode: BattleCardProps["mode"]
+  mode: BattleCardProps["mode"],
+  locale: UiLocale | undefined
 ): string {
   const values = [
     card.name,
     card.attribute,
     card.type,
-    mode === "hand" && card.currentCost !== undefined
-      ? `cost ${card.currentCost}`
+    card.currentCost !== undefined
+      ? `${uiText(locale, "battle.cost")} ${card.currentCost}`
       : undefined,
-    isCreature(card) ? `attack ${card.currentAttack ?? "unknown"}` : undefined,
-    isCreature(card) ? `health ${formatHp(card)}` : undefined,
-    mode === "board" ? `controlled by ${card.ownerLabel}` : undefined,
-    card.disabledReason
+    isCreature(card) ? `${uiText(locale, "battle.attack")} ${card.currentAttack ?? uiText(locale, "battle.unknown")}` : undefined,
+    isCreature(card) ? `${uiText(locale, "battle.health")} ${formatHp(card)}` : undefined,
+    mode === "board" ? `${uiText(locale, "battle.controlled-by")} ${localizeOwnerLabel(card.ownerLabel, locale)}` : undefined,
+    mode === "board" ? `${uiText(locale, "battle.status")} ${localizePresentationStatus(card.presentationStatus, locale)}` : undefined,
+    card.disabledReason ? localizeBattleReason(locale, card.disabledReason) : undefined
   ];
 
   return values.filter(Boolean).join(", ");
+}
+
+function localizePresentationStatus(status: BattleCardView["presentationStatus"], locale: UiLocale | undefined): string {
+  return uiText(locale, `battle.status.${status}`);
+}
+
+function localizeOwnerLabel(label: string, locale: UiLocale | undefined): string {
+  if (label === "Player" || label === "Player controlled") return uiText(locale, "battle.player-controlled");
+  if (label === "CPU" || label === "CPU controlled") return uiText(locale, "battle.cpu-controlled");
+  if (label === "Unclaimed") return uiText(locale, "battle.unclaimed");
+  if (label === "Unknown") return uiText(locale, "battle.unknown");
+  return label;
 }
 
 function isCreature(card: BattleCardView): boolean {

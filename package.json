@@ -13,6 +13,7 @@
     "build": "npm run build -w @ankake/web",
     "preview": "npm run preview -w @ankake/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run typecheck",
     "test": "npm run test -w @ankake/tests"
   },
   "devDependencies": {

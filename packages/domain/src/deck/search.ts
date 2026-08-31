@@ -11,7 +11,7 @@ export const DEFAULT_CARD_SEARCH_CRITERIA: CardSearchCriteria = {
   type: "all",
   attribute: "all",
   cost: "all",
-  sortKey: "name",
+  sortKey: "cost",
   sortDirection: "asc"
 };
 
@@ -97,6 +97,7 @@ function compareCards(
   criteria: CardSearchCriteria
 ): number {
   const direction = criteria.sortDirection === "asc" ? 1 : -1;
+  const collator = new Intl.Collator(criteria.comparisonLocale ?? "ja");
   let comparison = 0;
 
   switch (criteria.sortKey) {
@@ -104,21 +105,25 @@ function compareCards(
       comparison = left.cost - right.cost;
       break;
     case "type":
-      comparison = left.type.localeCompare(right.type, "en");
+      comparison = collator.compare(left.type, right.type);
       break;
     case "attribute":
-      comparison = left.attribute.localeCompare(right.attribute, "en");
+      comparison = collator.compare(left.attribute, right.attribute);
       break;
     case "name":
-      comparison = left.name.localeCompare(right.name, "en");
+      comparison = collator.compare(displayName(left, criteria), displayName(right, criteria));
       break;
   }
 
   return (
     comparison * direction ||
-    left.name.localeCompare(right.name, "en") ||
+    collator.compare(displayName(left, criteria), displayName(right, criteria)) ||
     left.id.localeCompare(right.id, "en")
   );
+}
+
+function displayName(card: CardMasterRecord, criteria: CardSearchCriteria): string {
+  return criteria.localizedNames?.[card.id] ?? card.name;
 }
 
 function getAddDisabledReason(reason: string): string {

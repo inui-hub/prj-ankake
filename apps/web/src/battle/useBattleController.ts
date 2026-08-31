@@ -35,7 +35,6 @@ import {
   attemptRuntimeCommand,
   createBattleRuntimeSession,
   executeCpuTurn,
-  submitRuntimeCommand,
   type BattleRuntimeSession
 } from "./battleRuntimeService";
 import {
@@ -58,6 +57,7 @@ export type BattleRouteViewModel =
       readonly interaction: BattleInteractionView;
       readonly logEntries: readonly BattleLogEntry[];
       readonly cpuStatus: "idle" | "thinking" | "executing" | "completed" | "limit-reached";
+      readonly lastValidationIssueCode?: string;
     };
 
 export interface BattleControllerActions {
@@ -67,6 +67,7 @@ export interface BattleControllerActions {
   readonly setFirstPlayerMode: (mode: FirstPlayerMode) => void;
   readonly startBattle: () => Promise<void>;
   readonly submitCommand: (command: BattleCommand) => Promise<void>;
+  readonly showWaterResonanceNoTarget: () => void;
   readonly selectHandCard: (instanceId: string) => void;
   readonly selectBoardCreature: (instanceId: string) => void;
   readonly selectBoardSquare: (coordinate: BoardCoordinate) => void;
@@ -115,6 +116,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     IDLE_BATTLE_INTERACTION
   );
   const [cpuStatus, setCpuStatus] = useState<CpuStatus>("idle");
+  const [lastValidationIssueCode, setLastValidationIssueCode] = useState<string | undefined>();
 
   useEffect(() => {
     let cancelled = false;
@@ -136,6 +138,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.key === "Escape") {
         setInteraction(cancelBattleInteraction());
+        setLastValidationIssueCode(undefined);
       }
     }
 
@@ -203,9 +206,14 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
 
-    const nextSession = submitRuntimeCommand(session, command, diagnostics);
-    setSession(nextSession);
-    await runCpuIfNeeded(nextSession);
+    const attempted = attemptRuntimeCommand(session, command, diagnostics);
+    if (!attempted.ok) {
+      setLastValidationIssueCode(attempted.issues[0]?.code);
+      return;
+    }
+    setLastValidationIssueCode(undefined);
+    setSession(attempted.session);
+    await runCpuIfNeeded(attempted.session);
   }
 
   async function endPlayPhase(): Promise<void> {
@@ -250,12 +258,14 @@ export function useBattleController(input: BattleControllerInput): BattleControl
 
   async function rematch(): Promise<void> {
     setInteraction(IDLE_BATTLE_INTERACTION);
+    setLastValidationIssueCode(undefined);
     setSession(undefined);
     await startSelectedBattle();
   }
 
   function quitBattle(): void {
     setInteraction(IDLE_BATTLE_INTERACTION);
+    setLastValidationIssueCode(undefined);
     setSession(undefined);
   }
 
@@ -264,6 +274,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
 
+    setLastValidationIssueCode(undefined);
     const card = session.state.cardInstances[instanceId];
     if (card?.type === "spell") {
       const next = selectSpellHandCard(interaction, session.state, instanceId);
@@ -286,6 +297,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
 
+    setLastValidationIssueCode(undefined);
     setInteraction((current) =>
       current.kind === "selecting-move"
         ? selectMovementStep(current, session.state, coordinate)
@@ -300,12 +312,14 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
 
+    setLastValidationIssueCode(undefined);
     setInteraction((current) => current.kind === "selecting-effect"
       ? selectEffectTarget(current, instanceId)
       : selectMovementCreature(current, session.state, instanceId));
   }
 
   function selectEffectCandidate(id: string): void {
+    setLastValidationIssueCode(undefined);
     setInteraction((current) => selectEffectTarget(current, id));
   }
 
@@ -314,6 +328,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
 
+    setLastValidationIssueCode(undefined);
     setInteraction((current) => undoMovementStep(current, session.state));
   }
 
@@ -334,6 +349,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       ? prepareMovementConfirmation(interaction, session.state)
       : prepareSummonConfirmation(interaction, session.state);
     if (!preparation.ok) {
+      setLastValidationIssueCode(undefined);
       setInteraction(preparation.interaction);
       return;
     }
@@ -344,6 +360,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       diagnostics
     );
     if (!submission.ok) {
+      setLastValidationIssueCode(submission.issues[0]?.code);
       setInteraction(
         isEffect
           ? { ...interaction, issue: { code: submission.issues[0]?.code ?? "battle.effect.no-target", message: submission.issues[0]?.message ?? "Selected targets are no longer valid." } }
@@ -363,12 +380,14 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     }
 
     setInteraction(IDLE_BATTLE_INTERACTION);
+    setLastValidationIssueCode(undefined);
     setSession(submission.session);
     await runCpuIfNeeded(submission.session);
   }
 
   function cancelInteraction(): void {
     setInteraction(cancelBattleInteraction());
+    setLastValidationIssueCode(undefined);
   }
 
   const viewModel: BattleRouteViewModel = session
@@ -380,6 +399,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
           interaction: projectBattleInteractionView(interaction, publicView),
           logEntries: session.log.entries,
           cpuStatus
+          , lastValidationIssueCode
         };
       })()
     : {
@@ -393,6 +413,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     actions: {
       returnToMenu: () => {
         setInteraction(IDLE_BATTLE_INTERACTION);
+        setLastValidationIssueCode(undefined);
         input.onReturnToMenu();
       },
       selectPlayerDeck: (deckId) => {
@@ -418,6 +439,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       },
       startBattle: startSelectedBattle,
       submitCommand,
+      showWaterResonanceNoTarget: () => setLastValidationIssueCode("battle.resonance.no-target"),
       selectHandCard,
       selectBoardCreature,
       selectBoardSquare,

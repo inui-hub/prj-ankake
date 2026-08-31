@@ -6,9 +6,14 @@ export interface BattleHandProps {
   readonly selectedInstanceId?: string;
   readonly onCardIntent?: (instanceId: string) => void;
   readonly interactionDisabled?: boolean;
+  readonly onCardInspect?: (card: BattleCardView, element: HTMLElement, source: "pointer" | "focus" | "touch") => void;
+  readonly onInspectLeave?: () => void;
+  readonly onInspectBlur?: () => void;
+  readonly locale?: "ja" | "en";
 }
 
 export function BattleHand(props: BattleHandProps) {
+  const ja = props.locale === "ja";
   return (
     <section
       aria-labelledby="battle-hand-title"
@@ -16,11 +21,11 @@ export function BattleHand(props: BattleHandProps) {
       data-testid="battle-hand"
     >
       <div className="battle-hand__header">
-        <h2 id="battle-hand-title">Hand</h2>
-        <span data-testid="battle-player-hand-count">{props.cards.length} cards</span>
+        <h2 id="battle-hand-title">{ja ? "手札" : "Hand"}</h2>
+        <span data-testid="battle-player-hand-count">{ja ? `${props.cards.length} 枚` : `${props.cards.length} cards`}</span>
       </div>
       {props.cards.length === 0 ? (
-        <p className="battle-hand__empty">No cards in hand.</p>
+        <p className="battle-hand__empty">{ja ? "手札はありません。" : "No cards in hand."}</p>
       ) : (
         <div
           className="battle-hand__scroller"
@@ -35,6 +40,7 @@ export function BattleHand(props: BattleHandProps) {
             >
               <BattleCard
                 card={card}
+                locale={props.locale}
                 mode="hand"
                 isSelected={card.instanceId === props.selectedInstanceId}
                 interactionDisabled={props.interactionDisabled}
@@ -44,7 +50,12 @@ export function BattleHand(props: BattleHandProps) {
                     block: "nearest",
                     inline: "nearest"
                   });
+                  props.onCardInspect?.(card, event.currentTarget, "focus");
                 }}
+                onBlur={props.onInspectBlur}
+                onPointerEnter={(event) => props.onCardInspect?.(card, event.currentTarget, "pointer")}
+                onPointerLeave={props.onInspectLeave}
+                onTouchTap={(event) => props.onCardInspect?.(card, event.currentTarget, "touch")}
               />
             </div>
           ))}

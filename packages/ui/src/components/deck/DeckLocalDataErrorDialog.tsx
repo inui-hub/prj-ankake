@@ -2,12 +2,14 @@ export interface DeckLocalDataErrorDialogProps {
   readonly title: string;
   readonly message: string;
   readonly onReturnToMenu: () => void;
+  readonly locale?: UiLocale;
 }
 
 export function DeckLocalDataErrorDialog({
   title,
   message,
-  onReturnToMenu
+  onReturnToMenu,
+  locale
 }: DeckLocalDataErrorDialogProps) {
   return (
     <div className="deck-modal-backdrop">
@@ -27,10 +29,11 @@ export function DeckLocalDataErrorDialog({
             data-testid="deck-local-data-error-return-button"
             onClick={onReturnToMenu}
           >
-            Return to Menu
+            {uiText(locale, "deck.return-menu")}
           </button>
         </div>
       </section>
     </div>
   );
 }
+import { type UiLocale, uiText } from "../../localization";

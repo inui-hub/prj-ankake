@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { type UiLocale, uiText } from "../localization";
 import darkResonanceTokenArtwork from "../../../../images/card_illustrations/project_ankake_card_illustration_dark-resonance-token_v1_0.png";
 
 const tokenArtworkUrls: Readonly<Record<string, string>> = {
@@ -23,6 +24,7 @@ export interface CardArtworkProps {
   readonly className?: string;
   readonly fallbackClassName?: string;
   readonly testIdPrefix?: string;
+  readonly locale?: UiLocale;
 }
 
 export function CardArtwork(props: CardArtworkProps) {
@@ -37,7 +39,7 @@ export function CardArtwork(props: CardArtworkProps) {
   if (failed || !source) {
     return (
       <div
-        aria-label={`${props.name} artwork unavailable`}
+        aria-label={`${props.name} ${uiText(props.locale, "card.artwork-unavailable")}`}
         className={joinClassNames(props.className, props.fallbackClassName)}
         data-testid={`${testIdPrefix}-fallback-${props.catalogCardId}`}
         role="img"

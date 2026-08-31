@@ -1,20 +1,18 @@
 ## 品質評価
 
-| 観点 | 評価 | 根拠 |
-|---|---|---|
-| 型安全・不変性 | 良好 | strict TypeScript、readonly 型、オブジェクトスプレッドによる state 更新 |
-| テスト基盤 | 良好 | Vitest、fast-check、domain/app/UI のテスト配置 |
-| 共鳴のテスト網羅 | 良好 | `battleResonance.test.ts` が加算、スペル3レーン加算、火水風光闇、減衰、使用回数を検証する |
-| レイヤ分離 | 良好 | UI／アプリ／domain／永続化を workspace で分離 |
-| リント・CI | 要改善 | ESLint 設定、CI ワークフロー、coverage 設定を確認できない |
-| 文書化 | 普通 | 日本語の詳細仕様はあるが、実装 README は限定的 |
+domain/app/ui/cpu/persistence のテストが分離され、共鳴、盤面、投影、検索、UI 画面のテストが確認できる。root に `typecheck` と `test` がある。
 
-## カード固有効果の高リスク欠落
+### 主なリスク
 
-- 62枚中、仕様上の固有効果を持つ55枚に対応するresolverが0件。実行カタログの59件の `effectIds` は全てプレースホルダーである。
-- spell、召喚時、破壊時、常在、誘発を一貫して扱う解決器、対象選択、処理待ちキュー、効果無効化がない。
-- `resonance.changed` に機械可読な前後値・理由・閾値遷移がなく、利用者向けログと UI フィードバックを安定して検証できない。
+- `runStartup` が日本語表示文言を注入し、`effectPrograms` が `effectText` を照合するため、翻訳が規則実行を壊しうる。
+- UI 文言が各コンポーネントに散在しており、全画面切替の網羅性を検証しにくい。
+- `BattleBoard` はマスを button として実装する。カード詳細の実装でネストした操作要素を作るとアクセシビリティを損なう。
+- coverage threshold、ESLint/Prettier/Biome 設定、CI workflow は今回の部分スキャンでは検出されなかった。
 
-## 必須の検証境界
+### 推奨する回帰境界
 
-カード効果実装時は、effect ID と仕様カードの対応完全性、対象選択、fizzle／partial、期間、常在再評価、同時破壊と誘発順をdomain単体で検証する。fast-check では任意のcommand列で状態範囲・modifier解除・キュー順を確認し、アプリ／UIでは公開対象候補・操作可否・構造化eventの表示を検証する。
+ロケールごとの表示と規則同一性、初期ソート、公開対戦投影、hover/focus のカード詳細、盤面からの水共鳴命令をそれぞれテストする。
+
+### ソース証跡
+
+`tests/src/`, `tests/vitest.config.ts`, `apps/web/src/startup/startupOrchestrator.ts`, `packages/domain/src/battle/effectPrograms.ts`, `packages/ui/src/components/battle/BattleBoard.tsx`。

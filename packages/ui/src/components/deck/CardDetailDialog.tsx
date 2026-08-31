@@ -1,5 +1,6 @@
 import type { CardId, CardMasterRecord } from "@ankake/domain";
 import { CardImage } from "./CardImage";
+import { localizeCardPresentation, type UiLocale, uiText } from "../../localization";
 
 export interface CardDetailDialogProps {
   readonly card: CardMasterRecord;
@@ -8,6 +9,7 @@ export interface CardDetailDialogProps {
   readonly onAddCard: (cardId: CardId) => void;
   readonly onRemoveCard: (cardId: CardId) => void;
   readonly onClose: () => void;
+  readonly locale?: UiLocale;
 }
 
 export function CardDetailDialog({
@@ -16,8 +18,11 @@ export function CardDetailDialog({
   canAdd,
   onAddCard,
   onRemoveCard,
-  onClose
+  onClose,
+  locale
 }: CardDetailDialogProps) {
+  const displayCard = localizeCardPresentation(card, locale);
+
   return (
     <div className="deck-modal-backdrop">
       <section
@@ -27,18 +32,18 @@ export function CardDetailDialog({
         aria-labelledby="card-detail-title"
         data-testid="card-detail-dialog"
       >
-        <CardImage card={card} />
+        <CardImage card={card} locale={locale} {...displayCard} />
         <div className="deck-modal__content">
-          <h2 id="card-detail-title">{card.name}</h2>
+          <h2 id="card-detail-title">{displayCard.name}</h2>
           <p>
-            {card.type} / {card.attribute} / cost {card.cost}
+            {displayCard.type} / {displayCard.attribute} / {uiText(locale, "deck.cost")} {card.cost}
           </p>
           {"attack" in card ? (
             <p>
               ATK {card.attack} / HP {card.health}
             </p>
           ) : null}
-          <p>{card.effectText}</p>
+          <p>{displayCard.effectText}</p>
           <div className="deck-modal__actions">
             <button
               type="button"
@@ -46,7 +51,7 @@ export function CardDetailDialog({
               data-testid="card-detail-close-button"
               onClick={onClose}
             >
-              Close
+              {uiText(locale, "deck.close")}
             </button>
             <button
               type="button"
@@ -55,7 +60,7 @@ export function CardDetailDialog({
               disabled={currentCount <= 0}
               onClick={() => onRemoveCard(card.id)}
             >
-              Remove
+              {uiText(locale, "deck.remove")}
             </button>
             <button
               type="button"
@@ -64,7 +69,7 @@ export function CardDetailDialog({
               disabled={!canAdd}
               onClick={() => onAddCard(card.id)}
             >
-              Add ({currentCount}/4)
+              {uiText(locale, "deck.add")} ({currentCount}/4)
             </button>
           </div>
         </div>

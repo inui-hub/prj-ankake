@@ -31,6 +31,7 @@ export interface BattleInteractionControlsProps {
   readonly onEndPlayPhase: () => void;
   readonly onEffectCandidate?: (id: string) => void;
   readonly interactionDisabled?: boolean;
+  readonly locale?: "ja" | "en";
 }
 
 export function BattleInteractionControls(props: BattleInteractionControlsProps) {
@@ -46,25 +47,25 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
     >
       <h2>
         {selectingSummon
-          ? "Summon creature"
+          ? props.locale === "ja" ? "クリーチャーを召喚" : "Summon creature"
           : selectingMove
-            ? "Move creature"
-            : selectingEffect
-              ? "Choose spell target"
-            : "Phase control"}
+            ? props.locale === "ja" ? "クリーチャーを移動" : "Move creature"
+          : selectingEffect
+              ? props.locale === "ja" ? "スペル対象を選択" : "Choose spell target"
+            : props.locale === "ja" ? "フェーズ操作" : "Phase control"}
       </h2>
       <div className="battle-interaction-controls__status">
         {selecting ? (
           <strong data-testid="battle-interaction-selected-card">
-            {props.interaction.selectedCardName ?? "Selected creature"}
+            {props.interaction.selectedCardName ?? (props.locale === "ja" ? "選択中のクリーチャー" : "Selected creature")}
             {props.interaction.selectedCardCost !== undefined
-              ? ` - Cost ${props.interaction.selectedCardCost}`
+              ? props.locale === "ja" ? ` - コスト ${props.interaction.selectedCardCost}` : ` - Cost ${props.interaction.selectedCardCost}`
               : ""}
           </strong>
         ) : null}
         {selectingMove ? (
           <span data-testid="battle-movement-budget">
-            Movement {props.interaction.movementUsed ?? 0} / {props.interaction.movementMaximum ?? 0}
+            {props.locale === "ja" ? "移動" : "Movement"} {props.interaction.movementUsed ?? 0} / {props.interaction.movementMaximum ?? 0}
           </span>
         ) : null}
         {selectingEffect ? (
@@ -74,7 +75,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
                 className="battle-button battle-button--quiet" data-testid={`battle-effect-target-${candidate.kind}-${candidate.id}`}
                 aria-pressed={candidate.selected} disabled={props.interactionDisabled}
                 onClick={() => props.onEffectCandidate?.(candidate.id)}>
-                {candidate.selected ? "Selected: " : "Select: "}{candidate.label}
+                {candidate.selected ? (props.locale === "ja" ? "選択中: " : "Selected: ") : (props.locale === "ja" ? "選択: " : "Select: ")}{candidate.label}
               </button>
             ))}
           </div>
@@ -100,7 +101,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
             type="button"
             onClick={props.onConfirm}
           >
-            Confirm Summon
+            {props.locale === "ja" ? "召喚を確定" : "Confirm Summon"}
           </button>
           <button
             className="battle-button battle-button--quiet"
@@ -109,7 +110,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
             type="button"
             onClick={props.onCancel}
           >
-            Cancel Summon
+            {props.locale === "ja" ? "召喚を取り消す" : "Cancel Summon"}
           </button>
         </div>
       ) : null}
@@ -122,7 +123,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
             type="button"
             onClick={props.onConfirm}
           >
-            Confirm Move
+            {props.locale === "ja" ? "移動を確定" : "Confirm Move"}
           </button>
           <button
             className="battle-button battle-button--quiet"
@@ -131,7 +132,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
             type="button"
             onClick={props.onUndo}
           >
-            Undo Step
+            {props.locale === "ja" ? "手順を戻す" : "Undo Step"}
           </button>
           <button
             className="battle-button battle-button--quiet"
@@ -140,14 +141,14 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
             type="button"
             onClick={props.onCancel}
           >
-            Cancel Move
+            {props.locale === "ja" ? "移動を取り消す" : "Cancel Move"}
           </button>
         </div>
       ) : null}
       {selectingEffect ? (
         <div className="battle-interaction-controls__actions">
-          <button className="battle-button battle-button--primary" data-testid="battle-effect-confirm-button" disabled={props.interactionDisabled || !props.interaction.confirmEnabled} type="button" onClick={props.onConfirm}>Confirm Spell</button>
-          <button className="battle-button battle-button--quiet" data-testid="battle-effect-cancel-button" disabled={props.interactionDisabled || !props.interaction.cancelEnabled} type="button" onClick={props.onCancel}>Cancel Spell</button>
+          <button className="battle-button battle-button--primary" data-testid="battle-effect-confirm-button" disabled={props.interactionDisabled || !props.interaction.confirmEnabled} type="button" onClick={props.onConfirm}>{props.locale === "ja" ? "スペルを確定" : "Confirm Spell"}</button>
+          <button className="battle-button battle-button--quiet" data-testid="battle-effect-cancel-button" disabled={props.interactionDisabled || !props.interaction.cancelEnabled} type="button" onClick={props.onCancel}>{props.locale === "ja" ? "スペルを取り消す" : "Cancel Spell"}</button>
         </div>
       ) : null}
       <button
@@ -157,7 +158,7 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
         type="button"
         onClick={props.onEndPlayPhase}
       >
-        End Play Phase
+        {props.locale === "ja" ? "プレイフェーズを終了" : "End Play Phase"}
       </button>
     </section>
   );

@@ -1,17 +1,20 @@
 import type { DeckBuildingViewModel } from "@ankake/domain";
+import { type UiLocale, uiText } from "../../localization";
 
 export interface DeckHeaderBarProps {
   readonly viewModel: DeckBuildingViewModel;
   readonly saveDisabledReason?: string;
   readonly onReturnToMenu: () => void;
   readonly onSaveDeck: () => void;
+  readonly locale?: UiLocale;
 }
 
 export function DeckHeaderBar({
   viewModel,
   saveDisabledReason,
   onReturnToMenu,
-  onSaveDeck
+  onSaveDeck,
+  locale
 }: DeckHeaderBarProps) {
   return (
     <header className="deck-header">
@@ -21,14 +24,14 @@ export function DeckHeaderBar({
         data-testid="deck-header-return-menu-button"
         onClick={onReturnToMenu}
       >
-        Menu
+        {uiText(locale, "deck.menu")}
       </button>
       <div className="deck-header__title-group">
-        <p className="deck-header__kicker">Deck Building</p>
-        <h1 className="deck-header__title">{viewModel.draft.name || "Untitled Deck"}</h1>
+        <p className="deck-header__kicker">{uiText(locale, "deck.title")}</p>
+        <h1 className="deck-header__title">{viewModel.draft.name || uiText(locale, "deck.untitled")}</h1>
       </div>
       <div className="deck-header__status" data-testid="deck-header-dirty-status">
-        {viewModel.dirty ? "Unsaved" : "Saved"}
+        {viewModel.dirty ? uiText(locale, "deck.unsaved") : uiText(locale, "deck.saved")}
       </div>
       <button
         type="button"
@@ -38,7 +41,7 @@ export function DeckHeaderBar({
         title={saveDisabledReason}
         onClick={onSaveDeck}
       >
-        Save
+        {uiText(locale, "deck.save")}
       </button>
     </header>
   );

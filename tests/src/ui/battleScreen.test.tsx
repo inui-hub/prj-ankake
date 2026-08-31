@@ -92,11 +92,11 @@ describe("battle screen", () => {
       gridColumn: "3",
       gridRow: "1"
     });
-    expect(screen.getByTestId("battle-square-6-1")).toHaveTextContent("CPU Base");
-    expect(screen.getByTestId("battle-square-6-9")).toHaveTextContent("Player Base");
-    expect(screen.getByTestId("battle-square-2-5")).toHaveTextContent("Neutral Base");
-    expect(screen.getByTestId("battle-square-6-5")).toHaveTextContent("Neutral Base");
-    expect(screen.getByTestId("battle-square-10-5")).toHaveTextContent("Neutral Base");
+    expect(screen.getByTestId("battle-square-6-1")).toHaveTextContent("敵拠点");
+    expect(screen.getByTestId("battle-square-6-9")).toHaveTextContent("味方拠点");
+    expect(screen.getByTestId("battle-square-2-5")).toHaveTextContent("中立拠点");
+    expect(screen.getByTestId("battle-square-6-5")).toHaveTextContent("中立拠点");
+    expect(screen.getByTestId("battle-square-10-5")).toHaveTextContent("中立拠点");
     expect(screen.getByTestId("battle-player-pp")).toHaveTextContent("PP: 10/10");
     expect(screen.getByTestId("battle-base-summary")).toHaveTextContent("CPU Base");
     expect(screen.getByTestId("battle-base-summary-cpu-base")).toHaveTextContent("HP 7/20");
@@ -187,6 +187,97 @@ describe("battle screen", () => {
     expect(boardCard.querySelector(".battle-card__name")).toBeNull();
   });
 
+  it("opens one non-interactive card detail popover and closes it on Escape", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    renderBattleScreen(viewModel);
+    const handCard = screen.getByTestId(`battle-hand-card-${viewModel.playerHand[0]!.instanceId}`);
+
+    fireEvent.pointerEnter(handCard, { pointerType: "mouse" });
+    expect(screen.getByTestId("battle-card-detail-popover")).toHaveTextContent(viewModel.playerHand[0]!.name);
+
+    fireEvent.focus(handCard);
+    expect(screen.getAllByTestId("battle-card-detail-popover")).toHaveLength(1);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByTestId("battle-card-detail-popover")).not.toBeInTheDocument();
+  });
+
+  it("localizes battle panels and card detail fields", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    render(<BattleScreen viewModel={viewModel} locale="ja" logEntries={LOG_ENTRIES} cpuStatus="thinking" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
+    expect(screen.getByTestId("battle-status-bar")).toHaveTextContent("ターン");
+    expect(screen.getByTestId("battle-player-info-panel")).toHaveTextContent("手札");
+    expect(screen.getByTestId("battle-log-panel")).toHaveTextContent("対戦ログ");
+    const handCard = screen.getByTestId(`battle-hand-card-${viewModel.playerHand[0]!.instanceId}`);
+    fireEvent.focus(handCard);
+    expect(screen.getByTestId("battle-card-detail-popover")).toHaveTextContent("移動力");
+    expect(screen.getByTestId("battle-card-detail-popover")).toHaveTextContent("効果:");
+  });
+
+  it("localizes board and card accessible names, including stats and ownership", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const occupied = viewModel.boardSquares.find((square) => square.occupant);
+    if (!occupied?.occupant) throw new Error("Expected an occupied board square fixture.");
+    const { rerender } = render(<BattleScreen viewModel={viewModel} locale="ja" logEntries={LOG_ENTRIES} cpuStatus="idle" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
+    const japaneseSquare = screen.getByTestId(`battle-square-${occupied.coordinate.column}-${occupied.coordinate.row}`);
+    expect(japaneseSquare).toHaveAccessibleName(new RegExp(`列 ${occupied.coordinate.column}、行 ${occupied.coordinate.row}`));
+    expect(japaneseSquare).toHaveAccessibleName(
+      new RegExp(`配置カード ${escapeRegExp(occupied.occupant.name)}`)
+    );
+    const japaneseCard = screen.getByTestId(`battle-board-card-${occupied.occupant.instanceId}`);
+    expect(japaneseCard).toHaveAccessibleName(new RegExp(`ATK ${occupied.occupant.currentAttack}`));
+    expect(japaneseCard).toHaveAccessibleName(new RegExp(`コスト ${occupied.occupant.currentCost}`));
+    expect(japaneseCard).toHaveAccessibleName(/状態 使用可能/);
+    expect(japaneseCard).toHaveAccessibleName(/操作プレイヤー/);
+
+    rerender(<BattleScreen viewModel={viewModel} locale="en" logEntries={LOG_ENTRIES} cpuStatus="idle" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
+    expect(screen.getByTestId(`battle-square-${occupied.coordinate.column}-${occupied.coordinate.row}`)).toHaveAccessibleName(new RegExp(`Column ${occupied.coordinate.column}, row ${occupied.coordinate.row}`));
+    expect(screen.getByTestId(`battle-board-card-${occupied.occupant.instanceId}`)).toHaveAccessibleName(new RegExp(`Cost ${occupied.occupant.currentCost}`));
+    expect(screen.getByTestId(`battle-board-card-${occupied.occupant.instanceId}`)).toHaveAccessibleName(/Status Available/);
+    expect(screen.getByTestId(`battle-board-card-${occupied.occupant.instanceId}`)).toHaveAccessibleName(/controlled by/);
+  });
+
+  it("uses an explicit board resonance check for inactive, used, and no-target statuses", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const onWaterBoost = vi.fn();
+    const onNoTarget = vi.fn();
+    render(<BattleScreen viewModel={viewModel} logEntries={LOG_ENTRIES} cpuStatus="idle" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onWaterBoost={onWaterBoost} onWaterResonanceNoTarget={onNoTarget} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
+    const occupied = viewModel.boardSquares.find((square) => square.occupant)!;
+    fireEvent.contextMenu(screen.getByTestId(`battle-square-${occupied.coordinate.column}-${occupied.coordinate.row}`));
+    expect(onWaterBoost).toHaveBeenCalledWith(occupied.occupant!.instanceId);
+    fireEvent.contextMenu(screen.getByTestId("battle-square-3-1"));
+    expect(onNoTarget).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders every reachable water resonance failure status in the selected locale", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const { rerender } = renderBattleScreen(viewModel);
+    for (const [code, message] of [
+      ["battle.resonance.inactive", "Water resonance is not active in this lane."],
+      ["battle.resonance.already-used", "Water resonance was already used in this lane this turn."],
+      ["battle.resonance.no-target", "There is no water resonance target in this lane."]
+    ] as const) {
+      rerender(<BattleScreen viewModel={viewModel} locale="en" resonanceIssueCode={code} logEntries={LOG_ENTRIES} cpuStatus="idle" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
+      expect(screen.getByTestId("battle-resonance-status")).toHaveTextContent(message);
+    }
+  });
+
+  it("opens detail on touch without issuing the follow-up click command", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const onHandCardIntent = vi.fn();
+    const onBoardCreatureIntent = vi.fn();
+    render(<BattleScreen viewModel={viewModel} logEntries={LOG_ENTRIES} cpuStatus="idle" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onHandCardIntent={onHandCardIntent} onBoardCreatureIntent={onBoardCreatureIntent} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
+    const handCard = screen.getByTestId(`battle-hand-card-${viewModel.playerHand[0]!.instanceId}`);
+    fireEvent.pointerUp(handCard, { pointerType: "touch" });
+    fireEvent.click(handCard);
+    expect(screen.getByTestId("battle-card-detail-popover")).toBeInTheDocument();
+    expect(onHandCardIntent).not.toHaveBeenCalled();
+    const occupied = viewModel.boardSquares.find((square) => square.occupant)!;
+    const square = screen.getByTestId(`battle-square-${occupied.coordinate.column}-${occupied.coordinate.row}`);
+    fireEvent.pointerUp(square, { pointerType: "touch" });
+    fireEvent.click(square);
+    expect(onBoardCreatureIntent).not.toHaveBeenCalled();
+  });
+
   it("keeps only explicit phase ending and preserves CPU and result presentation", () => {
     const state = createBattleScreenState();
     const viewModel = projectPublicBattleView(state);
@@ -232,8 +323,8 @@ describe("battle screen", () => {
       />
     );
 
-    expect(screen.getByTestId("battle-result-overlay")).toHaveTextContent("Victory");
-    expect(screen.getByTestId("battle-result-reason")).toHaveTextContent("Enemy base destroyed");
+    expect(screen.getByTestId("battle-result-overlay")).toHaveTextContent("勝利");
+    expect(screen.getByTestId("battle-result-reason")).toHaveTextContent("敵拠点を破壊");
     expect(screen.getByTestId("battle-end-play-phase-button")).toBeDisabled();
     expect(screen.getByTestId("battle-square-3-1")).toBeDisabled();
     expect(
@@ -241,6 +332,33 @@ describe("battle screen", () => {
         `battle-hand-card-${terminalView.playerHand[0]!.instanceId}`
       )
     ).toBeDisabled();
+  });
+
+  it("localizes terminal result labels, reason, and actions", () => {
+    const state = createBattleScreenState();
+    const terminalView = projectPublicBattleView({
+      ...state,
+      phase: "terminal",
+      terminalResult: {
+        winner: "cpu",
+        loser: "player",
+        reason: "deck-out",
+        turnNumber: 4,
+        elapsedSeconds: 20,
+        finalEventSequence: 12
+      }
+    });
+
+    const { rerender } = renderBattleScreen(terminalView, { locale: "ja" });
+    expect(screen.getByTestId("battle-result-overlay")).toHaveTextContent("敗北");
+    expect(screen.getByTestId("battle-result-reason")).toHaveTextContent("理由: 相手がカードを引けない");
+    expect(screen.getByTestId("battle-rematch-button")).toHaveTextContent("再戦");
+    expect(screen.getByTestId("battle-result-return-button")).toHaveTextContent("戻る");
+
+    rerender(<BattleScreen viewModel={terminalView} locale="en" logEntries={LOG_ENTRIES} cpuStatus="completed" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
+    expect(screen.getByTestId("battle-result-overlay")).toHaveTextContent("Defeat");
+    expect(screen.getByTestId("battle-result-reason")).toHaveTextContent("Reason: Opponent could not draw");
+    expect(screen.getByTestId("battle-rematch-button")).toHaveTextContent("Rematch");
   });
 
   it("keeps directional focus results inside the projected topology", () => {
@@ -612,6 +730,7 @@ function renderBattleScreen(
   overrides: {
     readonly cpuStatus?: "idle" | "thinking" | "executing" | "completed" | "limit-reached";
     readonly onEndPlayPhase?: () => void;
+    readonly locale?: "ja" | "en";
   } = {}
 ) {
   return render(
@@ -619,6 +738,7 @@ function renderBattleScreen(
       viewModel={viewModel}
       logEntries={LOG_ENTRIES}
       cpuStatus={overrides.cpuStatus ?? "idle"}
+      locale={overrides.locale}
       onReturnToPreparation={vi.fn()}
       onReturnToMenu={vi.fn()}
       onEndPlayPhase={overrides.onEndPlayPhase ?? vi.fn()}
@@ -626,6 +746,10 @@ function renderBattleScreen(
       onQuitBattle={vi.fn()}
     />
   );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function createBattleScreenState(): BattleState {

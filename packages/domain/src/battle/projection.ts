@@ -40,6 +40,8 @@ export interface BattleCardView {
   readonly currentHp?: number;
   readonly maxHp?: number;
   readonly movement?: number;
+  /** Presentation-only card rules text. It never drives battle execution. */
+  readonly effectText: string;
   readonly summonedThisTurn?: boolean;
   readonly movedThisTurn?: boolean;
   readonly canUseWaterResonance?: boolean;
@@ -156,6 +158,7 @@ function projectBattleCard(
       isInspectable: true,
       isActionable: false,
       disabledReason: "Card data is unavailable.",
+      effectText: "",
       ownerLabel: "Unknown"
     };
   }
@@ -204,9 +207,7 @@ function projectBattleCard(
     attribute: card.attribute,
     controllerSide: card.controllerSide,
     presentationStatus: "available",
-    ...(location === "hand" ? {
-      currentCost: Math.max(0, card.currentCost)
-    } : {}),
+    currentCost: Math.max(0, card.currentCost),
     ...(isCreature
       ? {
           // Resonance bonuses are derived from the current battle state so a
@@ -231,6 +232,7 @@ function projectBattleCard(
         }
       : {}),
     isInspectable: true,
+    effectText: card.effectText,
     isActionable,
     disabledReason,
     ownerLabel: labelSide(card.controllerSide)

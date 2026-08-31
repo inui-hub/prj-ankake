@@ -2,9 +2,10 @@ export type UnsavedChangesDialogChoice = "save" | "discard" | "cancel";
 
 export interface UnsavedChangesDialogProps {
   readonly onChoose: (choice: UnsavedChangesDialogChoice) => void;
+  readonly locale?: UiLocale;
 }
 
-export function UnsavedChangesDialog({ onChoose }: UnsavedChangesDialogProps) {
+export function UnsavedChangesDialog({ onChoose, locale }: UnsavedChangesDialogProps) {
   return (
     <div className="deck-modal-backdrop">
       <section
@@ -14,8 +15,8 @@ export function UnsavedChangesDialog({ onChoose }: UnsavedChangesDialogProps) {
         aria-labelledby="unsaved-changes-title"
         data-testid="unsaved-changes-dialog"
       >
-        <h2 id="unsaved-changes-title">Unsaved Changes</h2>
-        <p>Choose how to handle the current deck before leaving it.</p>
+        <h2 id="unsaved-changes-title">{uiText(locale, "deck.unsaved-changes")}</h2>
+        <p>{uiText(locale, "deck.unsaved-message")}</p>
         <div className="deck-modal__actions">
           <button
             type="button"
@@ -23,7 +24,7 @@ export function UnsavedChangesDialog({ onChoose }: UnsavedChangesDialogProps) {
             data-testid="unsaved-cancel-button"
             onClick={() => onChoose("cancel")}
           >
-            Cancel
+            {uiText(locale, "deck.cancel")}
           </button>
           <button
             type="button"
@@ -31,7 +32,7 @@ export function UnsavedChangesDialog({ onChoose }: UnsavedChangesDialogProps) {
             data-testid="unsaved-discard-button"
             onClick={() => onChoose("discard")}
           >
-            Discard
+            {uiText(locale, "deck.discard")}
           </button>
           <button
             type="button"
@@ -39,10 +40,11 @@ export function UnsavedChangesDialog({ onChoose }: UnsavedChangesDialogProps) {
             data-testid="unsaved-save-button"
             onClick={() => onChoose("save")}
           >
-            Save
+            {uiText(locale, "deck.save")}
           </button>
         </div>
       </section>
     </div>
   );
 }
+import { type UiLocale, uiText } from "../../localization";

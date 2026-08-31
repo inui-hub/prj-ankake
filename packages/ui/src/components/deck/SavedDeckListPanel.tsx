@@ -1,4 +1,5 @@
 import type { DeckCapState, DeckId, SavedDeckSummary } from "@ankake/domain";
+import { type UiLocale, uiText } from "../../localization";
 
 export interface SavedDeckListPanelProps {
   readonly savedDecks: readonly SavedDeckSummary[];
@@ -6,6 +7,7 @@ export interface SavedDeckListPanelProps {
   readonly capState: DeckCapState;
   readonly onCreateNewDeck: () => void;
   readonly onSelectSavedDeck: (deckId: DeckId) => void;
+  readonly locale?: UiLocale;
 }
 
 export function SavedDeckListPanel({
@@ -13,12 +15,13 @@ export function SavedDeckListPanel({
   selectedDeckId,
   capState,
   onCreateNewDeck,
-  onSelectSavedDeck
+  onSelectSavedDeck,
+  locale
 }: SavedDeckListPanelProps) {
   return (
     <aside className="deck-side-panel" aria-labelledby="saved-decks-title">
       <div className="deck-panel-heading">
-        <h2 id="saved-decks-title">Saved Decks</h2>
+        <h2 id="saved-decks-title">{uiText(locale, "deck.saved-decks")}</h2>
         <span data-testid="saved-deck-count">
           {capState.savedDeckCount}/{capState.maxDecks}
         </span>
@@ -29,16 +32,16 @@ export function SavedDeckListPanel({
         data-testid="saved-decks-new-button"
         onClick={onCreateNewDeck}
       >
-        New Deck
+        {uiText(locale, "deck.new")}
       </button>
       {capState.reached ? (
         <p className="deck-note" data-testid="saved-decks-cap-reached">
-          Local deck limit reached.
+          {uiText(locale, "deck.limit-reached")}
         </p>
       ) : null}
       <div className="saved-deck-list" data-testid="saved-deck-list-panel">
         {savedDecks.length === 0 ? (
-          <p className="deck-empty">No saved decks yet.</p>
+          <p className="deck-empty">{uiText(locale, "deck.none-saved")}</p>
         ) : (
           savedDecks.map((deck) => (
             <button
@@ -51,7 +54,7 @@ export function SavedDeckListPanel({
             >
               <span>{deck.name}</span>
               <span>
-                {deck.cardCount} cards {deck.battleReady ? "Ready" : "Draft"}
+                {deck.cardCount} {uiText(locale, "deck.cards")} {deck.battleReady ? uiText(locale, "deck.battle-ready") : uiText(locale, "deck.draft")}
               </span>
             </button>
           ))

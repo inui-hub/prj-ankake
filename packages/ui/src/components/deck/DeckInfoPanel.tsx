@@ -1,23 +1,26 @@
 import type { DeckBuildingViewModel, DeckId } from "@ankake/domain";
+import { localizeDeckValidationIssue, type UiLocale, uiText } from "../../localization";
 
 export interface DeckInfoPanelProps {
   readonly viewModel: DeckBuildingViewModel;
   readonly onDeckNameChange: (name: string) => void;
   readonly onRequestDeleteDeck: (deckId: DeckId) => void;
+  readonly locale?: UiLocale;
 }
 
 export function DeckInfoPanel({
   viewModel,
   onDeckNameChange,
-  onRequestDeleteDeck
+  onRequestDeleteDeck,
+  locale
 }: DeckInfoPanelProps) {
   const savedDeckId = viewModel.draft.savedSnapshot?.deckId;
 
   return (
     <section className="deck-info-panel" aria-labelledby="deck-info-title">
-      <h2 id="deck-info-title">Deck</h2>
+      <h2 id="deck-info-title">{uiText(locale, "deck.deck")}</h2>
       <label className="deck-field">
-        <span>Name</span>
+        <span>{uiText(locale, "deck.name")}</span>
         <input
           value={viewModel.draft.name}
           maxLength={30}
@@ -27,12 +30,12 @@ export function DeckInfoPanel({
       </label>
       <div className="deck-readiness" data-testid="deck-readiness-status">
         <strong>{viewModel.validation.cardCount}/40</strong>
-        <span>{viewModel.validation.battleReady ? "Battle-ready" : "Draft"}</span>
+        <span>{viewModel.validation.battleReady ? uiText(locale, "deck.battle-ready") : uiText(locale, "deck.draft")}</span>
       </div>
       {viewModel.validation.issues.length > 0 ? (
         <ul className="deck-validation-list" data-testid="deck-validation-list">
           {viewModel.validation.issues.map((issue) => (
-            <li key={`${issue.code}-${issue.cardId ?? "deck"}`}>{issue.message}</li>
+            <li key={`${issue.code}-${issue.cardId ?? "deck"}`}>{localizeDeckValidationIssue(locale, issue.code, issue.message)}</li>
           ))}
         </ul>
       ) : null}
@@ -43,7 +46,7 @@ export function DeckInfoPanel({
           data-testid="deck-delete-request-button"
           onClick={() => onRequestDeleteDeck(savedDeckId)}
         >
-          Delete Deck
+          {uiText(locale, "deck.delete-deck")}
         </button>
       ) : null}
     </section>

@@ -14,7 +14,9 @@ import {
   DialogOverlayHost,
   MenuScreen
 } from "@ankake/ui";
-import { useEffect, useMemo, useReducer } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
+import { cardNameMap, localizeBattleView } from "./i18n/cardLocalization";
+import type { AppLocale } from "./i18n/localization";
 import { useBattleController } from "./battle/useBattleController";
 import { createDeckRepository } from "./deck/createDeckRepository";
 import { useDeckBuildingController } from "./deck/useDeckBuildingController";
@@ -24,6 +26,7 @@ import { runStartup } from "./startup/startupOrchestrator";
 export function AppShell() {
   const destinationCapabilities = useMemo(() => createUow001DestinationCapabilities(), []);
   const [snapshot, dispatch] = useReducer(appStateReducer, createInitialAppSnapshot());
+  const [locale, setLocale] = useState<AppLocale>("ja");
   const viewModel = projectMenuViewModel(snapshot, destinationCapabilities);
 
   useEffect(() => {
@@ -71,27 +74,28 @@ export function AppShell() {
   }
 
   if (snapshot.kind === "ready" && snapshot.currentRoute === "deck-building") {
-    return <DeckBuildingRoute catalog={snapshot.catalog} onReturnToMenu={handleReturnToMenu} />;
+    return <DeckBuildingRoute catalog={snapshot.catalog} locale={locale} onReturnToMenu={handleReturnToMenu} />;
   }
 
   if (snapshot.kind === "ready" && snapshot.currentRoute === "battle-preparation") {
-    return <BattleRoute catalog={snapshot.catalog} onReturnToMenu={handleReturnToMenu} />;
+    return <BattleRoute catalog={snapshot.catalog} locale={locale} onReturnToMenu={handleReturnToMenu} />;
   }
 
   return (
     <>
-      <MenuScreen viewModel={viewModel} onActionSelected={handleActionSelected} />
-      <DialogOverlayHost viewModel={viewModel} onReloadRequested={handleReloadRequested} />
+      <MenuScreen viewModel={viewModel} locale={locale} onLocaleChange={setLocale} onActionSelected={handleActionSelected} />
+      <DialogOverlayHost viewModel={viewModel} locale={locale} onReloadRequested={handleReloadRequested} />
     </>
   );
 }
 
 interface BattleRouteProps {
   readonly catalog: StaticCatalogSnapshot;
+  readonly locale: AppLocale;
   readonly onReturnToMenu: () => void;
 }
 
-function BattleRoute({ catalog, onReturnToMenu }: BattleRouteProps) {
+function BattleRoute({ catalog, locale, onReturnToMenu }: BattleRouteProps) {
   const repository = useMemo(() => createDeckRepository(catalog), [catalog]);
   const controller = useBattleController({
     catalog,
@@ -111,16 +115,19 @@ function BattleRoute({ catalog, onReturnToMenu }: BattleRouteProps) {
         onStartBattle={() => {
           void controller.actions.startBattle();
         }}
+        locale={locale}
       />
     );
   }
 
   return (
     <BattleScreen
-      viewModel={controller.viewModel.publicView}
+      viewModel={localizeBattleView(controller.viewModel.publicView, locale)}
+      locale={locale}
       interaction={controller.viewModel.interaction}
       logEntries={controller.viewModel.logEntries}
       cpuStatus={controller.viewModel.cpuStatus}
+      resonanceIssueCode={controller.viewModel.lastValidationIssueCode}
       onReturnToPreparation={controller.actions.quitBattle}
       onReturnToMenu={controller.actions.returnToMenu}
       onEndPlayPhase={() => {
@@ -133,6 +140,7 @@ function BattleRoute({ catalog, onReturnToMenu }: BattleRouteProps) {
           creatureInstanceId
         });
       }}
+      onWaterResonanceNoTarget={controller.actions.showWaterResonanceNoTarget}
       onHandCardIntent={controller.actions.selectHandCard}
       onBoardCreatureIntent={controller.actions.selectBoardCreature}
       onBoardSquareIntent={controller.actions.selectBoardSquare}
@@ -152,10 +160,11 @@ function BattleRoute({ catalog, onReturnToMenu }: BattleRouteProps) {
 
 interface DeckBuildingRouteProps {
   readonly catalog: StaticCatalogSnapshot;
+  readonly locale: AppLocale;
   readonly onReturnToMenu: () => void;
 }
 
-function DeckBuildingRoute({ catalog, onReturnToMenu }: DeckBuildingRouteProps) {
+function DeckBuildingRoute({ catalog, locale, onReturnToMenu }: DeckBuildingRouteProps) {
   const repository = useMemo(() => createDeckRepository(catalog), [catalog]);
   const controller = useDeckBuildingController({
     catalog,
@@ -165,7 +174,8 @@ function DeckBuildingRoute({ catalog, onReturnToMenu }: DeckBuildingRouteProps) 
 
   return (
     <DeckBuildingScreen
-      viewModel={controller.viewModel}
+      viewModel={{ ...controller.viewModel, criteria: { ...controller.viewModel.criteria, comparisonLocale: locale, localizedNames: cardNameMap(catalog.cards, locale) } }}
+      locale={locale}
       saveDisabledReason={controller.actions.getSaveDisabledReason()}
       onReturnToMenu={controller.actions.returnToMenu}
       onSaveDeck={() => {

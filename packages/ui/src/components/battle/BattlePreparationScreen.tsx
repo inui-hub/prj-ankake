@@ -17,41 +17,43 @@ export interface BattlePreparationScreenProps {
   readonly onSelectCpuDeck: (deckId: string) => void;
   readonly onFirstPlayerModeChange: (mode: FirstPlayerMode) => void;
   readonly onStartBattle: () => void;
+  readonly locale?: "ja" | "en";
 }
 
 export function BattlePreparationScreen(props: BattlePreparationScreenProps) {
   const { viewModel } = props;
+  const ja = props.locale === "ja";
   const battleReadyDecks = viewModel.deckOptions.filter((deck) => deck.battleReady);
 
   return (
     <main className="battle-prep-screen" data-testid="battle-preparation-screen">
       <header className="battle-prep-header">
         <button className="battle-button battle-button--quiet" type="button" onClick={props.onReturnToMenu}>
-          Back
+          {ja ? "戻る" : "Back"}
         </button>
         <div>
-          <p className="battle-kicker">CPU Battle</p>
-          <h1>Prepare Battle</h1>
+          <p className="battle-kicker">{ja ? "CPU対戦" : "CPU Battle"}</p>
+          <h1>{ja ? "対戦準備" : "Prepare Battle"}</h1>
         </div>
       </header>
 
       <section className="battle-prep-grid">
         <DeckSelector
-          label="Player deck"
+          label={ja ? "プレイヤーデッキ" : "Player deck"}
           testId="battle-prep-player-deck-selector"
           deckId={viewModel.playerDeckId}
           decks={viewModel.deckOptions}
-          onChange={props.onSelectPlayerDeck}
+          onChange={props.onSelectPlayerDeck} locale={props.locale}
         />
         <DeckSelector
-          label="CPU deck"
+          label={ja ? "CPUデッキ" : "CPU deck"}
           testId="battle-prep-cpu-deck-selector"
           deckId={viewModel.cpuDeckId}
           decks={viewModel.deckOptions}
-          onChange={props.onSelectCpuDeck}
+          onChange={props.onSelectCpuDeck} locale={props.locale}
         />
         <fieldset className="battle-panel battle-first-player" data-testid="battle-prep-first-player-mode">
-          <legend>First player</legend>
+          <legend>{ja ? "先攻" : "First player"}</legend>
           <label>
             <input
               checked={viewModel.firstPlayerMode === "random"}
@@ -59,7 +61,7 @@ export function BattlePreparationScreen(props: BattlePreparationScreenProps) {
               type="radio"
               onChange={() => props.onFirstPlayerModeChange("random")}
             />
-            Random
+            {ja ? "ランダム" : "Random"}
           </label>
           <label>
             <input
@@ -68,7 +70,7 @@ export function BattlePreparationScreen(props: BattlePreparationScreenProps) {
               type="radio"
               onChange={() => props.onFirstPlayerModeChange("player-first")}
             />
-            Player first
+            {ja ? "プレイヤー先攻" : "Player first"}
           </label>
           <label>
             <input
@@ -77,13 +79,13 @@ export function BattlePreparationScreen(props: BattlePreparationScreenProps) {
               type="radio"
               onChange={() => props.onFirstPlayerModeChange("player-second")}
             />
-            Player second
+            {ja ? "プレイヤー後攻" : "Player second"}
           </label>
         </fieldset>
 
         <section className="battle-panel battle-start-panel">
-          <h2>Start</h2>
-          <p>{battleReadyDecks.length} battle-ready deck(s) available.</p>
+          <h2>{ja ? "開始" : "Start"}</h2>
+          <p>{ja ? `対戦可能なデッキ: ${battleReadyDecks.length}` : `${battleReadyDecks.length} battle-ready deck(s) available.`}</p>
           {props.startDisabledReason ? (
             <p className="battle-warning" data-testid="battle-prep-error">
               {props.startDisabledReason}
@@ -101,7 +103,7 @@ export function BattlePreparationScreen(props: BattlePreparationScreenProps) {
             type="button"
             onClick={props.onStartBattle}
           >
-            {viewModel.loading ? "Loading..." : "Start Battle"}
+            {viewModel.loading ? (ja ? "読み込み中..." : "Loading...") : (ja ? "対戦開始" : "Start Battle")}
           </button>
         </section>
       </section>
@@ -115,6 +117,7 @@ interface DeckSelectorProps {
   readonly deckId?: string;
   readonly decks: readonly SavedDeckSummary[];
   readonly onChange: (deckId: string) => void;
+  readonly locale?: "ja" | "en";
 }
 
 function DeckSelector(props: DeckSelectorProps) {
@@ -127,11 +130,11 @@ function DeckSelector(props: DeckSelectorProps) {
         onChange={(event) => props.onChange(event.currentTarget.value)}
       >
         <option value="" disabled>
-          Select deck
+          {props.locale === "ja" ? "デッキを選択" : "Select deck"}
         </option>
         {props.decks.map((deck) => (
           <option key={deck.deckId} disabled={!deck.battleReady} value={deck.deckId}>
-            {deck.name} - {deck.cardCount} cards{deck.battleReady ? "" : " - not ready"}
+            {deck.name} - {props.locale === "ja" ? `${deck.cardCount} 枚` : `${deck.cardCount} cards`}{deck.battleReady ? "" : props.locale === "ja" ? " - 対戦準備未完了" : " - not ready"}
           </option>
         ))}
       </select>

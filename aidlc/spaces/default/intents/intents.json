@@ -19,5 +19,19 @@
     "dirName": "260815-card-effects",
     "scope": "card-effects-implementation",
     "status": "complete"
+  },
+  {
+    "uuid": "01a00923-4883-7298-b9e7-4edabf670797",
+    "slug": "ui-corrections",
+    "dirName": "260816-ui-corrections",
+    "scope": "bugfix",
+    "status": "in-flight"
+  },
+  {
+    "uuid": "01a0094e-cb2a-70b1-9d8f-8ec6e6587603",
+    "slug": "ui-corrections",
+    "dirName": "260816-ui-corrections-2",
+    "scope": "bugfix",
+    "status": "complete"
   }
 ]

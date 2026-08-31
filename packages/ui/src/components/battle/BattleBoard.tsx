@@ -6,6 +6,8 @@ import {
 } from "@ankake/domain";
 import { useEffect, useRef, useState } from "react";
 import { BattleCard } from "./BattleCard";
+import baseIcon from "../../assets/base-icon.svg";
+import { type UiLocale, uiText } from "../../localization";
 
 export interface BattleBoardProps {
   readonly squares: readonly BattleBoardSquareView[];
@@ -21,12 +23,20 @@ export interface BattleBoardProps {
   readonly interactionDisabled?: boolean;
   readonly onCreatureIntent?: (instanceId: string) => void;
   readonly onSquareIntent?: (coordinate: BoardCoordinate) => void;
+  readonly onWaterBoost?: (instanceId: string) => void;
+  /** Context-menu is an explicit board-only resonance check, including invalid lanes. */
+  readonly onWaterResonanceNoTarget?: () => void;
+  readonly locale?: "ja" | "en";
+  readonly onCardInspect?: (card: BattleBoardSquareView["occupant"], element: HTMLElement, source: "pointer" | "focus" | "touch") => void;
+  readonly onInspectLeave?: () => void;
+  readonly onInspectBlur?: () => void;
 }
 
 export function BattleBoard(props: BattleBoardProps) {
   const firstKey = props.squares[0]?.key ?? "";
   const [focusedKey, setFocusedKey] = useState(firstKey);
   const squareRefs = useRef(new Map<string, HTMLButtonElement>());
+  const suppressTouchClickKey = useRef<string>();
   const candidateKeys = new Set(props.candidateKeys ?? []);
   const selectedCreature = props.squares
     .map((square) => square.occupant)
@@ -48,9 +58,9 @@ export function BattleBoard(props: BattleBoardProps) {
 
   return (
     <section className="battle-board-wrap">
-      <h2>Board</h2>
+      <h2>{uiText(props.locale, "battle.board")}</h2>
       <div
-        aria-label="Battle board"
+        aria-label={uiText(props.locale, "battle.board")}
         className="battle-board"
         data-testid="battle-board"
         role="grid"
@@ -72,6 +82,7 @@ export function BattleBoard(props: BattleBoardProps) {
               : hidesConfirmedCreature
                 ? undefined
                 : square.occupant;
+          const isWaterResonanceTarget = Boolean(displayedOccupant?.canUseWaterResonance);
 
           return (
             <button
@@ -83,7 +94,8 @@ export function BattleBoard(props: BattleBoardProps) {
                 isSelected,
                 isMovementOrigin,
                 isProvisional,
-                pathSteps
+                pathSteps,
+                props.locale
               )}
               aria-selected={isSelected || isProvisional || undefined}
               className={[
@@ -95,7 +107,9 @@ export function BattleBoard(props: BattleBoardProps) {
                 isMovementOrigin ? "battle-square--movement-origin" : "",
                 pathSteps.length > 0 ? "battle-square--movement-path" : "",
                 isProvisional ? "battle-square--provisional" : ""
+                , isWaterResonanceTarget ? "battle-square--water-resonance" : ""
               ].join(" ")}
+              data-lane={square.lane}
               data-testid={`battle-square-${square.coordinate.column}-${square.coordinate.row}`}
               disabled={props.interactionDisabled}
               role="gridcell"
@@ -112,15 +126,41 @@ export function BattleBoard(props: BattleBoardProps) {
                   squareRefs.current.delete(square.key);
                 }
               }}
-              onClick={() => {
+              onClick={(event) => {
+                if (suppressTouchClickKey.current === square.key) {
+                  suppressTouchClickKey.current = undefined;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  return;
+                }
                 setFocusedKey(square.key);
-                if (displayedOccupant) {
+                if (displayedOccupant?.canUseWaterResonance) {
+                  props.onWaterBoost?.(displayedOccupant.instanceId);
+                } else if (displayedOccupant) {
                   props.onCreatureIntent?.(displayedOccupant.instanceId);
                 } else {
                   props.onSquareIntent?.(square.coordinate);
                 }
               }}
               onFocus={() => setFocusedKey(square.key)}
+              onPointerEnter={(event) => displayedOccupant && props.onCardInspect?.(displayedOccupant, event.currentTarget, "pointer")}
+              onPointerLeave={props.onInspectLeave}
+              onBlur={props.onInspectBlur}
+              onPointerUp={(event) => {
+                // Pen input follows the same inspect-before-activate contract as touch.
+                if (event.pointerType !== "mouse" && displayedOccupant) {
+                  suppressTouchClickKey.current = square.key;
+                  props.onCardInspect?.(displayedOccupant, event.currentTarget, "touch");
+                }
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                if (displayedOccupant?.controllerSide === "player") {
+                  props.onWaterBoost?.(displayedOccupant.instanceId);
+                } else {
+                  props.onWaterResonanceNoTarget?.();
+                }
+              }}
               onKeyDown={(event) => {
                 if (!isArrowKey(event.key)) {
                   return;
@@ -137,7 +177,7 @@ export function BattleBoard(props: BattleBoardProps) {
               }}
             >
               {displayedOccupant ? (
-                <BattleCard card={displayedOccupant} mode="board" />
+                <BattleCard card={displayedOccupant} locale={props.locale} mode="board" />
               ) : null}
               {isMovementOrigin ? (
                 <span
@@ -164,9 +204,10 @@ export function BattleBoard(props: BattleBoardProps) {
                 </span>
               ) : null}
               {square.terrain !== "normal" ? (
-                <span className={`battle-square__base-label battle-square__base-label--${square.base?.owner ?? "none"}`} data-testid={`battle-base-${square.base?.id ?? square.key}`}>
-                  <strong>{square.base?.label ?? terrainLabel(square.terrain)}</strong>
-                  {square.base ? <span>{ownerLabel(square.base.owner)} · HP {square.base.currentHp}/{square.base.maxHp}</span> : null}
+                <span className={`battle-square__base-label battle-square__base-label--${square.base?.owner ?? "none"}`} data-base-owner={square.base?.owner ?? "none"} data-testid={`battle-base-${square.base?.id ?? square.key}`}>
+                  <img alt={ownerLabel(square.base?.owner ?? "none", props.locale)} className="battle-square__base-icon" src={baseIcon} />
+                  <span className="sr-only">{props.locale === "en" ? square.base?.label ?? terrainLabel(square.terrain, props.locale) : terrainLabel(square.terrain, props.locale)}</span>
+                  {square.base ? <span>{uiText(props.locale, "battle.health")} {square.base.currentHp}/{square.base.maxHp}</span> : null}
                 </span>
               ) : null}
             </button>
@@ -184,28 +225,32 @@ function describeSquare(
   isSelected: boolean,
   isMovementOrigin: boolean,
   isProvisional: boolean,
-  pathSteps: readonly number[]
+  pathSteps: readonly number[],
+  locale: UiLocale | undefined
 ): string {
-  const prefix = `Column ${square.coordinate.column}, row ${square.coordinate.row}`;
+  const prefix = locale === "en"
+    ? `${uiText(locale, "battle.column")} ${square.coordinate.column}, ${uiText(locale, "battle.row")} ${square.coordinate.row}`
+    : `${uiText(locale, "battle.column")} ${square.coordinate.column}、${uiText(locale, "battle.row")} ${square.coordinate.row}`;
   const baseLabel = square.base
-    ? `, ${square.base.label}, ${ownerLabel(square.base.owner)}, health ${square.base.currentHp} of ${square.base.maxHp}`
+    ? `, ${locale === "en" ? square.base.label : terrainLabel(square.terrain, locale)}, ${ownerLabel(square.base.owner, locale)}, ${uiText(locale, "battle.health")} ${square.base.currentHp}/${square.base.maxHp}`
     : "";
   const labels = [
-    isSelected ? "selected summon destination" : undefined,
-    isCandidate ? "available destination" : undefined,
-    isMovementOrigin ? "movement origin" : undefined,
-    pathSteps.length > 0 ? `movement path steps ${pathSteps.join(", ")}` : undefined,
-    isProvisional ? "provisional creature position" : undefined
+    isSelected ? uiText(locale, "battle.selected-summon") : undefined,
+    isCandidate ? uiText(locale, "battle.available-destination") : undefined,
+    isMovementOrigin ? uiText(locale, "battle.movement-origin") : undefined,
+    pathSteps.length > 0 ? `${uiText(locale, "battle.movement-path")} ${pathSteps.join(", ")}` : undefined,
+    isProvisional ? uiText(locale, "battle.provisional-position") : undefined
   ].filter((label): label is string => Boolean(label));
   const interactionLabel = labels.length > 0 ? `, ${labels.join(", ")}` : "";
   if (occupantName) {
-    return `${prefix}, ${terrainLabel(square.terrain)}${baseLabel}, occupied by ${occupantName}${interactionLabel}`;
+    return `${prefix}, ${terrainLabel(square.terrain, locale)}${baseLabel}, ${uiText(locale, "battle.occupied-by")} ${occupantName}${interactionLabel}`;
   }
 
-  return `${prefix}, ${terrainLabel(square.terrain)}${baseLabel}${interactionLabel}`;
+  return `${prefix}, ${terrainLabel(square.terrain, locale)}${baseLabel}${interactionLabel}`;
 }
 
-function ownerLabel(owner: "none" | "player" | "cpu"): string {
+function ownerLabel(owner: "none" | "player" | "cpu", locale: "ja" | "en" = "ja"): string {
+  if (locale === "ja") return owner === "none" ? "中立拠点" : owner === "player" ? "味方拠点" : "敵拠点";
   return owner === "none" ? "Unclaimed" : owner === "player" ? "Player controlled" : "CPU controlled";
 }
 
@@ -271,15 +316,15 @@ function getDirectionDelta(
   }
 }
 
-function terrainLabel(terrain: BattleBoardSquareView["terrain"]): string {
+function terrainLabel(terrain: BattleBoardSquareView["terrain"], locale: UiLocale | undefined): string {
   switch (terrain) {
     case "cpu-base":
-      return "CPU Base";
+      return uiText(locale, "battle.cpu-base");
     case "player-base":
-      return "Player Base";
+      return uiText(locale, "battle.player-base");
     case "neutral-base":
-      return "Neutral Base";
+      return uiText(locale, "battle.neutral-base");
     case "normal":
-      return "Normal square";
+      return uiText(locale, "battle.normal-square");
   }
 }

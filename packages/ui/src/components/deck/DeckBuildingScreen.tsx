@@ -38,6 +38,7 @@ export interface DeckBuildingScreenProps {
   readonly onRequestDeleteDeck: (deckId: DeckId) => void;
   readonly onConfirmDeleteDeck: (deckId: DeckId) => void;
   readonly onResolveUnsavedChanges: (choice: UnsavedChangesDialogChoice) => void;
+  readonly locale?: "ja" | "en";
 }
 
 export function DeckBuildingScreen(props: DeckBuildingScreenProps) {
@@ -50,6 +51,7 @@ export function DeckBuildingScreen(props: DeckBuildingScreenProps) {
         saveDisabledReason={props.saveDisabledReason}
         onReturnToMenu={props.onReturnToMenu}
         onSaveDeck={props.onSaveDeck}
+        locale={props.locale}
       />
       <div className="deck-shell">
         <SavedDeckListPanel
@@ -58,17 +60,20 @@ export function DeckBuildingScreen(props: DeckBuildingScreenProps) {
           capState={viewModel.capState}
           onCreateNewDeck={props.onCreateNewDeck}
           onSelectSavedDeck={props.onSelectSavedDeck}
+          locale={props.locale}
         />
         <section className="deck-workspace">
           <CardSearchFilterBar
             criteria={viewModel.criteria}
             onCriteriaChange={props.onCriteriaChange}
             onResetCriteria={props.onResetCriteria}
+            locale={props.locale}
           />
           <DeckCardGrid
             cardRows={viewModel.cardRows}
             onAddCard={props.onAddCard}
             onOpenCardDetail={props.onOpenCardDetail}
+            locale={props.locale}
           />
         </section>
         <aside className="deck-detail-rail">
@@ -76,17 +81,19 @@ export function DeckBuildingScreen(props: DeckBuildingScreenProps) {
             viewModel={viewModel}
             onDeckNameChange={props.onDeckNameChange}
             onRequestDeleteDeck={props.onRequestDeleteDeck}
+            locale={props.locale}
           />
           <DeckContentsList
             rows={viewModel.deckContents}
             onAddCard={props.onAddCard}
             onRemoveCard={props.onRemoveCard}
             onOpenCardDetail={props.onOpenCardDetail}
+            locale={props.locale}
           />
-          <DeckStatsPanel stats={viewModel.stats} />
+          <DeckStatsPanel stats={viewModel.stats} locale={props.locale} />
         </aside>
       </div>
-      <DeckLoadingOverlay active={viewModel.loading || viewModel.saving || viewModel.deleting} />
+      <DeckLoadingOverlay active={viewModel.loading || viewModel.saving || viewModel.deleting} locale={props.locale} />
       {renderDialog(props)}
     </main>
   );
@@ -113,6 +120,7 @@ function renderDialog(props: DeckBuildingScreenProps) {
           onAddCard={props.onAddCard}
           onRemoveCard={props.onRemoveCard}
           onClose={props.onCloseDialog}
+          locale={props.locale}
         />
       );
     }
@@ -122,16 +130,18 @@ function renderDialog(props: DeckBuildingScreenProps) {
           deckId={viewModel.dialog.deckId}
           onConfirm={props.onConfirmDeleteDeck}
           onCancel={props.onCloseDialog}
+          locale={props.locale}
         />
       );
     case "unsaved-changes":
-      return <UnsavedChangesDialog onChoose={props.onResolveUnsavedChanges} />;
+      return <UnsavedChangesDialog onChoose={props.onResolveUnsavedChanges} locale={props.locale} />;
     case "local-data-error":
       return (
         <DeckLocalDataErrorDialog
           title={viewModel.dialog.title}
           message={viewModel.dialog.message}
           onReturnToMenu={props.onCloseDialog}
+          locale={props.locale}
         />
       );
     case "none":

@@ -1,4 +1,5 @@
 import {
+  DEFAULT_CARD_SEARCH_CRITERIA,
   searchDeckBuildableCards
 } from "@ankake/domain";
 import fc from "fast-check";
@@ -9,6 +10,12 @@ import {
 import { validCatalogSnapshotFixture } from "../generators/catalogGenerators";
 
 describe("card search", () => {
+  it("uses cost ascending as the non-persisted initial order", () => {
+    expect(DEFAULT_CARD_SEARCH_CRITERIA.sortKey).toBe("cost");
+    expect(DEFAULT_CARD_SEARCH_CRITERIA.sortDirection).toBe("asc");
+    expect(searchDeckBuildableCards(validCatalogSnapshotFixture, fc.sample(deckDraftArbitrary, { numRuns: 1 })[0], DEFAULT_CARD_SEARCH_CRITERIA)
+      .every((row, index, rows) => index === 0 || rows[index - 1]!.card.cost <= row.card.cost)).toBe(true);
+  });
   it("filters by query text", () => {
     const draft = fc.sample(deckDraftArbitrary, { numRuns: 1 })[0];
     const rows = searchDeckBuildableCards(validCatalogSnapshotFixture, draft, {

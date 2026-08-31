@@ -5,14 +5,15 @@ import { GlobalLoadingOverlay } from "./GlobalLoadingOverlay";
 export interface DialogOverlayHostProps {
   readonly viewModel: MenuViewModel;
   readonly onReloadRequested: () => void;
+  readonly locale?: "ja" | "en";
 }
 
-export function DialogOverlayHost({ viewModel, onReloadRequested }: DialogOverlayHostProps) {
+export function DialogOverlayHost({ viewModel, onReloadRequested, locale }: DialogOverlayHostProps) {
   return (
     <>
-      <GlobalLoadingOverlay overlay={viewModel.loadingOverlay} />
+      <GlobalLoadingOverlay overlay={viewModel.loadingOverlay} locale={locale} />
       {viewModel.fatalErrorDialog ? (
-        <FatalErrorDialog error={viewModel.fatalErrorDialog} onReloadRequested={onReloadRequested} />
+        <FatalErrorDialog error={viewModel.fatalErrorDialog} locale={locale} onReloadRequested={onReloadRequested} />
       ) : null}
     </>
   );
