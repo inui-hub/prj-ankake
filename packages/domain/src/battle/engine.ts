@@ -35,8 +35,6 @@ export const GameEngine = {
         return acceptSpell(state, command);
       case "moveCreature":
         return acceptMove(state, command);
-      case "boostCreatureMovement":
-        return acceptWaterBoost(state, command);
       case "endPlayPhase":
         return acceptEndPlayPhase(state, command.side);
     }
@@ -218,26 +216,6 @@ function resolveOrderedEffects(
   return effects.length === 0 ? { state, events } : { state, events, effect: { status: resolved ? "resolved" : "fizzled", completedOperationCount, ...(firstFailure ? { failedOperation: firstFailure } : {}) } };
 }
 
-function acceptWaterBoost(
-  state: BattleState,
-  command: Extract<BattleCommand, { type: "boostCreatureMovement" }>
-): BattleCommandResult {
-  const card = state.cardInstances[command.creatureInstanceId] as BattleCardInstance;
-  const player = state.players[command.side];
-  const lane = getLane(card.position!.column);
-  const sequence = state.eventCursor + 1;
-  return {
-    ok: true,
-    state: {
-      ...state,
-      players: { ...state.players, [command.side]: { ...player, resonanceUsage: { ...player.resonanceUsage, water: { ...player.resonanceUsage.water, [lane]: true } } } },
-      cardInstances: { ...state.cardInstances, [card.instanceId]: { ...card, temporaryMovementBonus: (card.temporaryMovementBonus ?? 0) + 1 } },
-      eventCursor: sequence
-    },
-    events: [{ sequence, type: "resonance.effect-resolved", side: command.side, instanceId: card.instanceId, message: `Water resonance increased ${card.name}'s movement.` }]
-  };
-}
-
 function acceptMove(
   state: BattleState,
   command: Extract<BattleCommand, { type: "moveCreature" }>
@@ -245,6 +223,10 @@ function acceptMove(
   const card = state.cardInstances[command.creatureInstanceId] as BattleCardInstance;
   const destination = command.path[command.path.length - 1] as { column: number; row: number };
   const sequence = state.eventCursor + 1;
+  const lane = getLane(command.origin.column);
+  const player = state.players[command.side];
+  const activatesWaterResonance = isResonanceActive(player.resonance, lane, "water")
+    && !player.resonanceUsage.water[lane];
   const events: readonly BattleEvent[] = [
     {
       sequence,
@@ -262,19 +244,27 @@ function acceptMove(
         destination,
         card.instanceId
       ),
+      players: activatesWaterResonance
+        ? { ...state.players, [command.side]: { ...player, resonanceUsage: { ...player.resonanceUsage, water: { ...player.resonanceUsage.water, [lane]: true } } } }
+        : state.players,
       cardInstances: {
         ...state.cardInstances,
         [card.instanceId]: {
           ...card,
           position: destination,
-          movedThisTurn: true
+          movedThisTurn: true,
+          ...(activatesWaterResonance ? { temporaryMovementBonus: (card.temporaryMovementBonus ?? 0) + 1 } : {})
         }
       },
       eventCursor: sequence
     };
-  const lifecycle = resolveLifecycleEffects(movedState, events);
+  const resonanceEvents = activatesWaterResonance
+    ? [...events, { sequence: sequence + 1, type: "resonance.effect-resolved" as const, side: command.side, instanceId: card.instanceId, message: `Water resonance increased ${card.name}'s movement.` }]
+    : events;
+  const resonanceState = activatesWaterResonance ? { ...movedState, eventCursor: sequence + 1 } : movedState;
+  const lifecycle = resolveLifecycleEffects(resonanceState, resonanceEvents);
   if (!lifecycle.accepted) return triggerLoopRejected(state);
-  return { ok: true, state: { ...lifecycle.state, eventCursor: lifecycle.events.at(-1)?.sequence ?? sequence }, events: [...events, ...lifecycle.events] };
+  return { ok: true, state: { ...lifecycle.state, eventCursor: lifecycle.events.at(-1)?.sequence ?? resonanceEvents.at(-1)?.sequence ?? sequence }, events: [...resonanceEvents, ...lifecycle.events] };
 }
 
 function acceptEndPlayPhase(state: BattleState, side: BattleSide): BattleCommandResult {

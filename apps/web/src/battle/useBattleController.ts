@@ -67,7 +67,6 @@ export interface BattleControllerActions {
   readonly setFirstPlayerMode: (mode: FirstPlayerMode) => void;
   readonly startBattle: () => Promise<void>;
   readonly submitCommand: (command: BattleCommand) => Promise<void>;
-  readonly showWaterResonanceNoTarget: () => void;
   readonly selectHandCard: (instanceId: string) => void;
   readonly selectBoardCreature: (instanceId: string) => void;
   readonly selectBoardSquare: (coordinate: BoardCoordinate) => void;
@@ -439,7 +438,6 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       },
       startBattle: startSelectedBattle,
       submitCommand,
-      showWaterResonanceNoTarget: () => setLastValidationIssueCode("battle.resonance.no-target"),
       selectHandCard,
       selectBoardCreature,
       selectBoardSquare,

@@ -236,31 +236,6 @@ describe("battle screen", () => {
     expect(screen.getByTestId(`battle-board-card-${occupied.occupant.instanceId}`)).toHaveAccessibleName(/controlled by/);
   });
 
-  it("uses an explicit board resonance check for inactive, used, and no-target statuses", () => {
-    const viewModel = projectPublicBattleView(createBattleScreenState());
-    const onWaterBoost = vi.fn();
-    const onNoTarget = vi.fn();
-    render(<BattleScreen viewModel={viewModel} logEntries={LOG_ENTRIES} cpuStatus="idle" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onWaterBoost={onWaterBoost} onWaterResonanceNoTarget={onNoTarget} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
-    const occupied = viewModel.boardSquares.find((square) => square.occupant)!;
-    fireEvent.contextMenu(screen.getByTestId(`battle-square-${occupied.coordinate.column}-${occupied.coordinate.row}`));
-    expect(onWaterBoost).toHaveBeenCalledWith(occupied.occupant!.instanceId);
-    fireEvent.contextMenu(screen.getByTestId("battle-square-3-1"));
-    expect(onNoTarget).toHaveBeenCalledTimes(1);
-  });
-
-  it("renders every reachable water resonance failure status in the selected locale", () => {
-    const viewModel = projectPublicBattleView(createBattleScreenState());
-    const { rerender } = renderBattleScreen(viewModel);
-    for (const [code, message] of [
-      ["battle.resonance.inactive", "Water resonance is not active in this lane."],
-      ["battle.resonance.already-used", "Water resonance was already used in this lane this turn."],
-      ["battle.resonance.no-target", "There is no water resonance target in this lane."]
-    ] as const) {
-      rerender(<BattleScreen viewModel={viewModel} locale="en" resonanceIssueCode={code} logEntries={LOG_ENTRIES} cpuStatus="idle" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
-      expect(screen.getByTestId("battle-resonance-status")).toHaveTextContent(message);
-    }
-  });
-
   it("opens detail on touch without issuing the follow-up click command", () => {
     const viewModel = projectPublicBattleView(createBattleScreenState());
     const onHandCardIntent = vi.fn();

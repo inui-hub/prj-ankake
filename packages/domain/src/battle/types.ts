@@ -376,11 +376,6 @@ export type BattleCommand =
       readonly path: readonly BoardCoordinate[];
     }
   | {
-      readonly type: "boostCreatureMovement";
-      readonly side: BattleSide;
-      readonly creatureInstanceId: BattleCardInstanceId;
-    }
-  | {
       readonly type: "endPlayPhase";
       readonly side: BattleSide;
       readonly reason: "manual" | "timer" | "cpu";

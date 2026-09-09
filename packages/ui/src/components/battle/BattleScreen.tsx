@@ -27,8 +27,6 @@ export interface BattleScreenProps {
   readonly onReturnToPreparation: () => void;
   readonly onReturnToMenu: () => void;
   readonly onEndPlayPhase: () => void;
-  readonly onWaterBoost?: (instanceId: string) => void;
-  readonly onWaterResonanceNoTarget?: () => void;
   readonly onHandCardIntent?: (instanceId: string) => void;
   readonly onBoardCreatureIntent?: (instanceId: string) => void;
   readonly onBoardSquareIntent?: (coordinate: BoardCoordinate) => void;
@@ -107,8 +105,6 @@ export function BattleScreen(props: BattleScreenProps) {
             locale={props.locale}
             onCreatureIntent={terminal ? undefined : props.onBoardCreatureIntent}
             onSquareIntent={terminal ? undefined : props.onBoardSquareIntent}
-            onWaterBoost={terminal ? undefined : props.onWaterBoost}
-            onWaterResonanceNoTarget={terminal ? undefined : props.onWaterResonanceNoTarget}
             onCardInspect={(card, element, source) => card && inspect(card, element, source)}
             onInspectLeave={schedulePointerClose}
             onInspectBlur={() => detail?.source === "focus" && closeDetail()}

@@ -44,7 +44,6 @@ export interface BattleCardView {
   readonly effectText: string;
   readonly summonedThisTurn?: boolean;
   readonly movedThisTurn?: boolean;
-  readonly canUseWaterResonance?: boolean;
   readonly isInspectable: boolean;
   readonly isActionable: boolean;
   readonly disabledReason?: string;
@@ -172,14 +171,6 @@ function projectBattleCard(
     location === "board" && isCreature && state
       ? queryMovementStart(state, "player", card.instanceId)
       : undefined;
-  const waterBoostIssues =
-    location === "board" && isCreature && card.controllerSide === "player" && state
-      ? validateBattleCommand(state, {
-          type: "boostCreatureMovement",
-          side: "player",
-          creatureInstanceId: card.instanceId
-        })
-      : undefined;
   const spellIssues =
     location === "hand" && card.type === "spell" && state
       ? validateBattleCommand(state, {
@@ -225,8 +216,7 @@ function projectBattleCard(
           ...(location === "board"
             ? {
                 summonedThisTurn: card.summonedThisTurn,
-                movedThisTurn: card.movedThisTurn,
-                canUseWaterResonance: waterBoostIssues?.length === 0
+                movedThisTurn: card.movedThisTurn
               }
             : {})
         }

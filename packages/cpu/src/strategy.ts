@@ -121,8 +121,6 @@ function commandTieBreakKey(command: BattleCommand): string {
       return `${command.type}:${command.handInstanceId}`;
     case "moveCreature":
       return `${command.type}:${command.creatureInstanceId}:${command.path.map((step) => `${step.column}:${step.row}`).join("/")}`;
-    case "boostCreatureMovement":
-      return `${command.type}:${command.creatureInstanceId}`;
     case "endPlayPhase":
       return command.type;
   }

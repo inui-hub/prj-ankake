@@ -23,9 +23,6 @@ export interface BattleBoardProps {
   readonly interactionDisabled?: boolean;
   readonly onCreatureIntent?: (instanceId: string) => void;
   readonly onSquareIntent?: (coordinate: BoardCoordinate) => void;
-  readonly onWaterBoost?: (instanceId: string) => void;
-  /** Context-menu is an explicit board-only resonance check, including invalid lanes. */
-  readonly onWaterResonanceNoTarget?: () => void;
   readonly locale?: "ja" | "en";
   readonly onCardInspect?: (card: BattleBoardSquareView["occupant"], element: HTMLElement, source: "pointer" | "focus" | "touch") => void;
   readonly onInspectLeave?: () => void;
@@ -82,8 +79,6 @@ export function BattleBoard(props: BattleBoardProps) {
               : hidesConfirmedCreature
                 ? undefined
                 : square.occupant;
-          const isWaterResonanceTarget = Boolean(displayedOccupant?.canUseWaterResonance);
-
           return (
             <button
               key={square.key}
@@ -107,7 +102,6 @@ export function BattleBoard(props: BattleBoardProps) {
                 isMovementOrigin ? "battle-square--movement-origin" : "",
                 pathSteps.length > 0 ? "battle-square--movement-path" : "",
                 isProvisional ? "battle-square--provisional" : ""
-                , isWaterResonanceTarget ? "battle-square--water-resonance" : ""
               ].join(" ")}
               data-lane={square.lane}
               data-testid={`battle-square-${square.coordinate.column}-${square.coordinate.row}`}
@@ -134,9 +128,7 @@ export function BattleBoard(props: BattleBoardProps) {
                   return;
                 }
                 setFocusedKey(square.key);
-                if (displayedOccupant?.canUseWaterResonance) {
-                  props.onWaterBoost?.(displayedOccupant.instanceId);
-                } else if (displayedOccupant) {
+                if (displayedOccupant) {
                   props.onCreatureIntent?.(displayedOccupant.instanceId);
                 } else {
                   props.onSquareIntent?.(square.coordinate);
@@ -151,14 +143,6 @@ export function BattleBoard(props: BattleBoardProps) {
                 if (event.pointerType !== "mouse" && displayedOccupant) {
                   suppressTouchClickKey.current = square.key;
                   props.onCardInspect?.(displayedOccupant, event.currentTarget, "touch");
-                }
-              }}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                if (displayedOccupant?.controllerSide === "player") {
-                  props.onWaterBoost?.(displayedOccupant.instanceId);
-                } else {
-                  props.onWaterResonanceNoTarget?.();
                 }
               }}
               onKeyDown={(event) => {

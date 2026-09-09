@@ -1,6 +1,6 @@
 import { validateMovementPath } from "./movement";
 import { getLane } from "./board";
-import { getCreaturePlayCost, isResonanceActive } from "./resonance";
+import { getCreaturePlayCost } from "./resonance";
 import { validateSummonDestination, validateSummonSource } from "./summon";
 import { getExecutablePlayEffects } from "./effectPrograms";
 import { getLegalEffectTargets } from "./effectResolver";
@@ -28,8 +28,6 @@ export function validateBattleCommand(
       return validateSpell(state, command);
     case "moveCreature":
       return validateMove(state, command);
-    case "boostCreatureMovement":
-      return validateWaterBoost(state, command);
     case "endPlayPhase":
       return [];
   }
@@ -196,23 +194,6 @@ function validateMove(
     command.origin,
     command.path
   );
-}
-
-function validateWaterBoost(
-  state: BattleState,
-  command: Extract<BattleCommand, { type: "boostCreatureMovement" }>
-): readonly BattleValidationIssue[] {
-  const card = state.cardInstances[command.creatureInstanceId];
-  if (!card || card.zone !== "board" || card.type === "spell" || card.controllerSide !== command.side || !card.position) {
-    return [{ code: "battle.card.zone-invalid", message: "Only your board creature can receive a movement boost.", path: "creatureInstanceId" }];
-  }
-  const lane = getLane(card.position.column);
-  if (!isResonanceActive(state.players[command.side].resonance, lane, "water")) {
-    return [{ code: "battle.resonance.inactive", message: "Water resonance is not active in this lane." }];
-  }
-  return state.players[command.side].resonanceUsage.water[lane]
-    ? [{ code: "battle.resonance.already-used", message: "Water resonance was already used in this lane this turn." }]
-    : [];
 }
 
 function validateHandCard(

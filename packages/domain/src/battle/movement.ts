@@ -2,12 +2,13 @@ import {
   coordinateKey,
   getAdjacentBoardCoordinates,
   getBoardSquare,
+  getLane,
   getOccupantId,
   isExistingBoardCoordinate,
   isNormalBoardCoordinate,
   sameCoordinate
 } from "./board";
-import { getEffectiveCreatureMovement } from "./resonance";
+import { getEffectiveCreatureMovement, isResonanceActive } from "./resonance";
 import type {
   BattleCardInstance,
   BattleCardInstanceId,
@@ -141,7 +142,13 @@ export function evaluateMovementDraft(
 }
 
 function effectiveMovement(state: BattleState, card: BattleCardInstance): number {
-  return getEffectiveCreatureMovement(state, card);
+  const lane = card.position ? getLane(card.position.column) : undefined;
+  const receivesWaterResonance = lane !== undefined
+    && state.phase === "play"
+    && state.activeSide === card.controllerSide
+    && isResonanceActive(state.players[card.controllerSide].resonance, lane, "water")
+    && !state.players[card.controllerSide].resonanceUsage.water[lane];
+  return getEffectiveCreatureMovement(state, card) + (receivesWaterResonance ? 1 : 0);
 }
 
 export function getNextMovementSteps(

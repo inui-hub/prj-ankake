@@ -111,26 +111,33 @@ describe("resonance", () => {
     expect(inactiveState.cardInstances[creature.instanceId]?.currentAttack).toBe(2);
   });
 
-  it("allows one water boost per active lane during its controller's turn and removes it at turn end", () => {
+  it("automatically boosts the first creature to move in an active lane and removes it at turn end", () => {
     const state = withResonance(boardCreatureState(), "player", "center", "water", 5);
+    expect(projectPublicBattleView(state).boardSquares.find((square) => square.key === "5:8")?.occupant?.movement).toBe(1);
     const result = GameEngine.submitCommand(state, {
-      type: "boostCreatureMovement",
+      type: "moveCreature",
       side: "player",
-      creatureInstanceId: "fire-resonance-creature"
+      creatureInstanceId: "fire-resonance-creature",
+      origin: { column: 5, row: 8 },
+      path: [{ column: 5, row: 7 }, { column: 5, row: 6 }]
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.state.cardInstances["fire-resonance-creature"]?.temporaryMovementBonus).toBe(1);
-    expect(projectPublicBattleView(result.state).boardSquares.find((square) => square.key === "5:8")?.occupant?.movement).toBe(2);
+    expect(projectPublicBattleView(result.state).boardSquares.find((square) => square.key === "5:6")?.occupant?.movement).toBe(2);
     expect(result.state.players.player.resonanceUsage.water.center).toBe(true);
-    expect(GameEngine.submitCommand(result.state, {
-      type: "boostCreatureMovement",
+    const secondMove = GameEngine.submitCommand(result.state, {
+      type: "moveCreature",
       side: "player",
-      creatureInstanceId: "fire-resonance-ally"
-    })).toMatchObject({ ok: false, issues: [{ code: "battle.resonance.already-used" }] });
+      creatureInstanceId: "fire-resonance-ally",
+      origin: { column: 6, row: 8 },
+      path: [{ column: 6, row: 7 }]
+    });
+    expect(secondMove).toMatchObject({ ok: true });
+    if (secondMove.ok) expect(secondMove.state.cardInstances["fire-resonance-ally"]?.temporaryMovementBonus).toBeUndefined();
 
-    const ended = GameEngine.submitCommand(result.state, {
+    const ended = GameEngine.submitCommand(secondMove.ok ? secondMove.state : result.state, {
       type: "endPlayPhase",
       side: "player",
       reason: "manual"
