@@ -6,6 +6,7 @@ export function BattleResultOverlay(props: {
   readonly onRematch: () => void;
   readonly onReturnToPreparation: () => void;
   readonly locale?: UiLocale;
+  readonly interactionDisabled?: boolean;
 }) {
   const result = props.viewModel.terminalResult;
 
@@ -20,10 +21,10 @@ export function BattleResultOverlay(props: {
         <p data-testid="battle-result-reason">{uiText(props.locale, "battle.result.reason")}: {reasonLabel(result.reason, props.locale)}</p>
         <p data-testid="battle-result-turn">{uiText(props.locale, "battle.result.turn")}: {result.turnNumber}</p>
         <div className="battle-modal__actions">
-          <button className="battle-button battle-button--primary" data-testid="battle-rematch-button" type="button" onClick={props.onRematch}>
+          <button className="battle-button battle-button--primary" data-testid="battle-rematch-button" disabled={props.interactionDisabled} type="button" onClick={props.onRematch}>
             {uiText(props.locale, "battle.result.rematch")}
           </button>
-          <button className="battle-button" data-testid="battle-result-return-button" type="button" onClick={props.onReturnToPreparation}>
+          <button className="battle-button" data-testid="battle-result-return-button" disabled={props.interactionDisabled} type="button" onClick={props.onReturnToPreparation}>
             {uiText(props.locale, "battle.result.return")}
           </button>
         </div>

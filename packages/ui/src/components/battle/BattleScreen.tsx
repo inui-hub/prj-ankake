@@ -1,5 +1,7 @@
 import type {
   BattleLogEntry,
+  BattleEvent,
+  BattleCardView,
   BoardCoordinate,
   PublicBattleView
 } from "@ankake/domain";
@@ -37,11 +39,15 @@ export interface BattleScreenProps {
   readonly onQuitBattle: () => void;
   readonly locale?: "ja" | "en";
   readonly resonanceIssueCode?: string;
+  readonly animationEvent?: BattleEvent;
+  readonly isAnimating?: boolean;
+  readonly defeatedCreature?: { readonly squareKey: string; readonly card: BattleCardView };
 }
 
 export function BattleScreen(props: BattleScreenProps) {
   const interaction = props.interaction ?? createIdleInteraction(props.viewModel);
   const terminal = Boolean(props.viewModel.terminalResult);
+  const interactionDisabled = terminal || Boolean(props.isAnimating);
   const [detail, setDetail] = useState<DetailState>();
   const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -84,6 +90,7 @@ export function BattleScreen(props: BattleScreenProps) {
         viewModel={props.viewModel}
         cpuStatus={props.cpuStatus}
         locale={props.locale}
+        interactionDisabled={interactionDisabled}
         onReturnToMenu={props.onReturnToMenu}
         onQuitBattle={props.onQuitBattle}
       />
@@ -101,7 +108,9 @@ export function BattleScreen(props: BattleScreenProps) {
             movementPathSteps={interaction.movementPathSteps}
             provisionalPositionKey={interaction.provisionalPositionKey}
             effectSelectionMode={interaction.kind === "selecting-effect"}
-            interactionDisabled={terminal}
+            interactionDisabled={interactionDisabled}
+            animationEvent={props.animationEvent}
+            defeatedCreature={props.defeatedCreature}
             locale={props.locale}
             onCreatureIntent={terminal ? undefined : props.onBoardCreatureIntent}
             onSquareIntent={terminal ? undefined : props.onBoardSquareIntent}
@@ -112,8 +121,8 @@ export function BattleScreen(props: BattleScreenProps) {
           <BattleHand
             cards={props.viewModel.playerHand}
             selectedInstanceId={interaction.selectedHandInstanceId}
-            interactionDisabled={terminal}
-            onCardIntent={terminal ? undefined : props.onHandCardIntent}
+            interactionDisabled={interactionDisabled}
+            onCardIntent={interactionDisabled ? undefined : props.onHandCardIntent}
             onCardInspect={inspect}
             onInspectLeave={schedulePointerClose}
             onInspectBlur={() => detail?.source === "focus" && closeDetail()}
@@ -131,7 +140,7 @@ export function BattleScreen(props: BattleScreenProps) {
             onUndo={props.onUndoInteraction ?? noOperation}
             onEndPlayPhase={props.onEndPlayPhase}
             onEffectCandidate={props.onEffectCandidateIntent}
-            interactionDisabled={terminal}
+            interactionDisabled={interactionDisabled}
             locale={props.locale}
           />
           <BattleLogPanel entries={props.logEntries} locale={props.locale} />
@@ -147,11 +156,18 @@ export function BattleScreen(props: BattleScreenProps) {
           CPU {props.cpuStatus}
         </div>
       ) : null}
+      {props.animationEvent ? (
+        <div aria-live="polite" className="battle-event-banner" data-testid="battle-event-banner" role="status">
+          <span className={`battle-event-banner__icon battle-event-banner__icon--${eventTone(props.animationEvent)}`} aria-hidden="true" />
+          <div><strong>{eventTitle(props.animationEvent, props.locale)}</strong><span>{props.animationEvent.message}</span></div>
+        </div>
+      ) : null}
       <BattleResultOverlay
         viewModel={props.viewModel}
         locale={props.locale}
         onRematch={props.onRematch}
         onReturnToPreparation={props.onReturnToPreparation}
+        interactionDisabled={interactionDisabled}
       />
       {detail ? (
         <BattleCardDetailPopover
@@ -164,6 +180,31 @@ export function BattleScreen(props: BattleScreenProps) {
       ) : null}
     </main>
   );
+}
+
+function eventTone(event: BattleEvent): "summon" | "move" | "damage" | "capture" | "phase" {
+  if (event.type === "creature.summoned" || event.type === "card.played") return "summon";
+  if (event.type === "creature.moved") return "move";
+  if (event.type === "base.captured") return "capture";
+  if (event.type.includes("damaged") || event.type === "creature.destroyed") return "damage";
+  return "phase";
+}
+
+function eventTitle(event: BattleEvent, locale: "ja" | "en" | undefined): string {
+  const ja = locale === "ja";
+  const titles: Partial<Record<BattleEvent["type"], string>> = ja ? {
+    "creature.summoned": "クリーチャー召喚", "creature.moved": "クリーチャー移動",
+    "creature.damaged": "ダメージ", "creature.destroyed": "クリーチャー破壊",
+    "base.damaged": "拠点ダメージ", "base.captured": "拠点制圧", "phase.ended": "フェーズ終了",
+    "attack.phase-started": "攻撃フェーズ", "battle.ended": "対戦終了", "card.drawn": "カードドロー",
+    "resonance.changed": "共鳴変化", "resonance.effect-resolved": "共鳴効果"
+  } : {
+    "creature.summoned": "Summon", "creature.moved": "Move", "creature.damaged": "Damage",
+    "creature.destroyed": "Destroyed", "base.damaged": "Base damage", "base.captured": "Base captured",
+    "phase.ended": "Phase ended", "attack.phase-started": "Attack phase", "battle.ended": "Battle complete",
+    "card.drawn": "Card drawn", "resonance.changed": "Resonance changed", "resonance.effect-resolved": "Resonance effect"
+  };
+  return titles[event.type] ?? (ja ? "対戦イベント" : "Battle event");
 }
 
 type DetailSource = "pointer" | "focus" | "touch";

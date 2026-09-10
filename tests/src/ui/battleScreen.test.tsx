@@ -310,6 +310,75 @@ describe("battle screen", () => {
     ).toBeDisabled();
   });
 
+  it("presents a battle event, animates its board target, and locks battle input during playback", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const target = viewModel.boardSquares.find((square) => square.occupant)?.occupant;
+    if (!target) throw new Error("Expected a board creature.");
+    const damageEvent = {
+      sequence: 99,
+      type: "creature.damaged" as const,
+      side: "cpu" as const,
+      instanceId: "cpu-attacker",
+      message: "CPU dealt 2 damage.",
+      data: { targetId: target.instanceId, damage: 2 }
+    };
+
+    const { rerender } = render(
+      <BattleScreen viewModel={viewModel} locale="ja" logEntries={LOG_ENTRIES} cpuStatus="executing"
+        animationEvent={damageEvent} isAnimating onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()}
+        onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
+    );
+
+    expect(screen.getByTestId("battle-event-banner")).toHaveTextContent("ダメージ");
+    const targetCard = screen.getByTestId(`battle-board-card-${target.instanceId}`);
+    expect(targetCard).toHaveClass("battle-card--anim-damage");
+    expect(screen.getByTestId("battle-end-play-phase-button")).toBeDisabled();
+    expect(targetCard.closest(".battle-square")).toHaveClass("battle-square--anim-damage");
+
+    rerender(
+      <BattleScreen viewModel={viewModel} locale="ja" logEntries={LOG_ENTRIES} cpuStatus="idle"
+        onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
+    );
+    expect(screen.queryByTestId("battle-event-banner")).not.toBeInTheDocument();
+    expect(screen.getByTestId("battle-end-play-phase-button")).toBeEnabled();
+  });
+
+  it("keeps a lethally damaged creature visible at zero HP until its destruction event", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const targetSquare = viewModel.boardSquares.find((square) => square.occupant);
+    if (!targetSquare?.occupant) throw new Error("Expected a board creature.");
+    const target = targetSquare.occupant;
+    const destroyedView = {
+      ...viewModel,
+      boardSquares: viewModel.boardSquares.map((square) =>
+        square.key === targetSquare.key ? { ...square, occupant: undefined } : square
+      )
+    };
+    const damageEvent = {
+      sequence: 100,
+      type: "creature.damaged" as const,
+      instanceId: "cpu-attacker",
+      message: "CPU dealt lethal damage.",
+      data: { targetId: target.instanceId, damage: target.currentHp ?? 1, remainingHp: 0 }
+    };
+    const { rerender } = render(
+      <BattleScreen viewModel={destroyedView} logEntries={LOG_ENTRIES} cpuStatus="idle" animationEvent={damageEvent}
+        defeatedCreature={{ squareKey: targetSquare.key, card: { ...target, currentHp: 0 } }}
+        onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
+    );
+
+    expect(screen.getByTestId(`battle-board-card-${target.instanceId}`)).toHaveTextContent("HP 0");
+    expect(screen.getByTestId(`battle-square-${targetSquare.coordinate.column}-${targetSquare.coordinate.row}`)).toHaveClass("battle-square--anim-damage");
+
+    rerender(
+      <BattleScreen viewModel={destroyedView} logEntries={LOG_ENTRIES} cpuStatus="idle"
+        animationEvent={{ sequence: 101, type: "creature.destroyed", message: "Creature was destroyed.", data: { previousColumn: targetSquare.coordinate.column, previousRow: targetSquare.coordinate.row } }}
+        onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
+    );
+    expect(screen.queryByTestId(`battle-board-card-${target.instanceId}`)).not.toBeInTheDocument();
+    expect(screen.getByTestId(`battle-square-${targetSquare.coordinate.column}-${targetSquare.coordinate.row}`)).toHaveClass("battle-square--anim-destroy");
+  });
+
   it("localizes terminal result labels, reason, and actions", () => {
     const state = createBattleScreenState();
     const terminalView = projectPublicBattleView({

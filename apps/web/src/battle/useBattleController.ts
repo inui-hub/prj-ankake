@@ -1,6 +1,8 @@
 import {
   projectPublicBattleView,
   type BattleCommand,
+  type BattleCardView,
+  type BattleEvent,
   type BattleLogEntry,
   type BoardCoordinate,
   type FirstPlayerMode,
@@ -58,6 +60,9 @@ export type BattleRouteViewModel =
       readonly logEntries: readonly BattleLogEntry[];
       readonly cpuStatus: "idle" | "thinking" | "executing" | "completed" | "limit-reached";
       readonly lastValidationIssueCode?: string;
+      readonly animationEvent?: BattleEvent;
+      readonly defeatedCreature?: DefeatedCreaturePresentation;
+      readonly isAnimating: boolean;
     };
 
 export interface BattleControllerActions {
@@ -92,6 +97,11 @@ export interface BattleControllerInput {
 
 type CpuStatus = "idle" | "thinking" | "executing" | "completed" | "limit-reached";
 
+interface DefeatedCreaturePresentation {
+  readonly squareKey: string;
+  readonly card: BattleCardView;
+}
+
 export function getCpuStatusAfterExecution(
   stopReason: Awaited<ReturnType<typeof executeCpuTurn>>["stopReason"],
   hasTerminalResult: boolean
@@ -116,6 +126,9 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   );
   const [cpuStatus, setCpuStatus] = useState<CpuStatus>("idle");
   const [lastValidationIssueCode, setLastValidationIssueCode] = useState<string | undefined>();
+  const [animationEvent, setAnimationEvent] = useState<BattleEvent | undefined>();
+  const [defeatedCreature, setDefeatedCreature] = useState<DefeatedCreaturePresentation | undefined>();
+  const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,11 +225,12 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     }
     setLastValidationIssueCode(undefined);
     setSession(attempted.session);
+    await playBattleEvents(attempted.session.lastEvents, session, attempted.session);
     await runCpuIfNeeded(attempted.session);
   }
 
   async function endPlayPhase(): Promise<void> {
-    if (!session) {
+    if (!session || isAnimating) {
       return;
     }
 
@@ -245,7 +259,10 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     setCpuStatus("thinking");
     await yieldToBrowser();
     setCpuStatus("executing");
-    const result = await executeCpuTurn(nextSession, diagnostics, yieldToBrowser);
+    const result = await executeCpuTurn(nextSession, diagnostics, yieldToBrowser, 30, async (presentedSession, previousSession) => {
+      setSession(presentedSession);
+      await playBattleEvents(presentedSession.lastEvents, previousSession, presentedSession);
+    });
     setSession(result.session);
     setCpuStatus(
       getCpuStatusAfterExecution(
@@ -256,6 +273,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   }
 
   async function rematch(): Promise<void> {
+    if (isAnimating) return;
     setInteraction(IDLE_BATTLE_INTERACTION);
     setLastValidationIssueCode(undefined);
     setSession(undefined);
@@ -263,13 +281,14 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   }
 
   function quitBattle(): void {
+    if (isAnimating) return;
     setInteraction(IDLE_BATTLE_INTERACTION);
     setLastValidationIssueCode(undefined);
     setSession(undefined);
   }
 
   function selectHandCard(instanceId: string): void {
-    if (!session) {
+    if (!session || isAnimating) {
       return;
     }
 
@@ -292,7 +311,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   }
 
   function selectBoardSquare(coordinate: BoardCoordinate): void {
-    if (!session) {
+    if (!session || isAnimating) {
       return;
     }
 
@@ -337,7 +356,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   }
 
   function selectBoardCreature(instanceId: string): void {
-    if (!session) {
+    if (!session || isAnimating) {
       return;
     }
 
@@ -353,6 +372,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   }
 
   function selectEffectCandidate(id: string): void {
+    if (isAnimating) return;
     setLastValidationIssueCode(undefined);
     advanceEffectSelection(interaction, id);
   }
@@ -372,7 +392,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   }
 
   function undoInteraction(): void {
-    if (!session) {
+    if (!session || isAnimating) {
       return;
     }
 
@@ -432,7 +452,32 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     setInteraction(IDLE_BATTLE_INTERACTION);
     setLastValidationIssueCode(undefined);
     setSession(submission.session);
+    await playBattleEvents(submission.session.lastEvents, session, submission.session);
     await runCpuIfNeeded(submission.session);
+  }
+
+  async function playBattleEvents(
+    events: readonly BattleEvent[],
+    previousSession: BattleRuntimeSession,
+    resultingSession: BattleRuntimeSession
+  ): Promise<void> {
+    if (events.length === 0) return;
+    const previousView = projectPublicBattleView(previousSession.state);
+    const currentView = projectPublicBattleView(resultingSession.state);
+    setIsAnimating(true);
+    for (const event of events) {
+      // Removing the class for a frame makes repeated damage or movement
+      // events restart their CSS animation on the same target.
+      setAnimationEvent(undefined);
+      setDefeatedCreature(undefined);
+      await waitForBattlePresentation(16);
+      setDefeatedCreature(defeatedCreatureFor(event, previousView, currentView));
+      setAnimationEvent(event);
+      await waitForBattlePresentation(eventDuration(event));
+    }
+    setAnimationEvent(undefined);
+    setDefeatedCreature(undefined);
+    setIsAnimating(false);
   }
 
   function cancelInteraction(): void {
@@ -448,8 +493,11 @@ export function useBattleController(input: BattleControllerInput): BattleControl
           publicView,
           interaction: projectBattleInteractionView(interaction, publicView),
           logEntries: session.log.entries,
-          cpuStatus
-          , lastValidationIssueCode
+          cpuStatus,
+          lastValidationIssueCode,
+          animationEvent,
+          defeatedCreature,
+          isAnimating
         };
       })()
     : {
@@ -462,6 +510,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     viewModel,
     actions: {
       returnToMenu: () => {
+        if (isAnimating) return;
         setInteraction(IDLE_BATTLE_INTERACTION);
         setLastValidationIssueCode(undefined);
         input.onReturnToMenu();
@@ -500,6 +549,53 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       rematch,
       quitBattle
     }
+  };
+}
+
+function eventDuration(event: BattleEvent): number {
+  switch (event.type) {
+    case "creature.summoned":
+    case "creature.moved":
+    case "creature.damaged":
+    case "creature.destroyed":
+    case "base.damaged":
+    case "base.captured":
+      return 440;
+    case "phase.ended":
+    case "attack.phase-started":
+    case "battle.ended":
+      return 520;
+    default:
+      return 300;
+  }
+}
+
+function waitForBattlePresentation(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function defeatedCreatureFor(
+  event: BattleEvent,
+  previousView: ReturnType<typeof projectPublicBattleView>,
+  currentView: ReturnType<typeof projectPublicBattleView>
+): DefeatedCreaturePresentation | undefined {
+  if (event.type !== "creature.damaged" || typeof event.data?.targetId !== "string") {
+    return undefined;
+  }
+  if (typeof event.data.remainingHp === "number" && event.data.remainingHp > 0) {
+    return undefined;
+  }
+  const previousSquare = previousView.boardSquares.find(
+    (square) => square.occupant?.instanceId === event.data?.targetId
+  );
+  const remainsOnBoard = currentView.boardSquares.some(
+    (square) => square.occupant?.instanceId === event.data?.targetId
+  );
+  if (!previousSquare?.occupant || remainsOnBoard) return undefined;
+
+  return {
+    squareKey: previousSquare.key,
+    card: { ...previousSquare.occupant, currentHp: 0 }
   };
 }
 

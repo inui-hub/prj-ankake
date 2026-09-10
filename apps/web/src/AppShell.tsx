@@ -128,6 +128,9 @@ function BattleRoute({ catalog, locale, onReturnToMenu }: BattleRouteProps) {
       logEntries={controller.viewModel.logEntries}
       cpuStatus={controller.viewModel.cpuStatus}
       resonanceIssueCode={controller.viewModel.lastValidationIssueCode}
+      animationEvent={controller.viewModel.animationEvent}
+      defeatedCreature={controller.viewModel.defeatedCreature}
+      isAnimating={controller.viewModel.isAnimating}
       onReturnToPreparation={controller.actions.quitBattle}
       onReturnToMenu={controller.actions.returnToMenu}
       onEndPlayPhase={() => {

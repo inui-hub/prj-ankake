@@ -11,6 +11,7 @@ export interface BattleStatusPanelProps {
   readonly onReturnToMenu: () => void;
   readonly onQuitBattle: () => void;
   readonly locale?: "ja" | "en";
+  readonly interactionDisabled?: boolean;
 }
 
 export function BattleStatusPanel(props: BattleStatusPanelProps) {
@@ -32,6 +33,7 @@ export function BattleStatusPanel(props: BattleStatusPanelProps) {
       <button
         className="battle-button battle-button--quiet"
         data-testid="battle-quit-button"
+        disabled={props.interactionDisabled}
         type="button"
         onClick={props.onQuitBattle}
       >
@@ -40,6 +42,7 @@ export function BattleStatusPanel(props: BattleStatusPanelProps) {
       <button
         className="battle-button battle-button--quiet"
         data-testid="battle-menu-button"
+        disabled={props.interactionDisabled}
         type="button"
         onClick={props.onReturnToMenu}
       >

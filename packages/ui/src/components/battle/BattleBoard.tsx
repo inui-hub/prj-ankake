@@ -1,7 +1,9 @@
 import {
   BATTLE_BOARD_COLUMNS,
   BATTLE_BOARD_ROWS,
+  type BattleCardView,
   type BattleBoardSquareView,
+  type BattleEvent,
   type BoardCoordinate
 } from "@ankake/domain";
 import { useEffect, useRef, useState } from "react";
@@ -29,6 +31,9 @@ export interface BattleBoardProps {
   readonly onCardInspect?: (card: BattleBoardSquareView["occupant"], element: HTMLElement, source: "pointer" | "focus" | "touch") => void;
   readonly onInspectLeave?: () => void;
   readonly onInspectBlur?: () => void;
+  readonly animationEvent?: BattleEvent;
+  /** A lethal target remains visible at 0 HP until its destruction event. */
+  readonly defeatedCreature?: { readonly squareKey: string; readonly card: BattleCardView };
 }
 
 export function BattleBoard(props: BattleBoardProps) {
@@ -81,12 +86,16 @@ export function BattleBoard(props: BattleBoardProps) {
               : hidesConfirmedCreature
                 ? undefined
                 : square.occupant;
+          const animatedOccupant = props.defeatedCreature?.squareKey === square.key
+            ? props.defeatedCreature.card
+            : displayedOccupant;
+          const animationKind = animationForSquare(square, animatedOccupant?.instanceId, props.animationEvent);
           return (
             <button
               key={square.key}
               aria-label={describeSquare(
                 square,
-                displayedOccupant?.name,
+                animatedOccupant?.name,
                 isCandidate,
                 isSelected,
                 isMovementOrigin,
@@ -98,12 +107,13 @@ export function BattleBoard(props: BattleBoardProps) {
               className={[
                 "battle-square",
                 `battle-square--${square.terrain}`,
-                displayedOccupant ? "battle-square--occupied" : "",
+                animatedOccupant ? "battle-square--occupied" : "",
                 isCandidate ? "battle-square--candidate" : "",
                 isSelected ? "battle-square--selected" : "",
                 isMovementOrigin ? "battle-square--movement-origin" : "",
                 pathSteps.length > 0 ? "battle-square--movement-path" : "",
-                isProvisional ? "battle-square--provisional" : ""
+                isProvisional ? "battle-square--provisional" : "",
+                animationKind ? `battle-square--anim-${animationKind}` : ""
               ].join(" ")}
               data-lane={square.lane}
               data-testid={`battle-square-${square.coordinate.column}-${square.coordinate.row}`}
@@ -130,21 +140,21 @@ export function BattleBoard(props: BattleBoardProps) {
                   return;
                 }
                 setFocusedKey(square.key);
-                if (displayedOccupant && !props.effectSelectionMode) {
-                  props.onCreatureIntent?.(displayedOccupant.instanceId);
+                if (animatedOccupant && !props.effectSelectionMode) {
+                  props.onCreatureIntent?.(animatedOccupant.instanceId);
                 } else {
                   props.onSquareIntent?.(square.coordinate);
                 }
               }}
               onFocus={() => setFocusedKey(square.key)}
-              onPointerEnter={(event) => displayedOccupant && props.onCardInspect?.(displayedOccupant, event.currentTarget, "pointer")}
+              onPointerEnter={(event) => animatedOccupant && props.onCardInspect?.(animatedOccupant, event.currentTarget, "pointer")}
               onPointerLeave={props.onInspectLeave}
               onBlur={props.onInspectBlur}
               onPointerUp={(event) => {
                 // Pen input follows the same inspect-before-activate contract as touch.
-                if (event.pointerType !== "mouse" && displayedOccupant) {
+                if (event.pointerType !== "mouse" && animatedOccupant) {
                   suppressTouchClickKey.current = square.key;
-                  props.onCardInspect?.(displayedOccupant, event.currentTarget, "touch");
+                  props.onCardInspect?.(animatedOccupant, event.currentTarget, "touch");
                 }
               }}
               onKeyDown={(event) => {
@@ -162,8 +172,8 @@ export function BattleBoard(props: BattleBoardProps) {
                 squareRefs.current.get(next)?.focus();
               }}
             >
-              {displayedOccupant ? (
-                <BattleCard card={displayedOccupant} locale={props.locale} mode="board" />
+              {animatedOccupant ? (
+                <BattleCard card={animatedOccupant} locale={props.locale} mode="board" animationKind={animationKind === "summon" || animationKind === "move" || animationKind === "damage" ? animationKind : undefined} />
               ) : null}
               {isMovementOrigin ? (
                 <span
@@ -202,6 +212,25 @@ export function BattleBoard(props: BattleBoardProps) {
       </div>
     </section>
   );
+}
+
+function animationForSquare(
+  square: BattleBoardSquareView,
+  occupantId: string | undefined,
+  event: BattleEvent | undefined
+): "summon" | "move" | "damage" | "destroy" | "capture" | undefined {
+  if (!event) return undefined;
+  const targetId = typeof event.data?.targetId === "string" ? event.data.targetId : undefined;
+  const baseId = typeof event.data?.baseId === "string" ? event.data.baseId : undefined;
+  const previousColumn = typeof event.data?.previousColumn === "number" ? event.data.previousColumn : undefined;
+  const previousRow = typeof event.data?.previousRow === "number" ? event.data.previousRow : undefined;
+  if (event.type === "creature.summoned" && occupantId === event.instanceId) return "summon";
+  if (event.type === "creature.moved" && occupantId === event.instanceId) return "move";
+  if (event.type === "creature.damaged" && occupantId === targetId) return "damage";
+  if (event.type === "creature.destroyed" && square.coordinate.column === previousColumn && square.coordinate.row === previousRow) return "destroy";
+  if (event.type === "base.damaged" && square.base?.id === baseId) return "damage";
+  if (event.type === "base.captured" && square.base?.id === baseId) return "capture";
+  return undefined;
 }
 
 function describeSquare(

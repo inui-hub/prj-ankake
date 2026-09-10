@@ -29,6 +29,13 @@ export interface CpuTurnExecutionResult {
   readonly stopReason: CpuStopReason;
 }
 
+/** Invoked after each accepted CPU command so a caller can present it before
+ * the CPU chooses its next command. */
+export type CpuCommandPresented = (
+  session: BattleRuntimeSession,
+  previousSession: BattleRuntimeSession
+) => Promise<void>;
+
 export type BattleRuntimeSubmission =
   | {
       readonly ok: true;
@@ -90,7 +97,8 @@ export async function executeCpuTurn(
   initialSession: BattleRuntimeSession,
   diagnostics: BattleDiagnosticSink,
   yieldControl: SchedulerYield,
-  acceptedCommandLimit = 30
+  acceptedCommandLimit = 30,
+  onCommandPresented?: CpuCommandPresented
 ): Promise<CpuTurnExecutionResult> {
   let session = initialSession;
   let acceptedCommands = 0;
@@ -111,6 +119,7 @@ export async function executeCpuTurn(
         },
         diagnostics
       );
+      await onCommandPresented?.(forcedEnd, session);
       return {
         session: forcedEnd,
         acceptedCommands,
@@ -136,6 +145,9 @@ export async function executeCpuTurn(
               },
               diagnostics
             );
+      if (ended !== session) {
+        await onCommandPresented?.(ended, session);
+      }
       return {
         session: ended,
         acceptedCommands,
@@ -143,8 +155,10 @@ export async function executeCpuTurn(
       };
     }
 
+    const previousSession = session;
     session = submitRuntimeCommand(session, decision.command, diagnostics);
     acceptedCommands += 1;
+    await onCommandPresented?.(session, previousSession);
     await yieldControl();
   }
 
