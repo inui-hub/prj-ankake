@@ -137,9 +137,6 @@ function BattleRoute({ catalog, locale, onReturnToMenu }: BattleRouteProps) {
       onBoardCreatureIntent={controller.actions.selectBoardCreature}
       onBoardSquareIntent={controller.actions.selectBoardSquare}
       onEffectCandidateIntent={controller.actions.selectEffectCandidate}
-      onConfirmInteraction={() => {
-        void controller.actions.confirmInteraction();
-      }}
       onCancelInteraction={controller.actions.cancelInteraction}
       onUndoInteraction={controller.actions.undoInteraction}
       onRematch={() => {

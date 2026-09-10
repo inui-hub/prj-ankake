@@ -150,7 +150,7 @@ function canCompleteSummonEffectSelection(
   state: BattleState,
   cardId: string,
   summonDestination: BoardCoordinate,
-  candidates: readonly Extract<BattleInteractionState, { kind: "selecting-effect" }>["candidates"]
+  candidates: ReadonlyArray<Extract<BattleInteractionState, { kind: "selecting-effect" }>["candidates"][number]>
 ): boolean {
   const coordinates = candidates.filter((candidate) => candidate.kind === "coordinate");
   const creatures = candidates.filter((candidate) => candidate.kind === "creature");
@@ -497,7 +497,7 @@ export function guardEndPlayPhase(
     ...interaction,
     issue: {
       code: "battle.interaction.pending",
-      message: "Confirm or cancel the pending action before ending the play phase."
+      message: "Complete the pending selection or cancel it before ending the play phase."
     }
   };
 }
@@ -558,7 +558,7 @@ export function projectBattleInteractionView(
       endPlayPhaseEnabled: false,
       instruction:
         interaction.path.length > 0
-          ? "Continue moving, undo the last step, or confirm this path."
+          ? "Continue moving until the movement limit is reached, or undo the last step."
           : "Choose a highlighted movement destination.",
       issue: interaction.issue?.message
     };
@@ -574,13 +574,18 @@ export function projectBattleInteractionView(
       .flatMap((candidate) => publicView.boardSquares
         .filter((square) => square.base?.id === candidate.id)
         .map((square) => square.key));
+    const laneCandidateKeys = interaction.candidates
+      .filter((candidate) => candidate.kind === "lane")
+      .flatMap((candidate) => publicView.boardSquares
+        .filter((square) => square.lane === candidate.id)
+        .map((square) => square.key));
     return { kind: "selecting-effect", selectedHandInstanceId: interaction.handInstanceId, selectedCardName: selectedCard?.name,
-      selectedCardCost: selectedCard?.currentCost, candidateDestinationKeys: [...coordinateCandidateKeys, ...baseCandidateKeys], movementPathSteps: [],
+      selectedCardCost: selectedCard?.currentCost, candidateDestinationKeys: [...coordinateCandidateKeys, ...baseCandidateKeys, ...laneCandidateKeys], movementPathSteps: [],
       effectAction: interaction.summonDestination ? "summon" : "spell",
       effectCandidates: interaction.candidates.map((candidate) => ({ ...candidate, selected: interaction.selectedIds.includes(candidate.id) })),
       selectedEffectTargetIds: interaction.selectedIds, confirmEnabled: selectionComplete(interaction),
       cancelEnabled: true, undoEnabled: false, endPlayPhaseEnabled: false,
-      instruction: `Select ${interaction.minimumTargets === interaction.maximumTargets ? interaction.minimumTargets : `${interaction.minimumTargets}-${interaction.maximumTargets}`} target${interaction.maximumTargets === 1 ? "" : "s"}, then confirm.`, issue: interaction.issue?.message };
+      instruction: `Select ${interaction.minimumTargets === interaction.maximumTargets ? interaction.minimumTargets : `${interaction.minimumTargets}-${interaction.maximumTargets}`} target${interaction.maximumTargets === 1 ? "" : "s"}. The action resolves automatically when complete.`, issue: interaction.issue?.message };
   }
 
   const selectedCard = publicView.playerHand.find(
@@ -601,9 +606,7 @@ export function projectBattleInteractionView(
     cancelEnabled: true,
     undoEnabled: false,
     endPlayPhaseEnabled: false,
-    instruction: interaction.destination
-      ? "Confirm this summon or choose another highlighted destination."
-      : "Choose a highlighted summon destination.",
+    instruction: "Choose a highlighted summon destination.",
     issue: interaction.issue?.message
   };
 }

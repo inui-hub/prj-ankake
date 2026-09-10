@@ -167,7 +167,14 @@ function validateSpell(
         : undefined;
   if (!selected) return [{ code: "battle.effect.no-target", message: "This spell requires a legal target.", path: "target" }];
   const legal = operation ? getLegalEffectTargets(state, command.side, operation) : [];
-  const isLegal = legal.some((target) => target.kind === selected.kind && (target.kind === "creature" ? target.instanceId === selected.instanceId : target.baseId === selected.baseId));
+  const isLegal = legal.some((target) => {
+    if (target.kind !== selected.kind) return false;
+    return target.kind === "creature" && selected.kind === "creature"
+      ? target.instanceId === selected.instanceId
+      : target.kind === "base" && selected.kind === "base"
+        ? target.baseId === selected.baseId
+        : false;
+  });
   return isLegal ? [] : [{ code: "battle.effect.no-target", message: "The selected spell target is no longer legal.", path: "target" }];
 }
 

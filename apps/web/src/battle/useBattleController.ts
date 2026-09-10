@@ -297,20 +297,43 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     }
 
     setLastValidationIssueCode(undefined);
-    setInteraction((current) =>
-      current.kind === "selecting-move"
-        ? selectMovementStep(current, session.state, coordinate)
-        : current.kind === "selecting-effect"
-          ? selectEffectTarget(
-              current,
-              session.state.board.squares.find(
-                (square) =>
-                  square.coordinate.column === coordinate.column &&
-                  square.coordinate.row === coordinate.row
-              )?.base?.id ?? `${coordinate.column}:${coordinate.row}`
-            )
-          : selectSummonDestination(current, coordinate)
-    );
+    if (interaction.kind === "selecting-summon") {
+      const selected = selectSummonDestination(interaction, coordinate);
+      if (selected === interaction || selected.kind !== "selecting-summon") return;
+      const nextEffect = startSummonEffectSelection(
+        session.state,
+        selected.handInstanceId,
+        selected.destination!
+      );
+      if (nextEffect) {
+        setInteraction(nextEffect);
+      } else {
+        void confirmInteraction(selected);
+      }
+      return;
+    }
+
+    if (interaction.kind === "selecting-move") {
+      const selected = selectMovementStep(interaction, session.state, coordinate);
+      if (selected === interaction || selected.kind !== "selecting-move") return;
+      if (selected.path.length === selected.maximumMovement) {
+        void confirmInteraction(selected);
+      } else {
+        setInteraction(selected);
+      }
+      return;
+    }
+
+    if (interaction.kind === "selecting-effect") {
+      const candidateId = effectCandidateAtBoardSquare(
+        interaction,
+        session.state,
+        coordinate
+      );
+      if (candidateId) {
+        advanceEffectSelection(interaction, candidateId);
+      }
+    }
   }
 
   function selectBoardCreature(instanceId: string): void {
@@ -319,14 +342,33 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     }
 
     setLastValidationIssueCode(undefined);
-    setInteraction((current) => current.kind === "selecting-effect"
-      ? selectEffectTarget(current, instanceId)
-      : selectMovementCreature(current, session.state, instanceId));
+    if (interaction.kind === "selecting-effect") {
+      advanceEffectSelection(interaction, instanceId);
+      return;
+    }
+
+    setInteraction((current) =>
+      selectMovementCreature(current, session.state, instanceId)
+    );
   }
 
   function selectEffectCandidate(id: string): void {
     setLastValidationIssueCode(undefined);
-    setInteraction((current) => selectEffectTarget(current, id));
+    advanceEffectSelection(interaction, id);
+  }
+
+  function advanceEffectSelection(
+    current: BattleInteractionState,
+    candidateId: string
+  ): void {
+    const selected = selectEffectTarget(current, candidateId);
+    if (selected === current) return;
+    const preparation = prepareEffectConfirmation(selected);
+    if (preparation.ok) {
+      void confirmInteraction(selected);
+    } else {
+      setInteraction(selected);
+    }
   }
 
   function undoInteraction(): void {
@@ -338,22 +380,24 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     setInteraction((current) => undoMovementStep(current, session.state));
   }
 
-  async function confirmInteraction(): Promise<void> {
+  async function confirmInteraction(
+    interactionToConfirm: BattleInteractionState = interaction
+  ): Promise<void> {
     if (!session) {
       return;
     }
 
-    if (interaction.kind === "selecting-summon" && interaction.destination) {
-      const nextEffect = startSummonEffectSelection(session.state, interaction.handInstanceId, interaction.destination);
+    if (interactionToConfirm.kind === "selecting-summon" && interactionToConfirm.destination) {
+      const nextEffect = startSummonEffectSelection(session.state, interactionToConfirm.handInstanceId, interactionToConfirm.destination);
       if (nextEffect) { setInteraction(nextEffect); return; }
     }
-    const isMovement = interaction.kind === "selecting-move";
-    const isEffect = interaction.kind === "selecting-effect";
+    const isMovement = interactionToConfirm.kind === "selecting-move";
+    const isEffect = interactionToConfirm.kind === "selecting-effect";
     const preparation = isEffect
-      ? prepareEffectConfirmation(interaction)
+      ? prepareEffectConfirmation(interactionToConfirm)
       : isMovement
-      ? prepareMovementConfirmation(interaction, session.state)
-      : prepareSummonConfirmation(interaction, session.state);
+      ? prepareMovementConfirmation(interactionToConfirm, session.state)
+      : prepareSummonConfirmation(interactionToConfirm, session.state);
     if (!preparation.ok) {
       setLastValidationIssueCode(undefined);
       setInteraction(preparation.interaction);
@@ -369,16 +413,16 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       setLastValidationIssueCode(submission.issues[0]?.code);
       setInteraction(
         isEffect
-          ? { ...interaction, issue: { code: submission.issues[0]?.code ?? "battle.effect.no-target", message: submission.issues[0]?.message ?? "Selected targets are no longer valid." } }
+          ? { ...interactionToConfirm, issue: { code: submission.issues[0]?.code ?? "battle.effect.no-target", message: submission.issues[0]?.message ?? "Selected targets are no longer valid." } }
           : isMovement
           ? recoverMovementInteraction(
               submission.session.state,
-              interaction,
+              interactionToConfirm,
               submission.issues
             )
           : recoverSummonInteraction(
               submission.session.state,
-              interaction,
+              interactionToConfirm,
               submission.issues
             )
       );
@@ -457,4 +501,54 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       quitBattle
     }
   };
+}
+
+function effectCandidateAtBoardSquare(
+  interaction: Extract<BattleInteractionState, { kind: "selecting-effect" }>,
+  state: BattleRuntimeSession["state"],
+  coordinate: BoardCoordinate
+): string | undefined {
+  const square = state.board.squares.find(
+    (candidate) =>
+      candidate.coordinate.column === coordinate.column &&
+      candidate.coordinate.row === coordinate.row
+  );
+  if (!square) return undefined;
+
+  const isRequiredNext = (
+    kind: "creature" | "base" | "lane" | "coordinate" | "graveyard"
+  ): boolean => {
+    const required = interaction.requirements?.[kind];
+    return required !== undefined && interaction.selectedIds.filter((id) =>
+      interaction.candidates.some((candidate) => candidate.id === id && candidate.kind === kind)
+    ).length < required;
+  };
+  const candidateOf = (
+    kind: typeof interaction.candidates[number]["kind"],
+    id: string | undefined
+  ) => id && interaction.candidates.some((candidate) => candidate.kind === kind && candidate.id === id) ? id : undefined;
+
+  // AK-044 combines a lane and coordinates.  Selecting its lane first makes
+  // a click on a board square unambiguous, after which coordinates are chosen.
+  const lane = candidateOf("lane", square.lane);
+  if (lane && isRequiredNext("lane")) return lane;
+
+  const creature = candidateOf("creature", square.occupantId);
+  if (creature) return creature;
+
+  const base = candidateOf(
+    "base",
+    Object.values(state.bases).find(
+      (candidate) =>
+        candidate.coordinate.column === coordinate.column &&
+        candidate.coordinate.row === coordinate.row
+    )?.id
+  );
+  if (base) return base;
+
+  const coordinateId = `${coordinate.column}:${coordinate.row}`;
+  const coordinateCandidate = candidateOf("coordinate", coordinateId);
+  if (coordinateCandidate) return coordinateCandidate;
+
+  return lane;
 }

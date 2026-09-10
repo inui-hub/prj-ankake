@@ -30,7 +30,6 @@ export interface BattleScreenProps {
   readonly onHandCardIntent?: (instanceId: string) => void;
   readonly onBoardCreatureIntent?: (instanceId: string) => void;
   readonly onBoardSquareIntent?: (coordinate: BoardCoordinate) => void;
-  readonly onConfirmInteraction?: () => void;
   readonly onCancelInteraction?: () => void;
   readonly onUndoInteraction?: () => void;
   readonly onEffectCandidateIntent?: (id: string) => void;
@@ -101,6 +100,7 @@ export function BattleScreen(props: BattleScreenProps) {
             movementOriginKey={interaction.movementOriginKey}
             movementPathSteps={interaction.movementPathSteps}
             provisionalPositionKey={interaction.provisionalPositionKey}
+            effectSelectionMode={interaction.kind === "selecting-effect"}
             interactionDisabled={terminal}
             locale={props.locale}
             onCreatureIntent={terminal ? undefined : props.onBoardCreatureIntent}
@@ -127,7 +127,6 @@ export function BattleScreen(props: BattleScreenProps) {
           />
           <BattleInteractionControls
             interaction={interaction}
-            onConfirm={props.onConfirmInteraction ?? noOperation}
             onCancel={props.onCancelInteraction ?? noOperation}
             onUndo={props.onUndoInteraction ?? noOperation}
             onEndPlayPhase={props.onEndPlayPhase}

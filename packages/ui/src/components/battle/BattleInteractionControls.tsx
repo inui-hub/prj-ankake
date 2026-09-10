@@ -26,7 +26,6 @@ export interface BattleInteractionControlsView {
 
 export interface BattleInteractionControlsProps {
   readonly interaction: BattleInteractionControlsView;
-  readonly onConfirm: () => void;
   readonly onCancel: () => void;
   readonly onUndo: () => void;
   readonly onEndPlayPhase: () => void;
@@ -40,6 +39,9 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
   const selectingMove = props.interaction.kind === "selecting-move";
   const selectingEffect = props.interaction.kind === "selecting-effect";
   const selecting = selectingSummon || selectingMove || selectingEffect;
+  const graveyardCandidates = props.interaction.effectCandidates?.filter(
+    (candidate) => candidate.kind === "graveyard"
+  );
 
   return (
     <section
@@ -71,9 +73,9 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
             {props.locale === "ja" ? "移動" : "Movement"} {props.interaction.movementUsed ?? 0} / {props.interaction.movementMaximum ?? 0}
           </span>
         ) : null}
-        {selectingEffect ? (
+        {selectingEffect && graveyardCandidates?.length ? (
           <div data-testid="battle-effect-candidates">
-            {props.interaction.effectCandidates?.map((candidate) => (
+            {graveyardCandidates.map((candidate) => (
               <button key={`${candidate.kind}:${candidate.id}`} type="button"
                 className="battle-button battle-button--quiet" data-testid={`battle-effect-target-${candidate.kind}-${candidate.id}`}
                 aria-pressed={candidate.selected} disabled={props.interactionDisabled}
@@ -98,15 +100,6 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
       {selectingSummon ? (
         <div className="battle-interaction-controls__actions">
           <button
-            className="battle-button battle-button--primary"
-            data-testid="battle-summon-confirm-button"
-            disabled={props.interactionDisabled || !props.interaction.confirmEnabled}
-            type="button"
-            onClick={props.onConfirm}
-          >
-            {props.locale === "ja" ? "召喚を確定" : "Confirm Summon"}
-          </button>
-          <button
             className="battle-button battle-button--quiet"
             data-testid="battle-summon-cancel-button"
             disabled={props.interactionDisabled || !props.interaction.cancelEnabled}
@@ -119,15 +112,6 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
       ) : null}
       {selectingMove ? (
         <div className="battle-interaction-controls__actions battle-interaction-controls__actions--move">
-          <button
-            className="battle-button battle-button--primary"
-            data-testid="battle-move-confirm-button"
-            disabled={props.interactionDisabled || !props.interaction.confirmEnabled}
-            type="button"
-            onClick={props.onConfirm}
-          >
-            {props.locale === "ja" ? "移動を確定" : "Confirm Move"}
-          </button>
           <button
             className="battle-button battle-button--quiet"
             data-testid="battle-move-undo-button"
@@ -150,7 +134,6 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
       ) : null}
       {selectingEffect ? (
         <div className="battle-interaction-controls__actions">
-          <button className="battle-button battle-button--primary" data-testid="battle-effect-confirm-button" disabled={props.interactionDisabled || !props.interaction.confirmEnabled} type="button" onClick={props.onConfirm}>{props.interaction.effectAction === "summon" ? (props.locale === "ja" ? "対象を選んで召喚" : "Summon") : (props.locale === "ja" ? "スペルを確定" : "Confirm Spell")}</button>
           <button className="battle-button battle-button--quiet" data-testid="battle-effect-cancel-button" disabled={props.interactionDisabled || !props.interaction.cancelEnabled} type="button" onClick={props.onCancel}>{props.interaction.effectAction === "summon" ? (props.locale === "ja" ? "召喚を取り消す" : "Cancel Summon") : (props.locale === "ja" ? "スペルを取り消す" : "Cancel Spell")}</button>
         </div>
       ) : null}

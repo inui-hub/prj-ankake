@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import {
   coordinateKey,
+  placeCreatureForTest,
   projectPublicBattleView,
   updateBattleBase,
   type BattleCardInstance,
@@ -381,7 +382,7 @@ describe("battle screen", () => {
 
     expect(firstCard).toHaveAttribute("aria-pressed", "true");
     expect(document.querySelectorAll(".battle-square--candidate")).toHaveLength(6);
-    expect(screen.getByTestId("battle-summon-confirm-button")).toBeDisabled();
+    expect(screen.queryByTestId("battle-summon-confirm-button")).not.toBeInTheDocument();
     expect(screen.getByTestId("battle-summon-cancel-button")).toBeEnabled();
     expect(screen.getByTestId("battle-end-play-phase-button")).toBeDisabled();
 
@@ -392,13 +393,13 @@ describe("battle screen", () => {
     expect(screen.getByTestId("battle-square-3-9")).toHaveClass(
       "battle-square--selected"
     );
-    expect(screen.getByTestId("battle-summon-confirm-button")).toBeEnabled();
+    expect(screen.queryByTestId("battle-summon-confirm-button")).not.toBeInTheDocument();
 
     fireEvent.click(secondCard);
     expect(secondCard).toHaveAttribute("aria-pressed", "true");
     expect(firstCard).toHaveAttribute("aria-pressed", "false");
     expect(document.querySelectorAll(".battle-square--selected")).toHaveLength(0);
-    expect(screen.getByTestId("battle-summon-confirm-button")).toBeDisabled();
+    expect(screen.queryByTestId("battle-summon-confirm-button")).not.toBeInTheDocument();
 
     fireEvent.click(secondCard);
     expect(screen.queryByTestId("battle-summon-confirm-button")).not.toBeInTheDocument();
@@ -409,6 +410,58 @@ describe("battle screen", () => {
     fireEvent.click(screen.getByTestId("battle-summon-cancel-button"));
     expect(screen.queryByTestId("battle-summon-cancel-button")).not.toBeInTheDocument();
     expect(screen.getByTestId(`battle-hand-card-${spell.instanceId}`)).toHaveAttribute("aria-disabled", "false");
+  });
+
+  it("keeps only graveyard candidates in the side menu and routes effect clicks through the board", () => {
+    const state = createBattleScreenState();
+    const viewModel = projectPublicBattleView(state);
+    const onBoardSquareIntent = vi.fn();
+    const onEffectCandidateIntent = vi.fn();
+    const interaction = {
+      kind: "selecting-effect" as const,
+      selectedHandInstanceId: viewModel.playerHand[0]?.instanceId,
+      candidateDestinationKeys: ["5:5", "6:1"],
+      effectCandidates: [
+        { kind: "creature" as const, id: "board-card", label: "Creature", selected: false },
+        { kind: "base" as const, id: "cpu-base", label: "Base", selected: false },
+        { kind: "lane" as const, id: "left", label: "Left lane", selected: false },
+        { kind: "coordinate" as const, id: "5:5", label: "Cell", selected: false },
+        { kind: "graveyard" as const, id: "grave-1", label: "Graveyard card", selected: false }
+      ],
+      movementPathSteps: [],
+      confirmEnabled: false,
+      cancelEnabled: true,
+      undoEnabled: false,
+      endPlayPhaseEnabled: false,
+      instruction: "Select a target."
+    };
+
+    render(
+      <BattleScreen
+        viewModel={viewModel}
+        interaction={interaction}
+        logEntries={LOG_ENTRIES}
+        cpuStatus="idle"
+        onReturnToPreparation={vi.fn()}
+        onReturnToMenu={vi.fn()}
+        onEndPlayPhase={vi.fn()}
+        onBoardSquareIntent={onBoardSquareIntent}
+        onEffectCandidateIntent={onEffectCandidateIntent}
+        onRematch={vi.fn()}
+        onQuitBattle={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByTestId("battle-effect-target-creature-board-card")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("battle-effect-target-base-cpu-base")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("battle-effect-target-lane-left")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("battle-effect-target-coordinate-5:5")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("battle-effect-target-graveyard-grave-1"));
+    expect(onEffectCandidateIntent).toHaveBeenCalledWith("grave-1");
+
+    fireEvent.click(screen.getByTestId("battle-square-4-5"));
+    expect(onBoardSquareIntent).toHaveBeenCalledWith({ column: 4, row: 5 });
+    expect(screen.queryByTestId("battle-effect-confirm-button")).not.toBeInTheDocument();
   });
 
   it("renders an ordered reversible movement draft with exactly one provisional creature", () => {
@@ -430,7 +483,7 @@ describe("battle screen", () => {
     expect(screen.getByTestId("battle-summon-cancel-button")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId(boardCardTestId));
 
-    expect(screen.getByTestId("battle-move-confirm-button")).toBeDisabled();
+    expect(screen.queryByTestId("battle-move-confirm-button")).not.toBeInTheDocument();
     expect(screen.getByTestId("battle-move-undo-button")).toBeDisabled();
     expect(screen.getByTestId("battle-move-cancel-button")).toBeEnabled();
     expect(screen.getByTestId("battle-end-play-phase-button")).toBeDisabled();
@@ -452,7 +505,7 @@ describe("battle screen", () => {
     expect(container.querySelectorAll(`[data-testid="${boardCardTestId}"]`)).toHaveLength(1);
     expect(screen.getAllByTestId("battle-movement-origin-marker")).toHaveLength(1);
     expect(screen.getByTestId("battle-movement-step-1")).toHaveTextContent("1");
-    expect(screen.getByTestId("battle-move-confirm-button")).toBeEnabled();
+    expect(screen.queryByTestId("battle-move-confirm-button")).not.toBeInTheDocument();
     expect(screen.getByTestId("battle-move-undo-button")).toBeEnabled();
 
     fireEvent.click(screen.getByTestId("battle-square-4-5"));
@@ -579,7 +632,129 @@ describe("battle screen", () => {
     removeListener.mockRestore();
   });
 
-  it("guards phase end, cancels movement on Escape, and confirms through the controller", async () => {
+  it("resolves a no-target summon when its destination is clicked", async () => {
+    const initialState = createBattleScreenState();
+    const creature = Object.values(initialState.cardInstances).find(
+      (card) =>
+        card.ownerSide === "player" &&
+        card.zone === "hand" &&
+        card.type === "creature"
+    );
+    if (!creature) throw new Error("Expected a player creature in hand.");
+    const state: BattleState = {
+      ...initialState,
+      cardInstances: {
+        ...initialState.cardInstances,
+        [creature.instanceId]: {
+          ...creature,
+          catalogCardId: "AK-001",
+          effectIds: [],
+          effectText: "なし"
+        }
+      }
+    };
+    battleSetupMocks.loadBattlePreparation.mockResolvedValue({
+      deckOptions: [{ deckId: "deck-summon-controller", name: "Summon Controller Deck", cardCount: 40, battleReady: true, updatedAt: "2026-08-01T00:00:00.000Z" }],
+      playerDeckId: "deck-summon-controller",
+      cpuDeckId: "deck-summon-controller",
+      firstPlayerMode: "player-first",
+      loading: false
+    });
+    battleSetupMocks.startBattle.mockResolvedValue({ ok: true, state, events: [] });
+    const { result } = renderHook(() => useBattleController({
+      catalog: validCatalogSnapshotFixture,
+      repository: {} as DeckRepository,
+      onReturnToMenu: vi.fn()
+    }));
+
+    await waitFor(() => expect(result.current.viewModel.kind).toBe("preparation"));
+    await act(async () => { await result.current.actions.startBattle(); });
+    act(() => result.current.actions.selectHandCard(creature.instanceId));
+    await waitFor(() => {
+      if (result.current.viewModel.kind === "battle") {
+        expect(result.current.viewModel.interaction.kind).toBe("selecting-summon");
+      }
+    });
+
+    act(() => result.current.actions.selectBoardSquare({ column: 3, row: 9 }));
+    await waitFor(() => {
+      if (result.current.viewModel.kind !== "battle") {
+        throw new Error("Expected an active battle.");
+      }
+      expect(result.current.viewModel.interaction.kind).toBe("idle");
+      expect(result.current.viewModel.publicView.boardSquares.find(
+        (square) => square.key === "3:9"
+      )?.occupant).toMatchObject({ instanceId: creature.instanceId });
+    });
+  });
+
+  it("resolves a summon effect when its board target is clicked", async () => {
+    const initialState = createBattleScreenState();
+    const source = Object.values(initialState.cardInstances).find(
+      (card) => card.ownerSide === "player" && card.zone === "hand" && card.type === "creature"
+    );
+    const enemy = Object.values(initialState.cardInstances).find(
+      (card) => card.ownerSide === "cpu"
+    );
+    if (!source || !enemy) throw new Error("Expected summon source and enemy fixtures.");
+    const state = placeCreatureForTest({
+      ...initialState,
+      cardInstances: {
+        ...initialState.cardInstances,
+        [source.instanceId]: {
+          ...source,
+          catalogCardId: "AK-003",
+          effectIds: ["AK-003.primary"],
+          effectText: "召喚時：敵クリーチャーまたは攻撃可能な拠点1つを選択する。その対象に1ダメージを与える。"
+        },
+        [enemy.instanceId]: {
+          ...enemy,
+          type: "creature",
+          attack: enemy.attack ?? 3,
+          currentAttack: enemy.currentAttack ?? enemy.attack ?? 3,
+          health: enemy.health ?? 4,
+          currentHp: enemy.currentHp ?? enemy.health ?? 4,
+          maxHp: enemy.maxHp ?? enemy.health ?? 4
+        }
+      }
+    }, enemy.instanceId, "cpu", 5, 5);
+    battleSetupMocks.loadBattlePreparation.mockResolvedValue({
+      deckOptions: [{ deckId: "deck-effect-controller", name: "Effect Controller Deck", cardCount: 40, battleReady: true, updatedAt: "2026-08-01T00:00:00.000Z" }],
+      playerDeckId: "deck-effect-controller",
+      cpuDeckId: "deck-effect-controller",
+      firstPlayerMode: "player-first",
+      loading: false
+    });
+    battleSetupMocks.startBattle.mockResolvedValue({ ok: true, state, events: [] });
+    const { result } = renderHook(() => useBattleController({
+      catalog: validCatalogSnapshotFixture,
+      repository: {} as DeckRepository,
+      onReturnToMenu: vi.fn()
+    }));
+
+    await waitFor(() => expect(result.current.viewModel.kind).toBe("preparation"));
+    await act(async () => { await result.current.actions.startBattle(); });
+    act(() => result.current.actions.selectHandCard(source.instanceId));
+    act(() => result.current.actions.selectBoardSquare({ column: 3, row: 9 }));
+    await waitFor(() => {
+      if (result.current.viewModel.kind === "battle") {
+        expect(result.current.viewModel.interaction.kind).toBe("selecting-effect");
+      }
+    });
+
+    act(() => result.current.actions.selectBoardSquare({ column: 5, row: 5 }));
+    await waitFor(() => {
+      if (result.current.viewModel.kind !== "battle") {
+        throw new Error("Expected an active battle.");
+      }
+      expect(result.current.viewModel.interaction.kind).toBe("idle");
+      expect(result.current.viewModel.publicView.boardSquares.find(
+        (square) => square.key === "3:9"
+      )?.occupant).toMatchObject({ instanceId: source.instanceId });
+    });
+  });
+
+  it("guards phase end, cancels movement on Escape, and resolves at the movement limit", async () => {
     const state = createBattleScreenState();
     battleSetupMocks.loadBattlePreparation.mockResolvedValue({
       deckOptions: [
@@ -630,7 +805,7 @@ describe("battle screen", () => {
     if (result.current.viewModel.kind === "battle") {
       expect(result.current.viewModel.interaction).toMatchObject({
         kind: "selecting-move",
-        issue: "Confirm or cancel the pending action before ending the play phase."
+        issue: "Complete the pending selection or cancel it before ending the play phase."
       });
     }
 
@@ -643,8 +818,9 @@ describe("battle screen", () => {
 
     act(() => result.current.actions.selectBoardCreature(creature.instanceId));
     act(() => result.current.actions.selectBoardSquare({ column: 5, row: 5 }));
+    act(() => result.current.actions.selectBoardSquare({ column: 4, row: 5 }));
     await act(async () => {
-      await result.current.actions.confirmInteraction();
+      result.current.actions.selectBoardSquare({ column: 5, row: 5 });
     });
 
     if (result.current.viewModel.kind === "battle") {
@@ -689,7 +865,6 @@ function BattleScreenInteractionHarness({ state }: { readonly state: BattleState
           selectMovementCreature(current, state, instanceId)
         );
       }}
-      onConfirmInteraction={vi.fn()}
       onCancelInteraction={() => setInteraction(cancelBattleInteraction())}
       onUndoInteraction={() => {
         setInteraction((current) => undoMovementStep(current, state));

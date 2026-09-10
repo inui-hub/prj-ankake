@@ -20,6 +20,8 @@ export interface BattleBoardProps {
     readonly stepNumber: number;
   }[];
   readonly provisionalPositionKey?: string;
+  /** During effect targeting, every board click represents a board target. */
+  readonly effectSelectionMode?: boolean;
   readonly interactionDisabled?: boolean;
   readonly onCreatureIntent?: (instanceId: string) => void;
   readonly onSquareIntent?: (coordinate: BoardCoordinate) => void;
@@ -128,7 +130,7 @@ export function BattleBoard(props: BattleBoardProps) {
                   return;
                 }
                 setFocusedKey(square.key);
-                if (displayedOccupant) {
+                if (displayedOccupant && !props.effectSelectionMode) {
                   props.onCreatureIntent?.(displayedOccupant.instanceId);
                 } else {
                   props.onSquareIntent?.(square.coordinate);
