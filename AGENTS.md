@@ -59,18 +59,35 @@ Repeat this cycle until the requirements are sufficiently clear or a maximum of 
 If critical ambiguity still remains after 3 cycles:
 
 - Select the option that is judged to be the most appropriate.
-- Proceed using that assumption.
-- Include the unresolved point, chosen assumption, reasoning, and potential impact in the final report.
+- Include that assumption in the finalized requirements.
+- Clearly identify the unresolved point, chosen assumption, reasoning, and potential impact when presenting the requirements to the user.
+
+#### Requirement Approval
+
+After the requirements have been finalized:
+
+1. Present the finalized requirements to the user in a clear and concise form.
+2. Include any assumptions that were made by the agent.
+3. Ask the user to explicitly confirm whether the finalized requirements are acceptable.
+4. Do not proceed to Planning until the user approves the finalized requirements.
+
+If the user requests changes:
+
+- Update the requirements based on the feedback.
+- Perform the adversarial self-review again.
+- Present the revised requirements for approval again.
+
+Proceed to Planning only after explicit user approval.
 
 ### 3. Planning
 
-Create a concrete implementation plan based on the confirmed requirements.
+Create a concrete implementation plan based on the approved requirements.
 
 - Identify the files and components that need to change.
 - Determine the implementation approach.
 - Consider compatibility with the existing architecture.
 - Define how the implementation will be verified.
-- Ensure the plan addresses all confirmed requirements before starting implementation.
+- Ensure the plan addresses all approved requirements before starting implementation.
 
 ### 4. Implementation
 
@@ -79,7 +96,7 @@ Implement the planned changes and verify them continuously.
 #### Implementation and Verification
 
 - Follow the existing codebase conventions and architecture.
-- Keep changes focused on the requested requirements.
+- Keep changes focused on the approved requirements.
 - Refactor related code when necessary to implement the change cleanly.
 - Add or update relevant tests when appropriate.
 
@@ -103,22 +120,22 @@ If the same failure continues without meaningful progress for 5 consecutive atte
 
 Only after the relevant build and tests succeed, perform an adversarial self-review of the implementation.
 
-The primary purpose of this review is to verify that the implementation correctly satisfies the confirmed requirements.
+The primary purpose of this review is to verify that the implementation correctly satisfies the approved requirements.
 
 During the review:
 
 - Do not assume the implementation is correct simply because the build and tests pass.
-- Compare the implementation directly against the confirmed requirements.
+- Compare the implementation directly against the approved requirements.
 - Check each important requirement individually.
-- Identify any requirement that is missing, only partially implemented, or implemented differently from what was agreed.
-- Check whether the implementation introduces behavior that contradicts the confirmed requirements.
+- Identify any requirement that is missing, only partially implemented, or implemented differently from what was approved.
+- Check whether the implementation introduces behavior that contradicts the approved requirements.
 - Check whether existing behavior that should remain unchanged has been unintentionally affected.
 - Focus on requirement compliance rather than minor style issues, optional improvements, or unnecessary refactoring.
-- Return PASS when the confirmed requirements are satisfied and no significant requirement-related issue remains.
+- Return PASS when the approved requirements are satisfied and no significant requirement-related issue remains.
 
 Review the implementation against:
 
-- the confirmed requirements
+- the approved requirements
 - the existing behavior that must remain compatible
 - the relevant tests
 - important user-visible behavior
