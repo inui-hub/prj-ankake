@@ -6,6 +6,7 @@ export interface BattleInteractionControlsView {
   readonly selectedDestinationKey?: string;
   readonly selectedCardName?: string;
   readonly selectedCardCost?: number;
+  readonly effectAction?: "summon" | "spell";
   readonly effectCandidates?: readonly { readonly kind: "creature" | "base" | "lane" | "coordinate" | "graveyard"; readonly id: string; readonly label: string; readonly selected: boolean }[];
   readonly movementOriginKey?: string;
   readonly movementPathSteps?: readonly {
@@ -51,7 +52,9 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
           : selectingMove
             ? props.locale === "ja" ? "クリーチャーを移動" : "Move creature"
           : selectingEffect
-              ? props.locale === "ja" ? "スペル対象を選択" : "Choose spell target"
+              ? props.interaction.effectAction === "summon"
+                ? props.locale === "ja" ? "召喚時の対象を選択" : "Choose summon target"
+                : props.locale === "ja" ? "スペル対象を選択" : "Choose spell target"
             : props.locale === "ja" ? "フェーズ操作" : "Phase control"}
       </h2>
       <div className="battle-interaction-controls__status">
@@ -147,8 +150,8 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
       ) : null}
       {selectingEffect ? (
         <div className="battle-interaction-controls__actions">
-          <button className="battle-button battle-button--primary" data-testid="battle-effect-confirm-button" disabled={props.interactionDisabled || !props.interaction.confirmEnabled} type="button" onClick={props.onConfirm}>{props.locale === "ja" ? "スペルを確定" : "Confirm Spell"}</button>
-          <button className="battle-button battle-button--quiet" data-testid="battle-effect-cancel-button" disabled={props.interactionDisabled || !props.interaction.cancelEnabled} type="button" onClick={props.onCancel}>{props.locale === "ja" ? "スペルを取り消す" : "Cancel Spell"}</button>
+          <button className="battle-button battle-button--primary" data-testid="battle-effect-confirm-button" disabled={props.interactionDisabled || !props.interaction.confirmEnabled} type="button" onClick={props.onConfirm}>{props.interaction.effectAction === "summon" ? (props.locale === "ja" ? "対象を選んで召喚" : "Summon") : (props.locale === "ja" ? "スペルを確定" : "Confirm Spell")}</button>
+          <button className="battle-button battle-button--quiet" data-testid="battle-effect-cancel-button" disabled={props.interactionDisabled || !props.interaction.cancelEnabled} type="button" onClick={props.onCancel}>{props.interaction.effectAction === "summon" ? (props.locale === "ja" ? "召喚を取り消す" : "Cancel Summon") : (props.locale === "ja" ? "スペルを取り消す" : "Cancel Spell")}</button>
         </div>
       ) : null}
       <button

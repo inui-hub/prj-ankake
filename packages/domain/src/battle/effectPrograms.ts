@@ -11,6 +11,11 @@ export function getExecutablePlayEffects(
   return getExecutableEffects(card, "play");
 }
 
+/** True for creature play effects whose documented resolution needs a choice. */
+export function hasTargetedSummonEffect(card: BattleCardInstance): boolean {
+  return TARGETED_SUMMON_CARD_IDS.has(card.catalogCardId);
+}
+
 /** Returns an effect only for the lifecycle that is currently being resolved.
  * Keeping the trigger gate here prevents a summon ability from also firing
  * when its controller later moves the same instance. */
@@ -66,7 +71,7 @@ export function getExecutableEffects(
       kind: "card-script",
       cardId: card.catalogCardId,
       target: "any-creature",
-      minimumTargets: 0,
+      minimumTargets: TARGETED_CREATURE_SCRIPT_IDS.has(card.catalogCardId) ? 1 : 0,
       maximumTargets: 64
     }]
   }));
@@ -78,3 +83,11 @@ const LIFECYCLE_CARD_IDS: Readonly<Record<"play" | "summon" | "moved" | "destroy
   moved: new Set(["AK-022"]),
   destroyed: new Set(["AK-010", "AK-049", "AK-051", "AK-056", "AK-058"])
 };
+
+const TARGETED_CREATURE_SCRIPT_IDS = new Set([
+  "AK-006", "AK-015", "AK-018", "AK-020", "AK-039", "AK-041", "AK-050", "AK-052", "AK-055"
+]);
+
+const TARGETED_SUMMON_CARD_IDS = new Set([
+  "AK-003", "AK-006", "AK-007", "AK-012", "AK-018", "AK-020", "AK-038", "AK-042", "AK-046", "AK-048", "AK-052", "AK-057"
+]);

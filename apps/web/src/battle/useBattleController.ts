@@ -301,8 +301,15 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       current.kind === "selecting-move"
         ? selectMovementStep(current, session.state, coordinate)
         : current.kind === "selecting-effect"
-          ? selectEffectTarget(current, `${coordinate.column}:${coordinate.row}`)
-        : selectSummonDestination(current, coordinate)
+          ? selectEffectTarget(
+              current,
+              session.state.board.squares.find(
+                (square) =>
+                  square.coordinate.column === coordinate.column &&
+                  square.coordinate.row === coordinate.row
+              )?.base?.id ?? `${coordinate.column}:${coordinate.row}`
+            )
+          : selectSummonDestination(current, coordinate)
     );
   }
 

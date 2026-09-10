@@ -2,7 +2,7 @@ import { getLane, setBoardOccupant } from "./board";
 import { resolveAfterPlayPhase } from "./automaticPhases";
 import { BATTLE_LANES, getCreaturePlayCost, increaseResonance, isResonanceActive, isWindResonanceDiscountAvailable, resonanceGain } from "./resonance";
 import { validateBattleCommand } from "./validation";
-import { getExecutablePlayEffects } from "./effectPrograms";
+import { getExecutablePlayEffects, hasTargetedSummonEffect } from "./effectPrograms";
 import { resolveEffect } from "./effectResolver";
 import type { ExecutableEffectDefinition } from "./effectTypes";
 import { toEffectSelection } from "./effectTypes";
@@ -102,8 +102,12 @@ function acceptSummon(
       },
       eventCursor: sequence + events.length - 1
     };
+  const resolvedCard = { ...card, zone: "board" as const, position: command.destination };
+  const summonEffects = !command.effectSelection && hasTargetedSummonEffect(card)
+    ? []
+    : getExecutablePlayEffects(resolvedCard);
   const resolution = resolveOrderedEffects(summonedState, card.instanceId, command.side,
-    getExecutablePlayEffects({ ...card, zone: "board", position: command.destination }), toEffectSelection(command.effectSelection));
+    summonEffects, toEffectSelection(command.effectSelection));
   const effectEvents = resolution.events;
   // The played creature's summon effect was resolved above with the command
   // selection.  Drain only resulting events here so it cannot fire twice.

@@ -10,6 +10,7 @@ import {
   IDLE_BATTLE_INTERACTION,
   cancelBattleInteraction,
   guardEndPlayPhase,
+  prepareEffectConfirmation,
   prepareMovementConfirmation,
   prepareSummonConfirmation,
   projectBattleInteractionFromState,
@@ -17,8 +18,10 @@ import {
   recoverSummonInteraction,
   selectMovementCreature,
   selectMovementStep,
+  selectEffectTarget,
   selectSummonDestination,
   selectSummonHandCard,
+  startSummonEffectSelection,
   undoMovementStep,
   type BattleInteractionState
 } from "../../../apps/web/src/battle/battleInteraction";
@@ -32,6 +35,57 @@ import {
 } from "../generators/battleGenerators";
 
 describe("battle summon interaction", () => {
+  it("skips target selection and prepares a normal summon when no summon-effect target exists", () => {
+    const { state, firstId } = createInteractionState();
+    const source: BattleCardInstance = {
+      ...state.cardInstances[firstId]!,
+      catalogCardId: "AK-006",
+      effectIds: ["AK-006.primary"],
+      effectText: "召喚時：他の味方クリーチャー1体を選択する。そのクリーチャーの攻撃力を+2する。"
+    };
+    const prepared = { ...state, cardInstances: { ...state.cardInstances, [firstId]: source } };
+
+    expect(startSummonEffectSelection(prepared, firstId, { column: 3, row: 9 })).toBeUndefined();
+    const summon = prepareSummonConfirmation(
+      selectSummonDestination(selectSummonHandCard(IDLE_BATTLE_INTERACTION, prepared, firstId), { column: 3, row: 9 }),
+      prepared
+    );
+    expect(summon).toEqual({ ok: true, command: { type: "summonCreature", side: "player", handInstanceId: firstId, destination: { column: 3, row: 9 } } });
+  });
+
+  it("selects a creature or base target after selecting the summon square", () => {
+    const { state, firstId, secondId } = createInteractionState();
+    const source: BattleCardInstance = {
+      ...state.cardInstances[firstId]!,
+      catalogCardId: "AK-003",
+      effectIds: ["AK-003.primary"],
+      effectText: "召喚時：敵クリーチャーまたは攻撃可能な拠点1つを選択する。その対象に1ダメージを与える。"
+    };
+    const enemy: BattleCardInstance = {
+      ...state.cardInstances[secondId]!,
+      ownerSide: "cpu",
+      controllerSide: "cpu",
+      zone: "hand",
+      position: undefined
+    };
+    const prepared = placeCreatureForTest({
+      ...state,
+      cardInstances: { ...state.cardInstances, [firstId]: source, [secondId]: enemy },
+      players: { ...state.players, player: { ...state.players.player, handZone: [firstId] }, cpu: { ...state.players.cpu, handZone: [secondId] } }
+    }, secondId, "cpu", 5, 5);
+
+    const started = startSummonEffectSelection(prepared, firstId, { column: 3, row: 9 });
+    if (!started || started.kind !== "selecting-effect") throw new Error("Expected summon target selection.");
+    expect(started.candidates).toContainEqual(expect.objectContaining({ kind: "creature", id: secondId }));
+    expect(started.candidates).toContainEqual(expect.objectContaining({ kind: "base", id: "cpu-base" }));
+    expect(projectBattleInteractionFromState(started, prepared).candidateDestinationKeys).toContain("6:1");
+
+    const creatureCommand = prepareEffectConfirmation(selectEffectTarget(started, secondId));
+    const baseCommand = prepareEffectConfirmation(selectEffectTarget(started, "cpu-base"));
+    expect(creatureCommand).toMatchObject({ ok: true, command: { type: "summonCreature", destination: { column: 3, row: 9 }, effectSelection: { creatureIds: [secondId] } } });
+    expect(baseCommand).toMatchObject({ ok: true, command: { type: "summonCreature", destination: { column: 3, row: 9 }, effectSelection: { baseIds: ["cpu-base"] } } });
+  });
+
   it("starts, switches directly, and cancels by re-clicking the selected card", () => {
     const { state, firstId, secondId } = createInteractionState();
     const first = selectSummonHandCard(IDLE_BATTLE_INTERACTION, state, firstId);

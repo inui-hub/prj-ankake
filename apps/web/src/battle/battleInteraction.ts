@@ -1,6 +1,7 @@
 import {
   coordinateKey,
   evaluateMovementDraft,
+  getEffectChoiceForCard,
   projectPublicBattleView,
   queryMovementStart,
   querySummonStart,
@@ -69,6 +70,7 @@ export interface BattleInteractionView {
   readonly selectedDestinationKey?: string;
   readonly selectedCardName?: string;
   readonly selectedCardCost?: number;
+  readonly effectAction?: "summon" | "spell";
   readonly effectCandidates?: readonly { readonly kind: "creature" | "base" | "lane" | "coordinate" | "graveyard"; readonly id: string; readonly label: string; readonly selected: boolean }[];
   readonly selectedEffectTargetIds?: readonly string[];
   readonly movementOriginKey?: string;
@@ -127,16 +129,48 @@ export function selectSpellHandCard(
 export function startSummonEffectSelection(state: BattleState, handInstanceId: string, destination: BoardCoordinate): BattleInteractionState | undefined {
   const card = state.cardInstances[handInstanceId];
   if (!card) return undefined;
+  const choice = getEffectChoiceForCard(state, "player", card, destination);
+  if (!choice || !canCompleteSummonEffectSelection(state, card.catalogCardId, destination, choice.candidates)) return undefined;
+  return {
+    kind: "selecting-effect",
+    handInstanceId,
+    summonDestination: destination,
+    candidates: choice.candidates,
+    selectedIds: [],
+    minimumTargets: choice.minimumTargets ?? 1,
+    maximumTargets: choice.maximumTargets ?? 1,
+    requirements: requirementsFor(card.catalogCardId),
+    ...(choice.candidates.length === 0 ? {
+      issue: { code: "battle.effect.no-target" as const, message: "No legal target is available for this summon effect." }
+    } : {})
+  };
+}
+
+function canCompleteSummonEffectSelection(
+  state: BattleState,
+  cardId: string,
+  summonDestination: BoardCoordinate,
+  candidates: readonly Extract<BattleInteractionState, { kind: "selecting-effect" }>["candidates"]
+): boolean {
+  const coordinates = candidates.filter((candidate) => candidate.kind === "coordinate");
+  const creatures = candidates.filter((candidate) => candidate.kind === "creature");
   const counts: Readonly<Record<string, number>> = { "AK-038": 1, "AK-042": 1, "AK-046": 2, "AK-048": 3, "AK-057": 1 };
-  const count = counts[card.catalogCardId]; if (!count) return undefined;
-  const coordinates = state.board.squares.filter((square) => {
-    if (square.terrain !== "normal" || square.occupantId || (square.coordinate.column === destination.column && square.coordinate.row === destination.row)) return false;
-    if (card.catalogCardId === "AK-038" || card.catalogCardId === "AK-057") return Math.abs(square.coordinate.column - destination.column) <= 1 && Math.abs(square.coordinate.row - destination.row) <= 1;
-    return ["AK-042", "AK-046", "AK-048"].includes(card.catalogCardId) ? square.lane === state.board.squares.find((candidate) => candidate.coordinate.column === destination.column && candidate.coordinate.row === destination.row)?.lane : true;
-  }).map((square) => ({ kind: "coordinate" as const, id: `${square.coordinate.column}:${square.coordinate.row}`, label: `Cell ${square.coordinate.column},${square.coordinate.row}` }));
-  const graveyard = card.catalogCardId === "AK-057" ? state.players.player.graveyardZone.filter((id) => { const target = state.cardInstances[id]; return Boolean(target && (target.type === "creature" || target.type === "creature-token") && target.cost <= 3); }).map((id, index) => ({ kind: "graveyard" as const, id, label: `Graveyard card ${index + 1}` })) : [];
-  if (card.catalogCardId === "AK-057" && graveyard.length === 0) return { kind: "selecting-effect", handInstanceId, summonDestination: destination, candidates: [], selectedIds: [], minimumTargets: 2, maximumTargets: 2, requirements: { graveyard: 1, coordinate: 1 }, issue: { code: "battle.effect.no-target", message: "No eligible creature is available in your graveyard." } };
-  return { kind: "selecting-effect", handInstanceId, summonDestination: destination, candidates: [...graveyard, ...coordinates], selectedIds: [], minimumTargets: count + (graveyard.length ? 1 : 0), maximumTargets: count + (graveyard.length ? 1 : 0), requirements: card.catalogCardId === "AK-057" ? { graveyard: 1, coordinate: 1 } : { coordinate: count } };
+  const requiredCoordinates = counts[cardId];
+  if (requiredCoordinates) {
+    return coordinates.length >= requiredCoordinates &&
+      (cardId !== "AK-057" || candidates.some((candidate) => candidate.kind === "graveyard"));
+  }
+  if (cardId !== "AK-018") return candidates.length > 0;
+  return creatures.some((creature) => {
+    const target = state.cardInstances[creature.id];
+    return Boolean(target?.position && coordinates.some((coordinate) => {
+      const [column, row] = coordinate.id.split(":").map(Number);
+      return Math.abs(column! - target.position!.column) <= 1 &&
+        Math.abs(row! - target.position!.row) <= 1 &&
+        !(column === target.position!.column && row === target.position!.row) &&
+        !(column === summonDestination.column && row === summonDestination.row);
+    }));
+  });
 }
 
 export function selectEffectTarget(interaction: BattleInteractionState, id: string): BattleInteractionState {
@@ -535,8 +569,14 @@ export function projectBattleInteractionView(
     const coordinateCandidateKeys = interaction.candidates
       .filter((candidate) => candidate.kind === "coordinate")
       .map((candidate) => candidate.id);
+    const baseCandidateKeys = interaction.candidates
+      .filter((candidate) => candidate.kind === "base")
+      .flatMap((candidate) => publicView.boardSquares
+        .filter((square) => square.base?.id === candidate.id)
+        .map((square) => square.key));
     return { kind: "selecting-effect", selectedHandInstanceId: interaction.handInstanceId, selectedCardName: selectedCard?.name,
-      selectedCardCost: selectedCard?.currentCost, candidateDestinationKeys: coordinateCandidateKeys, movementPathSteps: [],
+      selectedCardCost: selectedCard?.currentCost, candidateDestinationKeys: [...coordinateCandidateKeys, ...baseCandidateKeys], movementPathSteps: [],
+      effectAction: interaction.summonDestination ? "summon" : "spell",
       effectCandidates: interaction.candidates.map((candidate) => ({ ...candidate, selected: interaction.selectedIds.includes(candidate.id) })),
       selectedEffectTargetIds: interaction.selectedIds, confirmEnabled: selectionComplete(interaction),
       cancelEnabled: true, undoEnabled: false, endPlayPhaseEnabled: false,
@@ -569,6 +609,8 @@ export function projectBattleInteractionView(
 }
 
 function requirementsFor(cardId: string | undefined): Readonly<Partial<Record<"creature" | "base" | "lane" | "coordinate" | "graveyard", number>>> | undefined {
+  if (cardId === "AK-008") return { lane: 1 };
+  if (cardId === "AK-018") return { creature: 1, coordinate: 1 };
   if (cardId === "AK-019") return { creature: 1, coordinate: 1 };
   if (cardId === "AK-044") return { lane: 1, coordinate: 3 };
   if (cardId === "AK-054") return { graveyard: 2 };

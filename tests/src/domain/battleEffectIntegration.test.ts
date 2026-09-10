@@ -14,6 +14,41 @@ import { battleStateArbitrary } from "../generators/battleGenerators";
 import { validCatalogSnapshotFixture } from "../generators/catalogGenerators";
 
 describe("battle effect integration", () => {
+  it("requires and resolves a selected target for a targeted summon effect", () => {
+    const { state, spellId, enemyId } = createTargetedSpellState();
+    const source: BattleCardInstance = {
+      ...state.cardInstances[spellId]!,
+      type: "creature",
+      catalogCardId: "AK-003",
+      effectIds: ["AK-003.primary"],
+      effectText: "召喚時：敵クリーチャーまたは攻撃可能な拠点1つを選択する。その対象に1ダメージを与える。",
+      attack: 2,
+      currentAttack: 2,
+      health: 3,
+      currentHp: 3,
+      maxHp: 3,
+      movement: 1
+    };
+    const withSource = { ...state, cardInstances: { ...state.cardInstances, [spellId]: source } };
+
+    const withoutTarget = GameEngine.submitCommand(withSource, {
+      type: "summonCreature", side: "player", handInstanceId: spellId, destination: { column: 3, row: 9 }
+    });
+    expect(withoutTarget).toMatchObject({ ok: true });
+    if (!withoutTarget.ok) return;
+    expect(withoutTarget.state.cardInstances[spellId]).toMatchObject({ zone: "board", position: { column: 3, row: 9 } });
+    expect(withoutTarget.state.cardInstances[enemyId]?.currentHp).toBe(6);
+    expect(withoutTarget.effect).toBeUndefined();
+    expect(withoutTarget.events.map((event) => event.type)).toEqual(["creature.summoned", "resonance.changed"]);
+
+    const result = GameEngine.submitCommand(withSource, {
+      type: "summonCreature", side: "player", handInstanceId: spellId, destination: { column: 3, row: 9 }, effectSelection: { creatureIds: [enemyId] }
+    });
+    expect(result).toMatchObject({ ok: true, effect: { status: "resolved", completedOperationCount: 1 } });
+    if (!result.ok) return;
+    expect(result.state.cardInstances[enemyId]?.currentHp).toBe(5);
+  });
+
   it("builds structured selections for scripted legal spell actions", () => {
     const { state, spellId } = createTargetedSpellState();
     const scripted: BattleState = { ...state, cardInstances: { ...state.cardInstances, [spellId]: { ...state.cardInstances[spellId]!, catalogCardId: "AK-011", effectIds: ["AK-011.primary"], effectText: "レーンを1つ選択する。" } } };
@@ -70,6 +105,29 @@ describe("battle effect integration", () => {
     expect(result).toMatchObject({ ok: false });
     expect(result.state).toBe(state);
     if (!result.ok) expect(result.issues[0]?.code).toBe("battle.effect.no-target");
+  });
+
+  it("does not cast a targeted spell when no legal target exists", () => {
+    const { state, spellId, enemyId } = createTargetedSpellState();
+    const silenceSpell: BattleCardInstance = {
+      ...state.cardInstances[spellId]!,
+      catalogCardId: "AK-041",
+      effectIds: ["AK-041.primary"],
+      effectText: "敵クリーチャー1体を選択する。そのクリーチャーの効果を無効にする。"
+    };
+    const enemy = { ...state.cardInstances[enemyId]!, zone: "hand" as const, position: undefined };
+    const withoutTargets: BattleState = {
+      ...state,
+      board: createInitialBattleBoard(),
+      players: { ...state.players, cpu: { ...state.players.cpu, handZone: [enemyId] } },
+      cardInstances: { ...state.cardInstances, [spellId]: silenceSpell, [enemyId]: enemy }
+    };
+
+    const result = GameEngine.submitCommand(withoutTargets, {
+      type: "castSpell", side: "player", handInstanceId: spellId
+    });
+    expect(result).toMatchObject({ ok: false, issues: [{ code: "battle.effect.no-target" }] });
+    expect(result.state).toBe(withoutTargets);
   });
 
   it("rejects an unknown card script instead of treating it as a successful no-op", () => {
@@ -142,12 +200,14 @@ describe("battle effect integration", () => {
     }
   });
 
-  it.each(["player", "cpu"] as const)("omits %s AK-057 summon actions when its graveyard has no eligible creature", (side) => {
+  it.each(["player", "cpu"] as const)("allows %s AK-057 to summon without resolving its effect when its graveyard has no eligible creature", (side) => {
     const { state, summonId } = createAk057LegalActionState(side, false);
+    const actions = generateLegalActions(state, side).filter(
+      (candidate) => candidate.command.type === "summonCreature" && candidate.command.handInstanceId === summonId
+    );
 
-    expect(generateLegalActions(state, side)).not.toContainEqual(expect.objectContaining({
-      command: expect.objectContaining({ type: "summonCreature", handInstanceId: summonId })
-    }));
+    expect(actions).toHaveLength(6);
+    expect(actions.every((action) => action.command.type === "summonCreature" && action.command.effectSelection === undefined)).toBe(true);
   });
 
   it("AK-059 revives exactly the selected two eligible graveyard creatures onto selected summon squares", () => {

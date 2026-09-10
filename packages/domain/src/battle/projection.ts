@@ -8,7 +8,7 @@ import { queryMovementStart } from "./movement";
 import { getEffectiveCreatureAttack, getEffectiveCreatureCurrentHp, getEffectiveCreatureMaxHp, getEffectiveCreatureMovement } from "./resonance";
 import { querySummonStart } from "./summon";
 import { validateBattleCommand } from "./validation";
-import { getPublicEffectChoices } from "./legalActions";
+import { getEffectChoiceForCard, getPublicEffectChoices } from "./legalActions";
 import type {
   BattleCardInstance,
   BattleBaseId,
@@ -179,13 +179,24 @@ function projectBattleCard(
           handInstanceId: card.instanceId
         })
       : undefined;
+  const spellChoice =
+    location === "hand" && card.type === "spell" && state
+      ? getEffectChoiceForCard(state, "player", card)
+      : undefined;
+  const spellIsActionable = spellIssues !== undefined && (
+    spellIssues.length === 0 || Boolean(
+      spellIssues.every((issue) => issue.code === "battle.effect.no-target") &&
+      spellChoice &&
+      spellChoice.candidates.length > 0
+    )
+  );
   const isActionable =
     spellIssues !== undefined
-      ? spellIssues.length === 0
+      ? spellIsActionable
       : summonStart?.eligible ?? movementStart?.eligible ?? false;
   const disabledReason =
     card.type === "spell"
-      ? spellIssues?.[0]?.message
+      ? spellIsActionable ? undefined : spellIssues?.[0]?.message
       : location === "hand"
         ? summonStart?.issues[0]?.message
         : movementStart?.issues[0]?.message;

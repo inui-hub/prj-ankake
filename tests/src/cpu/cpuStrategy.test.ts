@@ -110,8 +110,15 @@ describe("CPU strategy", () => {
           const first = chooseCpuAction(visible);
           const second = chooseCpuAction(visible);
 
-          expect(summons).toHaveLength(6);
+          // A summon-triggered targeted effect is legal only when a complete
+          // target selection exists.  Otherwise the CPU must not issue an
+          // incomplete summon command.
+          expect([0, 6]).toContain(summons.length);
           expect(first).toEqual(second);
+          if (summons.length === 0) {
+            expect(first.kind).toBe("stop");
+            return;
+          }
           expect(first.kind).toBe("command");
           if (first.kind !== "command" || first.command.type !== "summonCreature") {
             return;

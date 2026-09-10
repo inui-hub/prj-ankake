@@ -465,7 +465,11 @@ describe("battle domain properties", () => {
             }
           }
 
-          expect(actionDestinations).toEqual(destinations);
+          // A destination still has to be in the shared summon range, but a
+          // creature with a mandatory summon target has no legal command
+          // until a target can also be selected.
+          expect(actionDestinations.every((destination) => destinations.includes(destination))).toBe(true);
+          expect(new Set(actionDestinations).size).toBe(actionDestinations.length);
         }
       ),
       { numRuns: 60, seed: 8301 }

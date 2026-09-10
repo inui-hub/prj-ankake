@@ -80,12 +80,33 @@ export function generateLegalActions(state: BattleState, side: BattleSide): read
 
 function summonEffectSelection(state: BattleState, side: BattleSide, card: BattleCardInstance, destination: import("./types").BoardCoordinate): import("./types").BattleEffectSelection | undefined {
   const count: Readonly<Record<string, number>> = { "AK-038": 1, "AK-042": 1, "AK-046": 2, "AK-048": 3, "AK-057": 1 };
-  const needed = count[card.catalogCardId]; if (!needed) return undefined;
-  const cells = state.board.squares.filter((square) => square.terrain === "normal" && !square.occupantId && !(square.coordinate.column === destination.column && square.coordinate.row === destination.row) && (["AK-038", "AK-057"].includes(card.catalogCardId) ? Math.abs(square.coordinate.column - destination.column) <= 1 && Math.abs(square.coordinate.row - destination.row) <= 1 : square.lane === getLane(destination.column))).slice(0, needed).map((square) => square.coordinate);
-  if (cells.length !== needed) return { coordinates: [] };
-  if (card.catalogCardId !== "AK-057") return { coordinates: cells };
-  const grave = state.players[side].graveyardZone.find((id) => { const target = state.cardInstances[id]; return Boolean(target && (target.type === "creature" || target.type === "creature-token") && target.cost <= 3); });
-  return grave ? { coordinates: cells, graveyardCardIds: [grave] } : { coordinates: [] };
+  const needed = count[card.catalogCardId];
+  if (needed) {
+    const cells = state.board.squares.filter((square) => square.terrain === "normal" && !square.occupantId && !(square.coordinate.column === destination.column && square.coordinate.row === destination.row) && (["AK-038", "AK-057"].includes(card.catalogCardId) ? Math.abs(square.coordinate.column - destination.column) <= 1 && Math.abs(square.coordinate.row - destination.row) <= 1 : square.lane === getLane(destination.column))).slice(0, needed).map((square) => square.coordinate);
+    if (cells.length !== needed) return undefined;
+    if (card.catalogCardId !== "AK-057") return { coordinates: cells };
+    const grave = state.players[side].graveyardZone.find((id) => { const target = state.cardInstances[id]; return Boolean(target && (target.type === "creature" || target.type === "creature-token") && target.cost <= 3); });
+    return grave ? { coordinates: cells, graveyardCardIds: [grave] } : undefined;
+  }
+
+  const choice = getEffectChoiceForCard(state, side, card, destination);
+  if (!choice) return undefined;
+  const firstCreature = choice.candidates.find((candidate) => candidate.kind === "creature");
+  const firstBase = choice.candidates.find((candidate) => candidate.kind === "base");
+  if (card.catalogCardId === "AK-018" && firstCreature) {
+    const target = state.cardInstances[firstCreature.id];
+    const coordinate = target?.position && choice.candidates.find((candidate) => {
+      if (candidate.kind !== "coordinate") return false;
+      const [column, row] = candidate.id.split(":").map(Number);
+      return Math.abs(column! - target.position!.column) <= 1 && Math.abs(row! - target.position!.row) <= 1 && !(column === target.position!.column && row === target.position!.row);
+    });
+    if (!coordinate) return undefined;
+    const [column, row] = coordinate.id.split(":").map(Number);
+    return { creatureIds: [firstCreature.id], coordinates: [{ column: column!, row: row! }] };
+  }
+  if (firstCreature) return { creatureIds: [firstCreature.id] };
+  if (firstBase) return { baseIds: [firstBase.id] as import("./types").BattleBaseId[] };
+  return undefined;
 }
 
 /** Shared candidate source for projections, CPU action generation, and engine revalidation. */
@@ -94,21 +115,41 @@ export function getPublicEffectChoices(state: BattleState, side: BattleSide): re
   return state.players[side].handZone.flatMap((instanceId) => {
     const card = state.cardInstances[instanceId];
     if (!card || card.type !== "spell") return [];
-    const scripted = scriptedChoice(state, side, card);
-    if (scripted) return [scripted];
-    return getExecutablePlayEffects(card).flatMap((effect) => {
-      const operation = effect.operations[0];
-      if (!operation) return [];
-      const candidates = getLegalEffectTargets(state, side, operation).map((target) => target.kind === "creature"
-        ? { kind: "creature" as const, id: target.instanceId, label: state.cardInstances[target.instanceId]?.name ?? target.instanceId }
-        : { kind: "base" as const, id: target.baseId, label: target.baseId });
-      return [{ effectId: effect.effectId, sourceInstanceId: card.instanceId, selectionKinds: [...new Set(candidates.map((candidate) => candidate.kind))], candidates, minimumTargets: operation.minimumTargets, maximumTargets: operation.maximumTargets }];
-    });
+    const choice = getEffectChoiceForCard(state, side, card);
+    return choice ? [choice] : [];
   });
 }
 
-function scriptedChoice(state: BattleState, side: BattleSide, card: BattleCardInstance): PublicEffectChoice | undefined {
+/**
+ * Returns the target-selection contract for one card.  Creature callers pass
+ * their already selected summon destination, which makes lane-dependent
+ * summon effects use exactly the same candidate source as spells.
+ */
+export function getEffectChoiceForCard(
+  state: BattleState,
+  side: BattleSide,
+  card: BattleCardInstance,
+  summonDestination?: import("./types").BoardCoordinate
+): PublicEffectChoice | undefined {
+  const scripted = scriptedChoice(state, side, card, summonDestination);
+  if (scripted) return scripted;
+  return getExecutablePlayEffects(card).flatMap((effect) => {
+    const operation = effect.operations[0];
+    if (!operation || operation.kind === "card-script") return [];
+    const candidates = getLegalEffectTargets(state, side, operation).map((target) => target.kind === "creature"
+      ? { kind: "creature" as const, id: target.instanceId, label: state.cardInstances[target.instanceId]?.name ?? target.instanceId }
+      : { kind: "base" as const, id: target.baseId, label: target.baseId });
+    return [{ effectId: effect.effectId, sourceInstanceId: card.instanceId, selectionKinds: [...new Set(candidates.map((candidate) => candidate.kind))], candidates, minimumTargets: operation.minimumTargets, maximumTargets: operation.maximumTargets }];
+  })[0];
+}
+
+function scriptedChoice(state: BattleState, side: BattleSide, card: BattleCardInstance, summonDestination?: import("./types").BoardCoordinate): PublicEffectChoice | undefined {
+  const summonStructured = summonStructuredChoice(state, side, card, summonDestination);
+  if (summonStructured) return summonStructured;
+  const creatureTarget = scriptedCreatureTargetChoice(state, side, card, summonDestination);
+  if (creatureTarget) return creatureTarget;
   const config: Readonly<Record<string, { kinds: readonly ("lane" | "coordinate" | "graveyard")[]; min: number; max: number }>> = {
+    "AK-008": { kinds: ["lane"], min: 1, max: 1 },
     "AK-011": { kinds: ["lane"], min: 1, max: 1 }, "AK-019": { kinds: ["coordinate"], min: 2, max: 2 },
     "AK-044": { kinds: ["lane", "coordinate"], min: 4, max: 4 }, "AK-054": { kinds: ["graveyard"], min: 2, max: 2 },
     "AK-059": { kinds: ["graveyard", "coordinate"], min: 4, max: 4 }
@@ -116,6 +157,75 @@ function scriptedChoice(state: BattleState, side: BattleSide, card: BattleCardIn
   const rule = config[card.catalogCardId]; if (!rule) return undefined;
   const candidates = structuredCandidates(state, side, card);
   return { effectId: card.effectIds[0] ?? card.catalogCardId, sourceInstanceId: card.instanceId, selectionKinds: [...new Set(candidates.map((candidate) => candidate.kind))], candidates, minimumTargets: rule.min, maximumTargets: rule.max };
+}
+
+function summonStructuredChoice(
+  state: BattleState,
+  side: BattleSide,
+  card: BattleCardInstance,
+  summonDestination?: import("./types").BoardCoordinate
+): PublicEffectChoice | undefined {
+  const counts: Readonly<Record<string, number>> = { "AK-038": 1, "AK-042": 1, "AK-046": 2, "AK-048": 3, "AK-057": 1 };
+  const count = counts[card.catalogCardId];
+  if (!count || !summonDestination) return undefined;
+  const coordinates = state.board.squares
+    .filter((square) => square.terrain === "normal" && !square.occupantId && !(square.coordinate.column === summonDestination.column && square.coordinate.row === summonDestination.row))
+    .filter((square) => ["AK-038", "AK-057"].includes(card.catalogCardId)
+      ? Math.abs(square.coordinate.column - summonDestination.column) <= 1 && Math.abs(square.coordinate.row - summonDestination.row) <= 1
+      : square.lane === getLane(summonDestination.column))
+    .map((square) => ({ kind: "coordinate" as const, id: `${square.coordinate.column}:${square.coordinate.row}`, label: `Cell ${square.coordinate.column},${square.coordinate.row}` }));
+  const graveyard = card.catalogCardId === "AK-057"
+    ? state.players[side].graveyardZone.flatMap((id, index) => {
+      const target = state.cardInstances[id];
+      return target && (target.type === "creature" || target.type === "creature-token") && target.cost <= 3
+        ? [{ kind: "graveyard" as const, id, label: `Graveyard card ${index + 1}` }]
+        : [];
+    })
+    : [];
+  return {
+    effectId: card.effectIds[0] ?? card.catalogCardId,
+    sourceInstanceId: card.instanceId,
+    selectionKinds: [...new Set([...graveyard, ...coordinates].map((candidate) => candidate.kind))],
+    candidates: [...graveyard, ...coordinates],
+    minimumTargets: count + (card.catalogCardId === "AK-057" ? 1 : 0),
+    maximumTargets: count + (card.catalogCardId === "AK-057" ? 1 : 0)
+  };
+}
+
+function scriptedCreatureTargetChoice(
+  state: BattleState,
+  side: BattleSide,
+  card: BattleCardInstance,
+  summonDestination?: import("./types").BoardCoordinate
+): PublicEffectChoice | undefined {
+  const relation: "ally" | "enemy" | undefined =
+    ["AK-006", "AK-018", "AK-052", "AK-015", "AK-039", "AK-050"].includes(card.catalogCardId)
+      ? "ally"
+      : ["AK-020", "AK-041", "AK-055"].includes(card.catalogCardId)
+        ? "enemy"
+        : undefined;
+  if (!relation) return undefined;
+
+  const creatures = Object.values(state.cardInstances)
+    .filter((candidate) => candidate.zone === "board" && (relation === "ally" ? candidate.controllerSide === side : candidate.controllerSide !== side))
+    .filter((candidate) => !["AK-006", "AK-018", "AK-052"].includes(card.catalogCardId) || candidate.instanceId !== card.instanceId)
+    .filter((candidate) => card.catalogCardId !== "AK-020" || Boolean(summonDestination && candidate.position && getLane(candidate.position.column) === getLane(summonDestination.column)))
+    .map((candidate) => ({ kind: "creature" as const, id: candidate.instanceId, label: candidate.name }));
+  const coordinates = card.catalogCardId === "AK-018"
+    ? state.board.squares
+      .filter((square) => square.terrain === "normal" && !square.occupantId && !(summonDestination && square.coordinate.column === summonDestination.column && square.coordinate.row === summonDestination.row))
+      .map((square) => ({ kind: "coordinate" as const, id: `${square.coordinate.column}:${square.coordinate.row}`, label: `Cell ${square.coordinate.column},${square.coordinate.row}` }))
+    : [];
+  const candidates = [...creatures, ...coordinates];
+  const targets = card.catalogCardId === "AK-018" ? 2 : 1;
+  return {
+    effectId: card.effectIds[0] ?? card.catalogCardId,
+    sourceInstanceId: card.instanceId,
+    selectionKinds: [...new Set(candidates.map((candidate) => candidate.kind))],
+    candidates,
+    minimumTargets: targets,
+    maximumTargets: targets
+  };
 }
 
 /** Candidate filtering is deliberately shared by the public projection and
@@ -148,7 +258,7 @@ function structuredCandidates(state: BattleState, side: BattleSide, card: Battle
       .map((cell) => ({ kind: "coordinate" as const, id: `${cell.column}:${cell.row}`, label: `Cell ${cell.column},${cell.row}` }));
     return eligibleGraveyard.length >= 2 && summonSquares.length >= 2 ? [...graves, ...summonSquares] : [];
   }
-  if (card.catalogCardId === "AK-011") return (["left", "center", "right"] as const).map((id) => ({ kind: "lane" as const, id, label: `${id} lane` }));
+  if (card.catalogCardId === "AK-008" || card.catalogCardId === "AK-011") return (["left", "center", "right"] as const).map((id) => ({ kind: "lane" as const, id, label: `${id} lane` }));
   return [];
 }
 
