@@ -2,7 +2,7 @@
 
 盤面上でクリーチャーを進軍させ、拠点の制圧を目指す1人用（対CPU）デジタルカードゲームのプロトタイプです。
 
-- [ゲームをブラウザでプレイする](https://inui-hub.github.io/prj-ankake/)
+- [ゲームをブラウザでプレイする](https://tdogi.github.io/prj-ankake/)
 - [プレイヤーガイド（ルールと遊び方）](./docs/player-guide.md)
 - [詳細な基本ルール仕様](./docs/project_ankake_basic_rules_requirements_spec_v1_1.md)
 
@@ -35,9 +35,9 @@ npm run preview
 
 `main` ブランチへのpushにより、GitHub Actions の **Deploy GitHub Pages** ワークフローがアプリをビルドして公開します。デプロイの完了後、次のURLからプレイできます。
 
-<https://inui-hub.github.io/prj-ankake/>
+<https://tdogi.github.io/prj-ankake/>
 
-初回のみ、リポジトリの **Settings > Pages** で公開元として **GitHub Actions** を有効にしてください。ワークフローの実行結果は [Actions](https://github.com/inui-hub/prj-ankake/actions) で確認できます。
+初回のみ、リポジトリの **Settings > Pages** で公開元として **GitHub Actions** を有効にしてください。ワークフローの実行結果は [Actions](https://github.com/tdogi/prj-ankake/actions) で確認できます。
 
 ## 遊び方
 
