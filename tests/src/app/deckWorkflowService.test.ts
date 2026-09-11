@@ -1,5 +1,6 @@
 import {
   addDraftCard,
+  autoBuildDraftDeck,
   createDeckWorkflowLoadingState,
   deleteSavedDeckWorkflow,
   enterDeckBuilding,
@@ -27,6 +28,18 @@ function createContext(repository: InMemoryDeckRepository): DeckWorkflowContext 
 }
 
 describe("deck workflow service", () => {
+  it("completes the current draft without replacing manually added cards", () => {
+    const repository = new InMemoryDeckRepository({ catalog: validCatalogSnapshotFixture });
+    const context = createContext(repository);
+    const initial = addDraftCard(context, createDeckWorkflowLoadingState(context), NORMAL_CARD_IDS[0]);
+
+    const completed = autoBuildDraftDeck(context, initial);
+
+    expect(completed.draft.cards.find((entry) => entry.cardId === NORMAL_CARD_IDS[0])?.count).toBeGreaterThan(0);
+    expect(completed.draft.cards.reduce((total, entry) => total + entry.count, 0)).toBeGreaterThan(1);
+    expect(completed.draft.cards.reduce((total, entry) => total + entry.count, 0)).toBeLessThanOrEqual(40);
+  });
+
   it("opens the local data error flow when listing fails", async () => {
     const repository = new InMemoryDeckRepository({
       catalog: validCatalogSnapshotFixture,

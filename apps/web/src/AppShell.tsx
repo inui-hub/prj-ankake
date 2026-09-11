@@ -181,6 +181,7 @@ function DeckBuildingRoute({ catalog, locale, onReturnToMenu }: DeckBuildingRout
       onCriteriaChange={controller.actions.updateSearchCriteria}
       onResetCriteria={controller.actions.resetSearchCriteria}
       onAddCard={controller.actions.addCard}
+      onAutoBuildDeck={controller.actions.autoBuildDeck}
       onRemoveCard={controller.actions.removeCard}
       onOpenCardDetail={controller.actions.openCardDetail}
       onCloseDialog={controller.actions.closeDialog}

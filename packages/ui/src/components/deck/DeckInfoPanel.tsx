@@ -4,6 +4,7 @@ import { localizeDeckValidationIssue, type UiLocale, uiText } from "../../locali
 export interface DeckInfoPanelProps {
   readonly viewModel: DeckBuildingViewModel;
   readonly onDeckNameChange: (name: string) => void;
+  readonly onAutoBuildDeck: () => void;
   readonly onRequestDeleteDeck: (deckId: DeckId) => void;
   readonly locale?: UiLocale;
 }
@@ -11,6 +12,7 @@ export interface DeckInfoPanelProps {
 export function DeckInfoPanel({
   viewModel,
   onDeckNameChange,
+  onAutoBuildDeck,
   onRequestDeleteDeck,
   locale
 }: DeckInfoPanelProps) {
@@ -32,6 +34,15 @@ export function DeckInfoPanel({
         <strong>{viewModel.validation.cardCount}/40</strong>
         <span>{viewModel.validation.battleReady ? uiText(locale, "deck.battle-ready") : uiText(locale, "deck.draft")}</span>
       </div>
+      <button
+        type="button"
+        className="deck-button deck-button--secondary deck-button--full"
+        data-testid="deck-auto-build-button"
+        disabled={viewModel.validation.cardCount >= 40 || viewModel.loading || viewModel.saving || viewModel.deleting}
+        onClick={onAutoBuildDeck}
+      >
+        {uiText(locale, "deck.auto-build")}
+      </button>
       {viewModel.validation.issues.length > 0 ? (
         <ul className="deck-validation-list" data-testid="deck-validation-list">
           {viewModel.validation.issues.map((issue) => (
