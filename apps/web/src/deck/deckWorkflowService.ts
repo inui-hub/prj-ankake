@@ -1,6 +1,7 @@
 import {
   DEFAULT_CARD_SEARCH_CRITERIA,
   addCardToDraft,
+  autoBuildDeckDraft,
   canCreateNewSavedDeck,
   createDraftFromSavedDeck,
   createNewDeckDraft,
@@ -177,6 +178,14 @@ export function removeDraftCard(state: DeckWorkflowState, cardId: CardId): DeckW
         draft: mutation.draft
       }
     : state;
+}
+
+export function autoBuildDraftDeck(
+  context: Pick<DeckWorkflowContext, "catalog">,
+  state: DeckWorkflowState
+): DeckWorkflowState {
+  const draft = autoBuildDeckDraft(state.draft, context.catalog);
+  return draft === state.draft ? state : { ...state, draft };
 }
 
 export function openCardDetail(

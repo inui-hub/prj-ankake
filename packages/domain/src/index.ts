@@ -6,6 +6,7 @@ export * from "./app-state/types";
 export * from "./app-state/reducer";
 export * from "./deck/types";
 export * from "./deck/operations";
+export * from "./deck/autoBuild";
 export * from "./deck/validation";
 export * from "./deck/search";
 export * from "./deck/projection";

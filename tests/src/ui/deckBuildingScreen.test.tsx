@@ -31,6 +31,7 @@ function baseProps() {
     onCriteriaChange: vi.fn(),
     onResetCriteria: vi.fn(),
     onAddCard: vi.fn(),
+    onAutoBuildDeck: vi.fn(),
     onRemoveCard: vi.fn(),
     onOpenCardDetail: vi.fn(),
     onCloseDialog: vi.fn(),
@@ -53,7 +54,17 @@ describe("deck building UI", () => {
     expect(screen.getByTestId("deck-header-return-menu-button")).toHaveTextContent("メニュー");
     expect(screen.getByTestId("deck-header-save-button")).toHaveTextContent("保存");
     expect(screen.getByTestId("deck-header-dirty-status")).toHaveTextContent("未保存");
+    expect(screen.getByTestId("deck-auto-build-button")).toHaveTextContent("お任せで40枚にする");
     expect(screen.getByTestId("card-search-input").closest("section")).toHaveTextContent("検索");
+  });
+
+  it("requests automatic completion from the deck information panel", () => {
+    const props = baseProps();
+
+    render(<DeckBuildingScreen {...props} />);
+    fireEvent.click(screen.getByTestId("deck-auto-build-button"));
+
+    expect(props.onAutoBuildDeck).toHaveBeenCalledTimes(1);
   });
 
   it("shows deck validation text", () => {

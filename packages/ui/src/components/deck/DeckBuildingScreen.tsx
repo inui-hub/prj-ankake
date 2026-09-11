@@ -32,6 +32,7 @@ export interface DeckBuildingScreenProps {
   readonly onCriteriaChange: (criteria: CardSearchCriteria) => void;
   readonly onResetCriteria: () => void;
   readonly onAddCard: (cardId: CardId) => void;
+  readonly onAutoBuildDeck: () => void;
   readonly onRemoveCard: (cardId: CardId) => void;
   readonly onOpenCardDetail: (cardId: CardId) => void;
   readonly onCloseDialog: () => void;
@@ -80,6 +81,7 @@ export function DeckBuildingScreen(props: DeckBuildingScreenProps) {
           <DeckInfoPanel
             viewModel={viewModel}
             onDeckNameChange={props.onDeckNameChange}
+            onAutoBuildDeck={props.onAutoBuildDeck}
             onRequestDeleteDeck={props.onRequestDeleteDeck}
             locale={props.locale}
           />

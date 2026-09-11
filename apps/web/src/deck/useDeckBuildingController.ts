@@ -12,6 +12,7 @@ import type { DeckRepository } from "@ankake/persistence";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addDraftCard,
+  autoBuildDraftDeck,
   closeDeckDialog,
   createDeckWorkflowLoadingState,
   createNewDeckWorkflowState,
@@ -42,6 +43,7 @@ export interface DeckBuildingControllerActions {
   readonly updateSearchCriteria: (criteria: CardSearchCriteria) => void;
   readonly resetSearchCriteria: () => void;
   readonly addCard: (cardId: CardId) => void;
+  readonly autoBuildDeck: () => void;
   readonly removeCard: (cardId: CardId) => void;
   readonly openCardDetail: (cardId: CardId) => void;
   readonly closeDialog: () => void;
@@ -195,6 +197,9 @@ export function useDeckBuildingController(
       },
       addCard(cardId) {
         setWorkflowState((current) => addDraftCard(context, current, cardId));
+      },
+      autoBuildDeck() {
+        setWorkflowState((current) => autoBuildDraftDeck(context, current));
       },
       removeCard(cardId) {
         setWorkflowState((current) => removeDraftCard(current, cardId));
