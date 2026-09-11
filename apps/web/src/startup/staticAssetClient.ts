@@ -10,9 +10,10 @@ export interface StaticAssetClientOptions {
   readonly fetcher?: typeof fetch;
 }
 
-const CARD_CATALOG_URL = "/data/cards.json";
-const TOKEN_CATALOG_URL = "/data/tokens.json";
-const VERSION_URL = "/data/version.json";
+const STATIC_DATA_URL = `${import.meta.env.BASE_URL}data/`;
+const CARD_CATALOG_URL = `${STATIC_DATA_URL}cards.json`;
+const TOKEN_CATALOG_URL = `${STATIC_DATA_URL}tokens.json`;
+const VERSION_URL = `${STATIC_DATA_URL}version.json`;
 
 export async function fetchStaticAssetPayload(options: StaticAssetClientOptions = {}): Promise<StaticAssetPayload> {
   const fetcher = options.fetcher ?? globalThis.fetch;
