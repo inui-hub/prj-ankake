@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "1.0.0",
+  "catalogVersion": "1.1.0",
+  "appVersion": "0.1.0",
+  "generatedAt": "2026-07-25T17:23:57Z",
+  "sourceDocuments": [
+    "docs/project_ankake_all_cards_v1_1.md",
+    "docs/project_ankake_battle_spec_v1_1.md"
+  ]
+}

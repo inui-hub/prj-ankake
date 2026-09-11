@@ -1,0 +1,182 @@
+import {
+  chooseCpuAction,
+  projectCpuVisibleState,
+  type CpuVisibleState
+} from "@ankake/cpu";
+import {
+  BATTLE_BASE_IDS,
+  coordinateKey,
+  createInitialBattleBases,
+  generateLegalActions,
+  getShortestMovementPaths,
+  isInitialSummonCoordinate,
+  isNormalBoardCoordinate,
+  validateBattleCommand
+} from "@ankake/domain";
+import fc from "fast-check";
+import {
+  battleStateArbitrary,
+  eligibleHandCreatureStateArbitrary,
+  movableCreatureStateArbitrary
+} from "../generators/battleGenerators";
+import { cpuVisibleStateArbitrary } from "../generators/cpuGenerators";
+
+describe("CPU strategy", () => {
+  it("returns a stop reason when no legal actions exist", () => {
+    const bases = createInitialBattleBases();
+    const visible: CpuVisibleState = {
+      activeSide: "cpu",
+      phase: "play",
+      turnNumber: 1,
+      cpuHand: [],
+      cpuHandCount: 0,
+      playerHandCount: 5,
+      cpuDeckCount: 35,
+      playerDeckCount: 35,
+      bases: BATTLE_BASE_IDS.map((id) => bases[id]),
+      boardCards: [],
+      legalActions: []
+    };
+
+    expect(chooseCpuAction(visible)).toEqual({
+      kind: "stop",
+      reason: "no-legal-action"
+    });
+  });
+
+  it("chooses deterministic commands or explicit stop reasons", () => {
+    fc.assert(
+      fc.property(cpuVisibleStateArbitrary, (visible) => {
+        const first = chooseCpuAction(visible);
+        const second = chooseCpuAction(visible);
+
+        expect(first).toEqual(second);
+        if (first.kind === "command") {
+          expect(visible.legalActions.some((action) => action.command === first.command)).toBe(true);
+        } else {
+          expect(["no-legal-action", "no-beneficial-action", "terminal"]).toContain(first.reason);
+        }
+      }),
+      { numRuns: 40 }
+    );
+  });
+
+  it("receives only canonical normal summon and movement destinations", () => {
+    fc.assert(
+      fc.property(battleStateArbitrary, (state) => {
+        const cpuState = {
+          ...state,
+          phase: "play" as const,
+          activeSide: "cpu" as const,
+          terminalResult: undefined
+        };
+        const legalActions = generateLegalActions(cpuState, "cpu");
+        const visible = projectCpuVisibleState(cpuState, legalActions);
+
+        for (const action of visible.legalActions) {
+          if (action.command.type === "summonCreature") {
+            expect(isNormalBoardCoordinate(action.command.destination)).toBe(true);
+            expect(isInitialSummonCoordinate("cpu", action.command.destination)).toBe(true);
+          }
+
+          if (action.command.type === "moveCreature") {
+            expect(action.command.path.every(isNormalBoardCoordinate)).toBe(true);
+          }
+        }
+
+        const decision = chooseCpuAction(visible);
+        if (decision.kind === "command" && decision.command.type === "summonCreature") {
+          expect(isNormalBoardCoordinate(decision.command.destination)).toBe(true);
+          expect(isInitialSummonCoordinate("cpu", decision.command.destination)).toBe(true);
+        }
+        if (decision.kind === "command" && decision.command.type === "moveCreature") {
+          expect(decision.command.path.every(isNormalBoardCoordinate)).toBe(true);
+        }
+      }),
+      { numRuns: 40 }
+    );
+  });
+
+  it("chooses a deterministic summon only from CPU row 1 columns 3, 4, 5, 7, 8, and 9", () => {
+    fc.assert(
+      fc.property(
+        eligibleHandCreatureStateArbitrary.filter((fixture) => fixture.side === "cpu"),
+        (fixture) => {
+          const legalActions = generateLegalActions(fixture.state, "cpu");
+          const visible = projectCpuVisibleState(fixture.state, legalActions);
+          const summons = legalActions.filter(
+            (action) => action.command.type === "summonCreature"
+          );
+          const first = chooseCpuAction(visible);
+          const second = chooseCpuAction(visible);
+
+          // A summon-triggered targeted effect is legal only when a complete
+          // target selection exists.  Otherwise the CPU must not issue an
+          // incomplete summon command.
+          expect([0, 6]).toContain(summons.length);
+          expect(first).toEqual(second);
+          if (summons.length === 0) {
+            expect(first.kind).toBe("stop");
+            return;
+          }
+          expect(first.kind).toBe("command");
+          if (first.kind !== "command" || first.command.type !== "summonCreature") {
+            return;
+          }
+
+          expect(first.command.destination.row).toBe(1);
+          expect([3, 4, 5, 7, 8, 9]).toContain(first.command.destination.column);
+          expect(isInitialSummonCoordinate("cpu", first.command.destination)).toBe(true);
+        }
+      ),
+      { numRuns: 40 }
+    );
+  });
+
+  it("receives one deterministic shortest move per reachable non-origin endpoint", () => {
+    fc.assert(
+      fc.property(
+        movableCreatureStateArbitrary.filter((fixture) => fixture.side === "cpu"),
+        (fixture) => {
+          const actions = generateLegalActions(fixture.state, "cpu");
+          const movementActions = actions.filter(
+            (action) => action.command.type === "moveCreature"
+          );
+          const expectedPaths = getShortestMovementPaths(
+            fixture.state,
+            "cpu",
+            fixture.creatureInstanceId
+          );
+          const endpointKeys = movementActions.map((action) => {
+            if (action.command.type !== "moveCreature") {
+              throw new Error("Expected a movement action.");
+            }
+            return coordinateKey(action.command.path[action.command.path.length - 1]!);
+          });
+
+          expect(
+            movementActions.map((action) => {
+              if (action.command.type !== "moveCreature") {
+                throw new Error("Expected a movement action.");
+              }
+              return action.command.path;
+            })
+          ).toEqual(expectedPaths);
+          expect(new Set(endpointKeys).size).toBe(endpointKeys.length);
+          expect(endpointKeys).not.toContain(coordinateKey(fixture.origin));
+          for (const action of movementActions) {
+            if (action.command.type !== "moveCreature") {
+              continue;
+            }
+            expect(action.command.origin).toEqual(fixture.origin);
+            expect(validateBattleCommand(fixture.state, action.command)).toEqual([]);
+          }
+
+          const visible = projectCpuVisibleState(fixture.state, actions);
+          expect(chooseCpuAction(visible)).toEqual(chooseCpuAction(visible));
+        }
+      ),
+      { numRuns: 60, seed: 7311 }
+    );
+  });
+});
