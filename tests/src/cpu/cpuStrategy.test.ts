@@ -1,6 +1,8 @@
 import {
   chooseCpuAction,
   projectCpuVisibleState,
+  scoreAction,
+  type CpuVisibleCard,
   type CpuVisibleState
 } from "@ankake/cpu";
 import {
@@ -22,6 +24,99 @@ import {
 import { cpuVisibleStateArbitrary } from "../generators/cpuGenerators";
 
 describe("CPU strategy", () => {
+  it("prioritizes a movement that wins by destroying the player base", () => {
+    const winningMove = {
+      command: {
+        type: "moveCreature" as const,
+        side: "cpu" as const,
+        creatureInstanceId: "cpu-attacker",
+        origin: { column: 6, row: 7 },
+        path: [{ column: 6, row: 8 }]
+      },
+      label: "Move Vanguard",
+      scoreHint: 1
+    };
+    const summon = {
+      command: {
+        type: "summonCreature" as const,
+        side: "cpu" as const,
+        handInstanceId: "large-creature",
+        destination: { column: 5, row: 1 }
+      },
+      label: "Summon Large Creature",
+      scoreHint: 8
+    };
+    const visible = tacticalVisible([summon, winningMove], [
+      visibleCard("cpu-attacker", "cpu", 2, 3, { column: 6, row: 7 })
+    ], [visibleCard("large-creature", "cpu", 8, 8)]);
+    const bases = visible.bases.map((base) =>
+      base.id === "player-base" ? { ...base, currentHp: 2 } : base
+    );
+
+    const decision = chooseCpuAction({ ...visible, bases });
+
+    expect(decision.kind).toBe("command");
+    expect(decision).toMatchObject({ kind: "command", command: winningMove.command });
+    if (decision.kind === "command") expect(decision.score.reasons).toContain("win-game");
+  });
+
+  it("targets the highest-value enemy when equivalent targeted spells are legal", () => {
+    const removeThreat = {
+      command: {
+        type: "castSpell" as const,
+        side: "cpu" as const,
+        handInstanceId: "removal",
+        targetInstanceId: "dangerous-enemy"
+      },
+      label: "Cast Removal",
+      scoreHint: 2
+    };
+    const removeSmallEnemy = {
+      command: {
+        ...removeThreat.command,
+        targetInstanceId: "small-enemy"
+      },
+      label: "Cast Removal",
+      scoreHint: 2
+    };
+    const visible = tacticalVisible([removeSmallEnemy, removeThreat], [
+      visibleCard("dangerous-enemy", "player", 7, 7, { column: 6, row: 5 }),
+      visibleCard("small-enemy", "player", 1, 1, { column: 5, row: 5 })
+    ]);
+
+    const decision = chooseCpuAction(visible);
+
+    expect(decision).toMatchObject({ kind: "command", command: removeThreat.command });
+    expect(scoreAction(removeThreat, visible).score).toBeGreaterThan(scoreAction(removeSmallEnemy, visible).score);
+  });
+
+  it("recognizes a final neutral-base capture as an immediate win", () => {
+    const captureMove = {
+      command: {
+        type: "moveCreature" as const,
+        side: "cpu" as const,
+        creatureInstanceId: "cpu-attacker",
+        origin: { column: 6, row: 3 },
+        path: [{ column: 6, row: 4 }]
+      },
+      label: "Move Vanguard",
+      scoreHint: 1
+    };
+    const visible = tacticalVisible([captureMove], [
+      visibleCard("cpu-attacker", "cpu", 3, 3, { column: 6, row: 3 })
+    ]);
+    const bases = visible.bases.map((base) => {
+      if (base.id === "neutral-left" || base.id === "neutral-right") return { ...base, owner: "cpu" as const };
+      if (base.id === "neutral-center") return { ...base, currentHp: 3 };
+      return base;
+    });
+
+    const decision = chooseCpuAction({ ...visible, bases });
+
+    expect(decision).toMatchObject({ kind: "command", command: captureMove.command });
+    if (decision.kind === "command") expect(decision.score.reasons).toContain("win-by-control");
+  });
+
   it("returns a stop reason when no legal actions exist", () => {
     const bases = createInitialBattleBases();
     const visible: CpuVisibleState = {
@@ -180,3 +275,42 @@ describe("CPU strategy", () => {
     );
   });
 });
+
+function tacticalVisible(
+  legalActions: CpuVisibleState["legalActions"],
+  boardCards: readonly CpuVisibleCard[] = [],
+  cpuHand: readonly CpuVisibleCard[] = []
+): CpuVisibleState {
+  const bases = createInitialBattleBases();
+  return {
+    activeSide: "cpu",
+    phase: "play",
+    turnNumber: 4,
+    cpuHand,
+    cpuHandCount: cpuHand.length,
+    playerHandCount: 3,
+    cpuDeckCount: 20,
+    playerDeckCount: 20,
+    bases: BATTLE_BASE_IDS.map((id) => bases[id]),
+    boardCards,
+    legalActions
+  };
+}
+
+function visibleCard(
+  instanceId: string,
+  side: "cpu" | "player",
+  attack: number,
+  hp: number,
+  position?: { readonly column: number; readonly row: number }
+): CpuVisibleCard {
+  return {
+    instanceId,
+    name: instanceId,
+    type: "creature",
+    side,
+    attack,
+    hp,
+    position
+  };
+}
