@@ -67,15 +67,21 @@ If critical ambiguity still remains after 3 cycles:
 After the requirements have been finalized:
 
 1. Present the finalized requirements to the user in a clear and concise form.
-2. Include any assumptions that were made by the agent.
-3. Ask the user to explicitly confirm whether the finalized requirements are acceptable.
-4. Do not proceed to Planning until the user approves the finalized requirements.
+2. Present a brief summary of the latest adversarial self-review.
+   - State whether any critical issue was found.
+   - Briefly list important issues that were identified and how they were resolved.
+   - Mention any remaining assumptions, risks, or points the user should be aware of.
+   - If no significant issue remains, explicitly state that no critical issue was found.
+   - Keep this summary concise and do not include detailed internal reasoning or chain-of-thought.
+3. Include any assumptions that were made by the agent.
+4. Ask the user to explicitly confirm whether the finalized requirements are acceptable.
+5. Do not proceed to Planning until the user approves the finalized requirements.
 
 If the user requests changes:
 
 - Update the requirements based on the feedback.
 - Perform the adversarial self-review again.
-- Present the revised requirements for approval again.
+- Present the revised requirements and a brief summary of the latest adversarial self-review for approval again.
 
 Proceed to Planning only after explicit user approval.
 
