@@ -93,11 +93,11 @@ describe("battle screen", () => {
       gridColumn: "3",
       gridRow: "1"
     });
-    expect(screen.getByTestId("battle-square-6-1")).toHaveTextContent("敵拠点");
-    expect(screen.getByTestId("battle-square-6-9")).toHaveTextContent("味方拠点");
-    expect(screen.getByTestId("battle-square-2-5")).toHaveTextContent("中立拠点");
-    expect(screen.getByTestId("battle-square-6-5")).toHaveTextContent("中立拠点");
-    expect(screen.getByTestId("battle-square-10-5")).toHaveTextContent("中立拠点");
+    expect(screen.getByTestId("battle-square-6-1")).toHaveTextContent("HP 7/20");
+    expect(screen.getByTestId("battle-square-6-9")).toHaveTextContent("HP 13/20");
+    expect(screen.getByTestId("battle-square-2-5")).toHaveTextContent("HP 10/10");
+    expect(screen.getByTestId("battle-square-6-5")).toHaveTextContent("HP 20/20");
+    expect(screen.getByTestId("battle-square-10-5")).toHaveTextContent("HP 10/10");
     expect(screen.getByTestId("battle-player-pp")).toHaveTextContent("PP: 10/10");
     expect(screen.getByTestId("battle-base-summary")).toHaveTextContent("CPU Base");
     expect(screen.getByTestId("battle-base-summary-cpu-base")).toHaveTextContent("HP 7/20");
@@ -109,6 +109,56 @@ describe("battle screen", () => {
     for (const square of container.querySelectorAll<HTMLElement>(".battle-square")) {
       expect(square.textContent).not.toMatch(/^\s*\d+,\d+/);
     }
+  });
+
+  it("preserves lane identity while marking summon territory and captured-base territory", () => {
+    const initialState = createBattleScreenState();
+    const viewModel = projectPublicBattleView({
+      ...initialState,
+      bases: updateBattleBase(initialState.bases, "neutral-center", (base) => ({
+        ...base,
+        owner: "player"
+      }))
+    });
+    renderBattleScreen(viewModel);
+
+    const initialSummonSquare = screen.getByTestId("battle-square-3-9");
+    expect(initialSummonSquare).toHaveClass("battle-square--initial-summon-area");
+    expect(initialSummonSquare).toHaveAttribute("data-lane", "left");
+    expect(screen.getByTestId("battle-square-5-4")).toHaveClass(
+      "battle-square--controlled-base-summon-area"
+    );
+    expect(screen.getByTestId("battle-base-neutral-center")).toHaveAttribute("data-base-owner", "player");
+  });
+
+  it("colors resonance rows, emphasizes active values, and reveals every effect on hover or focus", () => {
+    const initialState = createBattleScreenState();
+    const viewModel = projectPublicBattleView({
+      ...initialState,
+      players: {
+        ...initialState.players,
+        player: {
+          ...initialState.players.player,
+          resonance: {
+            ...initialState.players.player.resonance,
+            center: { ...initialState.players.player.resonance.center, fire: 5 }
+          }
+        }
+      }
+    });
+    renderBattleScreen(viewModel);
+
+    expect(screen.getByTestId("battle-resonance-center-fire")).toHaveClass(
+      "battle-resonance-table__cell--active"
+    );
+    const resonance = screen.getByTestId("battle-player-resonance");
+    fireEvent.mouseEnter(resonance);
+    expect(screen.getByTestId("battle-resonance-effects")).toHaveTextContent("Fire");
+    expect(screen.getByTestId("battle-resonance-effects")).toHaveTextContent("Dark");
+    fireEvent.mouseLeave(resonance);
+    expect(screen.queryByTestId("battle-resonance-effects")).not.toBeInTheDocument();
+    act(() => resonance.focus());
+    expect(screen.getByTestId("battle-resonance-effects")).toBeInTheDocument();
   });
 
   it("skips absent coordinates during roving keyboard focus", () => {

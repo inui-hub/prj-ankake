@@ -1,6 +1,8 @@
 import {
   BATTLE_BOARD_COLUMNS,
   BATTLE_BOARD_ROWS,
+  getAdjacentBoardCoordinates,
+  isInitialSummonCoordinate,
   type BattleCardView,
   type BattleBoardSquareView,
   type BattleEvent,
@@ -42,6 +44,20 @@ export function BattleBoard(props: BattleBoardProps) {
   const squareRefs = useRef(new Map<string, HTMLButtonElement>());
   const suppressTouchClickKey = useRef<string>();
   const candidateKeys = new Set(props.candidateKeys ?? []);
+  // Keep the lane's existing background color visible. These keys only describe
+  // the territory that can become a summon destination; occupancy is handled by
+  // the stronger, interaction-specific candidate treatment below.
+  const initialSummonKeys = new Set(
+    props.squares
+      .filter((square) => isInitialSummonCoordinate("player", square.coordinate))
+      .map((square) => square.key)
+  );
+  const controlledBaseSummonKeys = new Set(
+    props.squares
+      .filter((square) => square.base?.kind === "neutral-base" && square.base.owner === "player")
+      .flatMap((square) => getAdjacentBoardCoordinates(square.coordinate))
+      .map((coordinate) => `${coordinate.column}:${coordinate.row}`)
+  );
   const selectedCreature = props.squares
     .map((square) => square.occupant)
     .find(
@@ -71,6 +87,8 @@ export function BattleBoard(props: BattleBoardProps) {
       >
         {props.squares.map((square) => {
           const isCandidate = candidateKeys.has(square.key);
+          const isInitialSummonArea = initialSummonKeys.has(square.key);
+          const isControlledBaseSummonArea = controlledBaseSummonKeys.has(square.key);
           const isSelected = props.selectedKey === square.key;
           const isMovementOrigin = props.movementOriginKey === square.key;
           const isProvisional = props.provisionalPositionKey === square.key;
@@ -107,6 +125,8 @@ export function BattleBoard(props: BattleBoardProps) {
               className={[
                 "battle-square",
                 `battle-square--${square.terrain}`,
+                isInitialSummonArea ? "battle-square--initial-summon-area" : "",
+                isControlledBaseSummonArea ? "battle-square--controlled-base-summon-area" : "",
                 animatedOccupant ? "battle-square--occupied" : "",
                 isCandidate ? "battle-square--candidate" : "",
                 isSelected ? "battle-square--selected" : "",
@@ -203,7 +223,7 @@ export function BattleBoard(props: BattleBoardProps) {
                 <span className={`battle-square__base-label battle-square__base-label--${square.base?.owner ?? "none"}`} data-base-owner={square.base?.owner ?? "none"} data-testid={`battle-base-${square.base?.id ?? square.key}`}>
                   <img alt={ownerLabel(square.base?.owner ?? "none", props.locale)} className="battle-square__base-icon" src={baseIcon} />
                   <span className="sr-only">{props.locale === "en" ? square.base?.label ?? terrainLabel(square.terrain, props.locale) : terrainLabel(square.terrain, props.locale)}</span>
-                  {square.base ? <span>{uiText(props.locale, "battle.health")} {square.base.currentHp}/{square.base.maxHp}</span> : null}
+                  {square.base ? <span className="battle-square__base-hp">{uiText(props.locale, "battle.health")} {square.base.currentHp}/{square.base.maxHp}</span> : null}
                 </span>
               ) : null}
             </button>
