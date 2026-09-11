@@ -2,7 +2,7 @@ import type { BattleCardView } from "@ankake/domain";
 import type { FocusEvent, PointerEvent } from "react";
 import { useRef } from "react";
 import { CardArtwork } from "../CardArtwork";
-import { localizeBattleReason, type UiLocale, uiText } from "../../localization";
+import { localizeBattleReason, localizeCardAttribute, localizeCardType, type UiLocale, uiText } from "../../localization";
 
 export interface BattleCardProps {
   readonly card: BattleCardView;
@@ -133,7 +133,7 @@ function HandCardDetails({ card, locale }: { readonly card: BattleCardView; read
   return (
     <>
       <span className="battle-card__meta">
-        {card.attribute} / {card.type}
+        {localizeCardAttribute(locale, card.attribute)} / {localizeCardType(locale, card.type)}
       </span>
       {card.currentCost !== undefined ? (
         <span className="battle-card__cost">{uiText(locale, "battle.cost")} {card.currentCost}</span>
@@ -167,8 +167,8 @@ function describeCard(
 ): string {
   const values = [
     card.name,
-    card.attribute,
-    card.type,
+    localizeCardAttribute(locale, card.attribute),
+    localizeCardType(locale, card.type),
     card.currentCost !== undefined
       ? `${uiText(locale, "battle.cost")} ${card.currentCost}`
       : undefined,

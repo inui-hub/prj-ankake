@@ -1,4 +1,5 @@
 import type { FatalErrorState } from "@ankake/domain";
+import { localizeUserMessage } from "../localization";
 
 export interface FatalErrorDialogProps {
   readonly error: FatalErrorState;
@@ -23,7 +24,7 @@ export function FatalErrorDialog({ error, onReloadRequested, locale }: FatalErro
         {error.issues.length > 0 ? (
           <ul className="fatal-dialog__issues">
             {error.issues.slice(0, 4).map((issue) => (
-              <li key={issue}>{issue}</li>
+              <li key={issue}>{localizeUserMessage(locale, issue)}</li>
             ))}
           </ul>
         ) : null}

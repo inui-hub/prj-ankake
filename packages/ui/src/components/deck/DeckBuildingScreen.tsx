@@ -64,6 +64,7 @@ export function DeckBuildingScreen(props: DeckBuildingScreenProps) {
           locale={props.locale}
         />
         <section className="deck-workspace">
+          <DeckStatsPanel stats={viewModel.stats} locale={props.locale} />
           <CardSearchFilterBar
             criteria={viewModel.criteria}
             onCriteriaChange={props.onCriteriaChange}
@@ -92,7 +93,6 @@ export function DeckBuildingScreen(props: DeckBuildingScreenProps) {
             onOpenCardDetail={props.onOpenCardDetail}
             locale={props.locale}
           />
-          <DeckStatsPanel stats={viewModel.stats} locale={props.locale} />
         </aside>
       </div>
       <DeckLoadingOverlay active={viewModel.loading || viewModel.saving || viewModel.deleting} locale={props.locale} />

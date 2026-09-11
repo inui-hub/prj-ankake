@@ -12,7 +12,6 @@ export function cardNameMap(cards: readonly CardMasterRecord[], locale: AppLocal
 }
 
 function localizeBattleCard(card: BattleCardView, locale: AppLocale): BattleCardView {
-  if (locale === "en") return card;
   const presentation = localizeCardPresentation({
     id: card.catalogCardId,
     name: card.name,

@@ -20,8 +20,8 @@ export function DeckLocalDataErrorDialog({
         aria-labelledby="deck-local-data-error-title"
         data-testid="deck-local-data-error-dialog"
       >
-        <h2 id="deck-local-data-error-title">{title}</h2>
-        <p>{message}</p>
+        <h2 id="deck-local-data-error-title">{localizeUserMessage(locale, title)}</h2>
+        <p>{localizeUserMessage(locale, message)}</p>
         <div className="deck-modal__actions">
           <button
             type="button"
@@ -36,4 +36,4 @@ export function DeckLocalDataErrorDialog({
     </div>
   );
 }
-import { type UiLocale, uiText } from "../../localization";
+import { localizeUserMessage, type UiLocale, uiText } from "../../localization";

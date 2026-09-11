@@ -1,9 +1,9 @@
-import type { CardMasterRecord } from "@ankake/domain";
+import type { BattleEvent, BattleLogEntry, BattleSide, CardMasterRecord } from "@ankake/domain";
 
 /** Presentation-only copy. Domain IDs and state remain locale independent. */
 export type UiLocale = "ja" | "en";
 
-const JAPANESE: Readonly<Record<string, string>> = {
+const JAPANESE = {
   "menu.subtitle": "オリジナルデジタルカードゲーム・プロトタイプ",
   "menu.cpu-battle": "CPU対戦",
   "menu.deck-building": "デッキ構築",
@@ -96,9 +96,101 @@ const JAPANESE: Readonly<Record<string, string>> = {
   , "deck.sort.type": "種類順"
   , "deck.sort.attribute": "属性順"
   , "card.artwork-unavailable": "画像を表示できません"
+  , "deck.reset": "リセット"
+  , "error.generic": "問題が発生しました。もう一度お試しください。"
+  , "battle.turn": "ターン"
+  , "battle.player": "プレイヤー"
+  , "battle.hand": "手札"
+  , "battle.deck": "デッキ"
+  , "battle.bases": "拠点"
+  , "battle.resonance": "共鳴"
+  , "battle.attribute": "属性"
+  , "battle.resonance-effects": "属性ごとの共鳴効果"
+  , "battle.quit": "対戦をやめる"
+  , "battle.menu": "メニュー"
+  , "battle.log": "対戦ログ"
+  , "battle.phase-control": "フェーズ操作"
+  , "battle.end-play-phase": "プレイフェーズを終了"
+  , "battle.summon": "クリーチャーを召喚"
+  , "battle.move": "クリーチャーを移動"
+  , "battle.choose-summon-target": "召喚時の対象を選択"
+  , "battle.choose-spell-target": "スペル対象を選択"
+  , "battle.cancel-summon": "召喚を取り消す"
+  , "battle.cancel-move": "移動を取り消す"
+  , "battle.cancel-spell": "スペルを取り消す"
+  , "battle.undo-step": "手順を戻す"
+  , "battle.select": "選択"
+  , "battle.selected": "選択中"
+  , "battle.selected-creature": "選択中のクリーチャー"
+  , "battle.movement": "移動"
+  , "battle.no-cards-in-hand": "手札はありません。"
+  , "battle.preparation": "対戦準備"
+  , "battle.back": "戻る"
+  , "battle.player-deck": "プレイヤーデッキ"
+  , "battle.cpu-deck": "CPUデッキ"
+  , "battle.first-player": "先攻"
+  , "battle.random": "ランダム"
+  , "battle.player-first": "プレイヤー先攻"
+  , "battle.player-second": "プレイヤー後攻"
+  , "battle.start": "開始"
+  , "battle.start-battle": "対戦開始"
+  , "battle.loading": "読み込み中..."
+  , "battle.select-deck": "デッキを選択"
+  , "battle.not-ready": "対戦準備未完了"
+  , "battle.preparation.loading": "対戦準備を読み込み中です。"
+  , "battle.preparation.create-ready-deck": "先に対戦可能な40枚デッキを1つ以上作成してください。"
+  , "battle.preparation.select-decks": "プレイヤーとCPUのデッキを選択してください。"
+  , "battle.preparation.both-ready": "選択した両方のデッキを対戦可能な状態にしてください。"
+  , "battle.preparation.select-first": "先に対戦デッキを選択してください。"
+  , "battle.preparation.start-failed": "対戦を開始できませんでした。"
+  , "battle.cpu-status.idle": "待機中"
+  , "battle.cpu-status.thinking": "思考中"
+  , "battle.cpu-status.executing": "実行中"
+  , "battle.cpu-status.completed": "完了"
+  , "battle.cpu-status.limit-reached": "上限到達"
+  , "battle.phase.play": "プレイフェーズ"
+  , "battle.phase.automatic": "自動フェーズ"
+  , "battle.phase.terminal": "対戦終了"
+  , "battle.instruction.idle": "手札から使用可能なクリーチャーを選択してください。"
+  , "battle.instruction.move-start": "強調表示された移動先を選択してください。"
+  , "battle.instruction.move-continue": "移動上限まで移動を続けるか、最後の手順を戻してください。"
+  , "battle.instruction.summon": "強調表示された召喚先を選択してください。"
+  , "battle.instruction.effect": "対象を選択してください。選択が完了すると自動的に解決します。"
+  , "battle.effect.no-target": "有効な対象がありません。"
+  , "battle.interaction.pending": "プレイフェーズを終了する前に、選択を完了するか取り消してください。"
+  , "battle.event.battle.started": "対戦を開始しました。"
+  , "battle.event.first-player.decided": "先攻を決定しました。"
+  , "battle.event.card.drawn": "カードを1枚引きました。"
+  , "battle.event.card.overflowed": "手札上限のため、カードは墓地へ送られました。"
+  , "battle.event.card.played": "カードを使用しました。"
+  , "battle.event.creature.summoned": "クリーチャーを召喚しました。"
+  , "battle.event.creature.moved": "クリーチャーを移動しました。"
+  , "battle.event.spell.resolved": "カード効果を解決しました。"
+  , "battle.event.effect.fizzled": "カード効果は解決されませんでした。"
+  , "battle.event.effect.partially-resolved": "カード効果を一部解決しました。"
+  , "battle.event.resonance.changed": "共鳴が変化しました。"
+  , "battle.event.resonance.effect-resolved": "共鳴効果を解決しました。"
+  , "battle.event.phase.ended": "プレイフェーズを終了しました。"
+  , "battle.event.standby.resolved": "PPを回復しました。"
+  , "battle.event.attack.phase-started": "攻撃フェーズを開始しました。"
+  , "battle.event.attack.attacker-started": "クリーチャーが攻撃を開始しました。"
+  , "battle.event.attack.attacker-skipped": "クリーチャーは攻撃できませんでした。"
+  , "battle.event.attack.targeted": "攻撃対象を選択しました。"
+  , "battle.event.attack.target-skipped": "攻撃対象をスキップしました。"
+  , "battle.event.creature.damaged": "クリーチャーにダメージを与えました。"
+  , "battle.event.creature.destroyed": "クリーチャーを破壊しました。"
+  , "battle.event.base.damaged": "拠点にダメージを与えました。"
+  , "battle.event.base.captured": "拠点を制圧しました。"
+  , "battle.event.attack.phase-ended": "攻撃フェーズを終了しました。"
+  , "battle.event.deck-out.occurred": "デッキ切れでカードを引けませんでした。"
+  , "battle.event.cpu.processing-limit-reached": "CPUの処理上限に達しました。"
+  , "battle.event.battle.ended": "対戦が終了しました。"
 };
 
-const ENGLISH: Readonly<Record<string, string>> = {
+type UiTextKey = keyof typeof JAPANESE;
+type TranslationCatalog = Readonly<Record<UiTextKey, string>>;
+
+const ENGLISH: TranslationCatalog = {
   "menu.subtitle": "Original digital card game prototype",
   "menu.cpu-battle": "CPU Battle",
   "menu.deck-building": "Deck Building",
@@ -191,6 +283,95 @@ const ENGLISH: Readonly<Record<string, string>> = {
   , "deck.sort.type": "Type"
   , "deck.sort.attribute": "Attribute"
   , "card.artwork-unavailable": "artwork unavailable"
+  , "deck.reset": "Reset"
+  , "error.generic": "Something went wrong. Please try again."
+  , "battle.turn": "Turn"
+  , "battle.player": "Player"
+  , "battle.hand": "Hand"
+  , "battle.deck": "Deck"
+  , "battle.bases": "Bases"
+  , "battle.resonance": "Resonance"
+  , "battle.attribute": "Attribute"
+  , "battle.resonance-effects": "Resonance effects"
+  , "battle.quit": "Quit"
+  , "battle.menu": "Menu"
+  , "battle.log": "Battle log"
+  , "battle.phase-control": "Phase control"
+  , "battle.end-play-phase": "End Play Phase"
+  , "battle.summon": "Summon creature"
+  , "battle.move": "Move creature"
+  , "battle.choose-summon-target": "Choose summon target"
+  , "battle.choose-spell-target": "Choose spell target"
+  , "battle.cancel-summon": "Cancel Summon"
+  , "battle.cancel-move": "Cancel Move"
+  , "battle.cancel-spell": "Cancel Spell"
+  , "battle.undo-step": "Undo Step"
+  , "battle.select": "Select"
+  , "battle.selected": "Selected"
+  , "battle.selected-creature": "Selected creature"
+  , "battle.movement": "Movement"
+  , "battle.no-cards-in-hand": "No cards in hand."
+  , "battle.preparation": "Prepare Battle"
+  , "battle.back": "Back"
+  , "battle.player-deck": "Player deck"
+  , "battle.cpu-deck": "CPU deck"
+  , "battle.first-player": "First player"
+  , "battle.random": "Random"
+  , "battle.player-first": "Player first"
+  , "battle.player-second": "Player second"
+  , "battle.start": "Start"
+  , "battle.start-battle": "Start Battle"
+  , "battle.loading": "Loading..."
+  , "battle.select-deck": "Select deck"
+  , "battle.not-ready": "not ready"
+  , "battle.preparation.loading": "Battle setup is loading."
+  , "battle.preparation.create-ready-deck": "Create at least one battle-ready 40-card deck first."
+  , "battle.preparation.select-decks": "Select player and CPU decks."
+  , "battle.preparation.both-ready": "Both selected decks must be battle-ready."
+  , "battle.preparation.select-first": "Select battle decks first."
+  , "battle.preparation.start-failed": "Battle could not start."
+  , "battle.cpu-status.idle": "Idle"
+  , "battle.cpu-status.thinking": "Thinking"
+  , "battle.cpu-status.executing": "Executing"
+  , "battle.cpu-status.completed": "Completed"
+  , "battle.cpu-status.limit-reached": "Limit reached"
+  , "battle.phase.play": "Play phase"
+  , "battle.phase.automatic": "Automatic phase"
+  , "battle.phase.terminal": "Battle complete"
+  , "battle.instruction.idle": "Select an available creature from your hand."
+  , "battle.instruction.move-start": "Choose a highlighted movement destination."
+  , "battle.instruction.move-continue": "Continue moving until the movement limit is reached, or undo the last step."
+  , "battle.instruction.summon": "Choose a highlighted summon destination."
+  , "battle.instruction.effect": "Select target(s). The action resolves automatically when complete."
+  , "battle.effect.no-target": "No legal target is available."
+  , "battle.interaction.pending": "Complete the pending selection or cancel it before ending the play phase."
+  , "battle.event.battle.started": "Battle started."
+  , "battle.event.first-player.decided": "First player decided."
+  , "battle.event.card.drawn": "drew a card."
+  , "battle.event.card.overflowed": "reached the hand limit; the card went to graveyard."
+  , "battle.event.card.played": "played a card."
+  , "battle.event.creature.summoned": "summoned a creature."
+  , "battle.event.creature.moved": "moved a creature."
+  , "battle.event.spell.resolved": "resolved a card effect."
+  , "battle.event.effect.fizzled": "could not resolve a card effect."
+  , "battle.event.effect.partially-resolved": "partially resolved a card effect."
+  , "battle.event.resonance.changed": "resonance changed."
+  , "battle.event.resonance.effect-resolved": "resolved a resonance effect."
+  , "battle.event.phase.ended": "ended the play phase."
+  , "battle.event.standby.resolved": "recovered PP."
+  , "battle.event.attack.phase-started": "started the attack phase."
+  , "battle.event.attack.attacker-started": "started an attack."
+  , "battle.event.attack.attacker-skipped": "could not attack."
+  , "battle.event.attack.targeted": "selected an attack target."
+  , "battle.event.attack.target-skipped": "skipped an attack target."
+  , "battle.event.creature.damaged": "damaged a creature."
+  , "battle.event.creature.destroyed": "destroyed a creature."
+  , "battle.event.base.damaged": "damaged a base."
+  , "battle.event.base.captured": "captured a base."
+  , "battle.event.attack.phase-ended": "ended the attack phase."
+  , "battle.event.deck-out.occurred": "could not draw from an empty deck."
+  , "battle.event.cpu.processing-limit-reached": "CPU processing limit reached."
+  , "battle.event.battle.ended": "Battle ended."
 };
 
 const JAPANESE_CARD_TEXT: Readonly<Record<string, { readonly name: string; readonly effectText: string }>> = {
@@ -258,6 +439,75 @@ const JAPANESE_CARD_TEXT: Readonly<Record<string, { readonly name: string; reado
   "AK-T-002": { name: "冥影の残滓", effectText: "なし" }
 };
 
+/**
+ * Rules retain their canonical Japanese text. This catalog is the English
+ * presentation counterpart and must be used instead of the rule text.
+ */
+const ENGLISH_CARD_EFFECT_TEXT: Readonly<Record<string, string>> = {
+  "AK-001": "No effect.",
+  "AK-002": "Choose an enemy creature or attackable base. Deal 2 damage to it.",
+  "AK-003": "On summon: Choose an enemy creature or attackable base. Deal 1 damage to it.",
+  "AK-004": "If you have Fire resonance in this creature's lane, it gains +2 attack.",
+  "AK-005": "Choose an enemy creature or attackable base. Deal 4 damage to it.",
+  "AK-006": "On summon: Choose another allied creature. It gains +2 attack.",
+  "AK-007": "On summon: Choose an enemy creature or attackable base. Deal 3 damage to it.",
+  "AK-008": "Choose a lane. This turn, all allied creatures in that lane gain +2 attack.",
+  "AK-009": "While this creature is on the board, all other allied creatures in its lane gain +1 attack.",
+  "AK-010": "On destruction: Deal 2 damage to all enemy creatures and attackable bases in the lane this creature occupied immediately before it was destroyed.",
+  "AK-011": "Choose a lane. Deal 5 damage to all enemy creatures and attackable bases in that lane.",
+  "AK-012": "On summon: Choose an enemy creature or attackable base. Deal 7 damage to it. If this destroys an enemy creature, deal 3 damage to all other enemy creatures in that creature's lane.",
+  "AK-013": "This creature can move up to 2 squares per turn.",
+  "AK-014": "No effect.",
+  "AK-015": "Choose an allied creature. This turn, it gains +1 movement. Draw a card.",
+  "AK-016": "On summon: Draw a card.",
+  "AK-017": "Draw 2 cards.",
+  "AK-018": "On summon: Choose another allied creature. Choose an empty normal square among the 8 squares around it. Move that creature to the chosen square.",
+  "AK-019": "Choose a creature. Choose an empty normal square in its lane. Move that creature to the chosen square.",
+  "AK-020": "On summon: Choose an enemy creature in this creature's lane. Return it to its owner's hand.",
+  "AK-021": "While this creature is on the board, all other allied creatures in its lane gain +1 movement.",
+  "AK-022": "This creature can move up to 2 squares per turn. The first time it moves each turn, draw a card.",
+  "AK-023": "Until the start of your next turn, set all enemy creatures' movement to 0. Draw 3 cards.",
+  "AK-024": "On summon: Return all other creatures in this creature's lane to their owners' hands.",
+  "AK-025": "If your maximum PP is 5 or more, this creature gains +1/+1.",
+  "AK-026": "Add a random creature card from your deck to your hand.",
+  "AK-027": "On summon: Increase your maximum PP by 1.",
+  "AK-028": "If you have a lane with Wind resonance, this card costs 1.",
+  "AK-029": "Increase your maximum PP by 1. If your maximum PP is 7 or more, draw a card.",
+  "AK-030": "If your maximum PP is 7 or more, this creature gains +2/+2.",
+  "AK-031": "Add a random creature card with original cost 8 or more from your deck to your hand. Reduce its cost by 3.",
+  "AK-032": "On summon: If your maximum PP is 8 or more, all other allied creatures in this creature's lane gain +2/+2.",
+  "AK-033": "While this creature is on the board, creature cards in your hand cost 1 less.",
+  "AK-034": "On summon: If your maximum PP is 10 or more, add a random creature card with original cost 4 or less from your deck to your hand. Set its cost to 0.",
+  "AK-035": "No effect.",
+  "AK-036": "This card costs 3 less for each lane in which you have Wind resonance.",
+  "AK-037": "Choose an allied creature or one of your bases. Restore 3 HP to it.",
+  "AK-038": "On summon: Choose an empty normal square among the 8 squares around this creature. Summon a Light 1/1/3 Luminous Wall token there.",
+  "AK-039": "Choose an allied creature. It gains +0/+4.",
+  "AK-040": "No effect.",
+  "AK-041": "Choose an enemy creature. Disable its effects.",
+  "AK-042": "On summon: Choose an empty normal square in this creature's lane. Summon a Light 1/1/3 Luminous Wall token there.",
+  "AK-043": "While this creature is on the board, all allied tokens in its lane gain +1/+2.",
+  "AK-044": "Choose a lane. Choose 3 empty normal squares in that lane. Summon a Light 1/1/3 Luminous Wall token on each. All allied tokens gain +0/+2.",
+  "AK-045": "On summon: Disable the effects of all enemy creatures in this creature's lane.",
+  "AK-046": "On summon: Choose 2 empty normal squares in this creature's lane. Summon a Light 1/1/3 Luminous Wall token on each. While this creature is on the board, it gains +1/+1 for each allied token.",
+  "AK-047": "Disable the effects of all enemy creatures. All allied creatures gain +1/+4.",
+  "AK-048": "On summon: Choose 3 empty normal squares in this creature's lane. Summon a Light 1/1/3 Luminous Wall token on each. All allied tokens gain +3/+3.",
+  "AK-049": "On destruction: Draw a card.",
+  "AK-050": "Choose an allied creature. Destroy it. If it was destroyed this way, draw 2 cards.",
+  "AK-051": "On destruction: Summon a Dark 1/1/1 Shade Remnant token on a random empty normal square among the 8 squares around the square this creature occupied.",
+  "AK-052": "On summon: Choose another allied creature. Destroy it. If it was destroyed this way, this creature gains +3/+3.",
+  "AK-053": "No effect.",
+  "AK-054": "Choose 2 creature cards in your graveyard. Add them to your hand.",
+  "AK-055": "Choose an enemy creature. Destroy it.",
+  "AK-056": "Whenever another allied creature is destroyed, this creature gains +1/+1.",
+  "AK-057": "On summon: Choose a creature card with original cost 3 or less in your graveyard. Choose an empty normal square among the 8 squares around this creature. Summon that card on the chosen square.",
+  "AK-058": "On destruction: Summon a random creature card with original cost 5 or less from your graveyard on a random empty normal square among the 8 squares around the square this creature occupied.",
+  "AK-059": "Choose 2 creature cards with original cost 5 or less in your graveyard. Choose 2 empty summonable squares. Summon one chosen card on each chosen square.",
+  "AK-060": "On summon: Destroy all other creatures in this creature's lane. This creature gains +1/+1 for each creature destroyed this way.",
+  "AK-T-001": "No effect.",
+  "AK-T-002": "No effect."
+};
+
 const JAPANESE_TYPES: Readonly<Record<string, string>> = {
   creature: "クリーチャー",
   spell: "スペル",
@@ -284,9 +534,12 @@ export function localizeCardPresentation(
   card: Pick<CardMasterRecord, "id" | "name" | "effectText"> & { readonly type: string; readonly attribute: string },
   locale: UiLocale | undefined
 ): LocalizedCardPresentation {
-  if (locale === "en") {
-    return card;
-  }
+  if (locale === "en") return {
+    name: card.name,
+    effectText: ENGLISH_CARD_EFFECT_TEXT[card.id] ?? "Effect text is unavailable.",
+    type: card.type,
+    attribute: card.attribute
+  };
 
   const japanese = JAPANESE_CARD_TEXT[card.id];
   return {
@@ -311,31 +564,125 @@ export function localizeCardAttribute(
 }
 
 /** Japanese is the safe fallback for incomplete locale catalogs. */
-export function uiText(locale: UiLocale | undefined, key: string, fallback?: string): string {
-  return (locale === "en" ? ENGLISH : JAPANESE)[key] ?? JAPANESE[key] ?? fallback ?? key;
+/**
+ * The only entry point for static UI copy. `UiTextKey` is inferred from the
+ * Japanese catalog and English must provide every one of those keys.
+ */
+export function uiText(locale: UiLocale | undefined, key: UiTextKey): string {
+  return (locale === "en" ? ENGLISH : JAPANESE)[key];
+}
+
+/** Battle screens historically treat an omitted locale as English; keep that API contract. */
+export function battleText(locale: UiLocale | undefined, key: UiTextKey): string {
+  return uiText(locale === "ja" ? "ja" : "en", key);
+}
+
+function uiTextOrFallback(locale: UiLocale | undefined, key: string, fallback: string): string {
+  if (key in JAPANESE) return uiText(locale, key as UiTextKey);
+  return fallback;
 }
 
 export function localizeMenuText(locale: UiLocale | undefined, text: string, kind: "title" | "subtitle" | "action" | "description" | "version" | "reason"): string {
   if (kind === "title" && text === "Project Ankake") return text;
-  if (kind === "subtitle") return uiText(locale, "menu.subtitle", text);
+  if (kind === "subtitle") return uiText(locale, "menu.subtitle");
   if (kind === "action") return text === "CPU Battle" ? uiText(locale, "menu.cpu-battle") : text === "Deck Building" ? uiText(locale, "menu.deck-building") : text;
   if (kind === "description") return text.startsWith("Play a local CPU") ? uiText(locale, "menu.cpu-battle.description") : text.startsWith("Prepare and tune") ? uiText(locale, "menu.deck-building.description") : text;
   if (kind === "version") {
     const version = /^Catalog (.+)$/.exec(text)?.[1];
-    return version ? (locale === "en" ? `Catalog ${version}` : `カタログ ${version}`) : uiText(locale, "menu.catalog-loading", text);
+    return version ? (locale === "en" ? `Catalog ${version}` : `カタログ ${version}`) : uiText(locale, "menu.catalog-loading");
   }
   if (kind === "reason" && (text.startsWith("Available in a later") || text.startsWith("Coming in UOW"))) return uiText(locale, "menu.available-later");
   return text;
 }
 
 export function localizeLoadingLabel(locale: UiLocale | undefined, label: string): string {
-  return label === "Opening destination" ? uiText(locale, "loading.destination") : uiText(locale, "loading.catalog", label);
+  return label === "Opening destination" ? uiText(locale, "loading.destination") : uiText(locale, "loading.catalog");
 }
 
 export function localizeBattleReason(locale: UiLocale | undefined, reason: string): string {
-  return reason === "Card data is unavailable." ? uiText(locale, "battle.card-unavailable") : reason;
+  if (locale === undefined) return reason;
+  const known: Readonly<Record<string, UiTextKey>> = {
+    "Card data is unavailable.": "battle.card-unavailable",
+    "No legal target is available for this summon effect.": "battle.effect.no-target",
+    "Select a valid target before confirming.": "battle.effect.no-target",
+    "Complete the pending selection or cancel it before ending the play phase.": "battle.interaction.pending",
+    "Battle setup is loading.": "battle.preparation.loading",
+    "Create at least one battle-ready 40-card deck first.": "battle.preparation.create-ready-deck",
+    "Select player and CPU decks.": "battle.preparation.select-decks",
+    "Both selected decks must be battle-ready.": "battle.preparation.both-ready",
+    "Select battle decks first.": "battle.preparation.select-first",
+    "Battle could not start.": "battle.preparation.start-failed"
+  };
+  return known[reason] ? uiText(locale, known[reason]) : locale === "ja" ? uiText(locale, "error.generic") : reason;
 }
 
 export function localizeDeckValidationIssue(locale: UiLocale | undefined, code: string, fallback: string): string {
-  return uiText(locale, code, fallback);
+  return code in JAPANESE
+    ? uiText(locale, code as UiTextKey)
+    : locale === "ja"
+      ? uiText(locale, "error.generic")
+      : fallback;
+}
+
+/** Keeps internal diagnostics from leaking an untranslated message into Japanese UI. */
+export function localizeUserMessage(locale: UiLocale | undefined, message: string): string {
+  return locale === "ja" ? localizeBattleReason(locale, message) : message;
+}
+
+/** Exhaustive on purpose: adding a domain event requires its display copy. */
+const BATTLE_EVENT_KEYS: Readonly<Record<BattleEvent["type"], UiTextKey>> = {
+  "battle.started": "battle.event.battle.started",
+  "first-player.decided": "battle.event.first-player.decided",
+  "card.drawn": "battle.event.card.drawn",
+  "card.overflowed": "battle.event.card.overflowed",
+  "card.played": "battle.event.card.played",
+  "creature.summoned": "battle.event.creature.summoned",
+  "creature.moved": "battle.event.creature.moved",
+  "spell.resolved": "battle.event.spell.resolved",
+  "effect.fizzled": "battle.event.effect.fizzled",
+  "effect.partially-resolved": "battle.event.effect.partially-resolved",
+  "resonance.changed": "battle.event.resonance.changed",
+  "resonance.effect-resolved": "battle.event.resonance.effect-resolved",
+  "phase.ended": "battle.event.phase.ended",
+  "standby.resolved": "battle.event.standby.resolved",
+  "attack.phase-started": "battle.event.attack.phase-started",
+  "attack.attacker-started": "battle.event.attack.attacker-started",
+  "attack.attacker-skipped": "battle.event.attack.attacker-skipped",
+  "attack.targeted": "battle.event.attack.targeted",
+  "attack.target-skipped": "battle.event.attack.target-skipped",
+  "creature.damaged": "battle.event.creature.damaged",
+  "creature.destroyed": "battle.event.creature.destroyed",
+  "base.damaged": "battle.event.base.damaged",
+  "base.captured": "battle.event.base.captured",
+  "attack.phase-ended": "battle.event.attack.phase-ended",
+  "deck-out.occurred": "battle.event.deck-out.occurred",
+  "cpu.processing-limit-reached": "battle.event.cpu.processing-limit-reached",
+  "battle.ended": "battle.event.battle.ended"
+};
+
+/** Localizes event and log entries without exposing their domain-owned English fallback messages. */
+export function localizeBattleEvent(
+  locale: UiLocale | undefined,
+  entry: Pick<BattleEvent | BattleLogEntry, "type" | "side">
+): string {
+  const text = battleText(locale, BATTLE_EVENT_KEYS[entry.type]);
+  if (!entry.side) return text;
+  return locale !== "ja"
+    ? `${localizeBattleSide(locale, entry.side)} ${text}`
+    : `${localizeBattleSide(locale, entry.side)}：${text}`;
+}
+
+export function localizeBattleSide(locale: UiLocale | undefined, side: BattleSide): string {
+  return side === "player" ? battleText(locale, "battle.player") : "CPU";
+}
+
+export function localizeBattleInstruction(
+  locale: UiLocale | undefined,
+  key: "idle" | "move-start" | "move-continue" | "summon" | "effect"
+): string {
+  return battleText(locale, `battle.instruction.${key}` as UiTextKey);
+}
+
+export function localizeBattleIssue(locale: UiLocale | undefined, code: string | undefined, fallback?: string): string {
+  return code ? uiTextOrFallback(locale === undefined ? "en" : locale, code, fallback ?? battleText(locale, "battle.resonance.unknown")) : "";
 }

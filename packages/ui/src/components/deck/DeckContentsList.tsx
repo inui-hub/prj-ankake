@@ -1,4 +1,5 @@
 import type { CardId, DeckContentsRow } from "@ankake/domain";
+import { CardImage } from "./CardImage";
 import { localizeCardPresentation, type UiLocale, uiText } from "../../localization";
 
 export interface DeckContentsListProps {
@@ -32,10 +33,16 @@ export function DeckContentsList({
             return <li key={row.card.id} data-testid={`deck-contents-row-${row.card.id}`}>
               <button
                 type="button"
-                className="deck-link-button"
+                className="deck-contents-card-link"
                 onClick={() => onOpenCardDetail(row.card.id)}
               >
-                {displayCard.name}
+                <CardImage
+                  card={row.card}
+                  className="deck-contents-card-image"
+                  locale={locale}
+                  {...displayCard}
+                />
+                <span className="deck-contents-card-name">{displayCard.name}</span>
               </button>
               <span>x{row.count}</span>
               <button
