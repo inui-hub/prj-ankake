@@ -1,6 +1,6 @@
 import type { CardId, DeckCardRow } from "@ankake/domain";
 import { CardImage } from "./CardImage";
-import { localizeCardPresentation, type UiLocale, uiText } from "../../localization";
+import { localizeCardPresentation, localizeUserMessage, type UiLocale, uiText } from "../../localization";
 
 export interface DeckCardGridProps {
   readonly cardRows: readonly DeckCardRow[];
@@ -47,7 +47,7 @@ export function DeckCardGrid({ cardRows, onAddCard, onOpenCardDetail, locale }: 
                   className="deck-button deck-button--small"
                   data-testid={`deck-card-add-button-${row.card.id}`}
                   disabled={!row.canAdd}
-                  title={row.addDisabledReason}
+                  title={row.addDisabledReason ? localizeUserMessage(locale, row.addDisabledReason) : undefined}
                   onClick={() => onAddCard(row.card.id)}
                 >
                   {uiText(locale, "deck.add")}

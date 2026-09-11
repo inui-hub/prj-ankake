@@ -10,7 +10,7 @@ import { BattleBoard } from "./BattleBoard";
 import { BattleResultOverlay } from "./BattleDialogs";
 import { BattleHand } from "./BattleHand";
 import { BattleCardDetailPopover } from "./BattleCardDetailPopover";
-import { uiText } from "../../localization";
+import { localizeBattleEvent, localizeBattleIssue, uiText } from "../../localization";
 import {
   BattleInteractionControls,
   type BattleInteractionControlsView
@@ -159,7 +159,7 @@ export function BattleScreen(props: BattleScreenProps) {
       {props.animationEvent ? (
         <div aria-live="polite" className="battle-event-banner" data-testid="battle-event-banner" role="status">
           <span className={`battle-event-banner__icon battle-event-banner__icon--${eventTone(props.animationEvent)}`} aria-hidden="true" />
-          <div><strong>{eventTitle(props.animationEvent, props.locale)}</strong><span>{props.animationEvent.message}</span></div>
+          <div><strong>{eventTitle(props.animationEvent, props.locale)}</strong><span>{localizeBattleEvent(props.locale, props.animationEvent)}</span></div>
         </div>
       ) : null}
       <BattleResultOverlay
@@ -234,7 +234,7 @@ function createIdleInteraction(viewModel: PublicBattleView): BattleInteractionCo
       viewModel.phase === "play" &&
       viewModel.activeSide === "player" &&
       !viewModel.terminalResult,
-    instruction: "Select an available creature from your hand."
+    instructionKey: "idle"
   };
 }
 
@@ -242,5 +242,5 @@ function noOperation(): void {}
 
 function resonanceIssueMessage(locale: "ja" | "en" | undefined, code: string | undefined): string {
   if (!code) return "";
-  return uiText(locale, code, uiText(locale, "battle.resonance.unknown"));
+  return localizeBattleIssue(locale, code, uiText(locale, "battle.resonance.unknown"));
 }

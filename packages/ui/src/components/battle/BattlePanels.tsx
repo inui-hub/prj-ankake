@@ -5,6 +5,7 @@ import type {
   PublicBattleView
 } from "@ankake/domain";
 import { useState } from "react";
+import { localizeBattleEvent, localizeBattleSide, uiText } from "../../localization";
 
 export interface BattleStatusPanelProps {
   readonly viewModel: PublicBattleView;
@@ -23,7 +24,7 @@ export function BattleStatusPanel(props: BattleStatusPanelProps) {
       <div>
         <p className="battle-kicker">{props.locale === "ja" ? "ターン" : "Turn"} {viewModel.turnNumber}</p>
         <h1>
-          {viewModel.activeSide === "player" ? (props.locale === "ja" ? "プレイヤー" : "Player") : "CPU"} -{" "}
+          {viewModel.activeSide === "player" ? localizeBattleSide(props.locale, "player") : "CPU"} -{" "}
           {phaseLabel(viewModel.phase, props.locale)}
         </h1>
       </div>
@@ -65,7 +66,7 @@ export function BattlePhaseControls(props: BattlePhaseControlsProps) {
       className="battle-panel battle-phase-controls"
       data-testid="battle-phase-controls"
     >
-      <h2>{props.locale === "ja" ? "フェーズ操作" : "Phase control"}</h2>
+      <h2>{uiText(props.locale, "battle.phase-control")}</h2>
       <button
         className="battle-button battle-button--primary"
         data-testid="battle-end-play-phase-button"
@@ -73,7 +74,7 @@ export function BattlePhaseControls(props: BattlePhaseControlsProps) {
         type="button"
         onClick={props.onEndPlayPhase}
       >
-        {props.locale === "ja" ? "プレイフェーズを終了" : "End Play Phase"}
+        {uiText(props.locale, "battle.end-play-phase")}
       </button>
     </section>
   );
@@ -182,7 +183,7 @@ function cpuStatusLabel(status: string, locale?: "ja" | "en"): string {
 export function BattleLogPanel(props: { readonly entries: readonly BattleLogEntry[]; readonly locale?: "ja" | "en" }) {
   return (
     <section className="battle-panel battle-log-panel" data-testid="battle-log-panel">
-      <h2>{props.locale === "ja" ? "対戦ログ" : "Battle log"}</h2>
+      <h2>{uiText(props.locale, "battle.log")}</h2>
       <ol>
         {props.entries.map((entry) => (
           <li key={entry.sequence}>{localizeLogMessage(entry, props.locale)}</li>
@@ -193,10 +194,5 @@ export function BattleLogPanel(props: { readonly entries: readonly BattleLogEntr
 }
 
 function localizeLogMessage(entry: BattleLogEntry, locale?: "ja" | "en"): string {
-  if (locale !== "ja") return entry.message;
-  const known: Readonly<Record<string, string>> = {
-    "card.drawn": "カードを1枚引きました。",
-    "battle.ended": "対戦が終了しました。"
-  };
-  return known[entry.type] ?? entry.message;
+  return localizeBattleEvent(locale, entry);
 }

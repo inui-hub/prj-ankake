@@ -82,7 +82,11 @@ export interface BattleInteractionView {
   readonly cancelEnabled: boolean;
   readonly undoEnabled: boolean;
   readonly endPlayPhaseEnabled: boolean;
-  readonly instruction: string;
+  /** Locale-independent presentation key. */
+  readonly instructionKey: "idle" | "move-start" | "move-continue" | "summon" | "effect";
+  /** Locale-independent validation key; never display a domain fallback directly. */
+  readonly issueCode?: string;
+  /** Retained for diagnostics and compatibility; the UI renders `issueCode`. */
   readonly issue?: string;
 }
 
@@ -527,7 +531,8 @@ export function projectBattleInteractionView(
       cancelEnabled: false,
       undoEnabled: false,
       endPlayPhaseEnabled,
-      instruction: "Select an available creature from your hand.",
+      instructionKey: "idle",
+      issueCode: interaction.issue?.code,
       issue: interaction.issue?.message
     };
   }
@@ -556,10 +561,8 @@ export function projectBattleInteractionView(
       cancelEnabled: true,
       undoEnabled: interaction.path.length > 0,
       endPlayPhaseEnabled: false,
-      instruction:
-        interaction.path.length > 0
-          ? "Continue moving until the movement limit is reached, or undo the last step."
-          : "Choose a highlighted movement destination.",
+      instructionKey: interaction.path.length > 0 ? "move-continue" : "move-start",
+      issueCode: interaction.issue?.code,
       issue: interaction.issue?.message
     };
   }
@@ -585,7 +588,7 @@ export function projectBattleInteractionView(
       effectCandidates: interaction.candidates.map((candidate) => ({ ...candidate, selected: interaction.selectedIds.includes(candidate.id) })),
       selectedEffectTargetIds: interaction.selectedIds, confirmEnabled: selectionComplete(interaction),
       cancelEnabled: true, undoEnabled: false, endPlayPhaseEnabled: false,
-      instruction: `Select ${interaction.minimumTargets === interaction.maximumTargets ? interaction.minimumTargets : `${interaction.minimumTargets}-${interaction.maximumTargets}`} target${interaction.maximumTargets === 1 ? "" : "s"}. The action resolves automatically when complete.`, issue: interaction.issue?.message };
+      instructionKey: "effect", issueCode: interaction.issue?.code, issue: interaction.issue?.message };
   }
 
   const selectedCard = publicView.playerHand.find(
@@ -606,7 +609,8 @@ export function projectBattleInteractionView(
     cancelEnabled: true,
     undoEnabled: false,
     endPlayPhaseEnabled: false,
-    instruction: "Choose a highlighted summon destination.",
+    instructionKey: "summon",
+    issueCode: interaction.issue?.code,
     issue: interaction.issue?.message
   };
 }
