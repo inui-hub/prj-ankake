@@ -4,6 +4,7 @@ import type {
   BattleLogEntry,
   PublicBattleView
 } from "@ankake/domain";
+import { useState } from "react";
 
 export interface BattleStatusPanelProps {
   readonly viewModel: PublicBattleView;
@@ -118,11 +119,46 @@ function ResonanceTable(props: { readonly viewModel: PublicBattleView; readonly 
   const lanes = ["left", "center", "right"] as const;
   const attributes = ["fire", "water", "wind", "light", "dark"] as const;
   const label = (value: string) => props.locale === "ja" ? ({ left: "左", center: "中央", right: "右", fire: "火", water: "水", wind: "風", light: "光", dark: "闇" }[value] ?? value) : value;
-  return <table className="battle-resonance-table" data-testid="battle-player-resonance">
-    <caption>{props.locale === "ja" ? "共鳴" : "Resonance"}</caption>
-    <thead><tr><th scope="col">{props.locale === "ja" ? "属性" : "Attribute"}</th>{lanes.map((lane) => <th key={lane} scope="col">{label(lane)}</th>)}</tr></thead>
-    <tbody>{attributes.map((attribute) => <tr key={attribute}><th scope="row">{label(attribute)}</th>{lanes.map((lane) => <td key={lane} data-testid={`battle-resonance-${lane}-${attribute}`}>{props.viewModel.playerResonance[lane]?.[attribute] ?? 0}</td>)}</tr>)}</tbody>
-  </table>;
+  const [showEffects, setShowEffects] = useState(false);
+  return <div
+    className="battle-resonance"
+    data-testid="battle-player-resonance"
+    tabIndex={0}
+    onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setShowEffects(false); }}
+    onFocus={() => setShowEffects(true)}
+    onMouseEnter={() => setShowEffects(true)}
+    onMouseLeave={() => setShowEffects(false)}
+  >
+    <table className="battle-resonance-table">
+      <caption>{props.locale === "ja" ? "共鳴" : "Resonance"}</caption>
+      <thead><tr><th scope="col">{props.locale === "ja" ? "属性" : "Attribute"}</th>{lanes.map((lane) => <th key={lane} scope="col">{label(lane)}</th>)}</tr></thead>
+      <tbody>{attributes.map((attribute) => <tr className={`battle-resonance-table__row--${attribute}`} key={attribute}><th scope="row">{label(attribute)}</th>{lanes.map((lane) => {
+        const value = props.viewModel.playerResonance[lane]?.[attribute] ?? 0;
+        return <td className={value >= 5 ? "battle-resonance-table__cell--active" : undefined} key={lane} data-testid={`battle-resonance-${lane}-${attribute}`}>{value}</td>;
+      })}</tr>)}</tbody>
+    </table>
+    {showEffects ? <ResonanceEffectPopover locale={props.locale} /> : null}
+  </div>;
+}
+
+function ResonanceEffectPopover(props: { readonly locale?: "ja" | "en" }) {
+  const effects = props.locale === "ja" ? [
+    ["火", "そのレーンの味方クリーチャーの攻撃力を+1。"],
+    ["水", "各レーンで最初に移動する味方クリーチャーの移動力を、そのターン中+1。"],
+    ["風", "各レーンで最初に召喚するクリーチャーのコストを1軽減（最低1）。"],
+    ["光", "自分のアタックフェーズ終了時、レーン上の味方と味方拠点を1回復。"],
+    ["闇", "各ターン最初に破壊された味方クリーチャーのマスへ、1/1トークンを召喚。"]
+  ] : [
+    ["Fire", "Allied creatures in that lane gain +1 attack."],
+    ["Water", "The first allied creature moved in each lane gains +1 movement this turn."],
+    ["Wind", "The first creature summoned in each lane costs 1 less (minimum 1)."],
+    ["Light", "At your attack phase end, restore 1 HP to allies and controlled bases in that lane."],
+    ["Dark", "The first allied creature destroyed in each lane each turn leaves a 1/1 token."]
+  ];
+  return <section aria-live="polite" className="battle-resonance__effects" data-testid="battle-resonance-effects">
+    <strong>{props.locale === "ja" ? "属性ごとの共鳴効果" : "Resonance effects"}</strong>
+    <ul>{effects.map(([attribute, effect]) => <li className={`battle-resonance__effect--${attribute.toLowerCase()}`} key={attribute}><b>{attribute}</b><span>{effect}</span></li>)}</ul>
+  </section>;
 }
 
 function ownerLabel(owner: "none" | "player" | "cpu", locale?: "ja" | "en"): string { return locale === "ja" ? owner === "none" ? "中立" : owner === "player" ? "味方" : "敵" : owner === "none" ? "Unclaimed" : owner === "player" ? "Player" : "CPU"; }
