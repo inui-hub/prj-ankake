@@ -4,7 +4,7 @@ import {
   projectDeckBuildingViewModel
 } from "@ankake/domain";
 import { DeckBuildingScreen, localizeCardPresentation } from "@ankake/ui";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { validCatalogSnapshotFixture } from "../generators/catalogGenerators";
 
 function baseProps() {
@@ -144,6 +144,78 @@ describe("deck building UI", () => {
     rerender(<DeckBuildingScreen {...props} locale="en" />);
     expect(screen.getByTestId("card-type-filter-select")).toHaveTextContent("creature");
     expect(screen.getByTestId("card-attribute-filter-select")).toHaveTextContent("fire");
+  });
+
+  it("places the statistics panel above search in the central workspace", () => {
+    const props = baseProps();
+    render(<DeckBuildingScreen {...props} />);
+
+    const stats = screen.getByTestId("deck-stats-section");
+    const search = screen.getByTestId("card-search-input");
+
+    expect(stats.closest(".deck-workspace")).toContainElement(search);
+    expect(stats.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("scales cost chart bars relative to the most populated bucket", () => {
+    const props = baseProps();
+    const viewModel = {
+      ...props.viewModel,
+      stats: {
+        ...props.viewModel.stats,
+        totalCards: 7,
+        costBuckets: [
+          { label: "1以下", count: 2 },
+          { label: "2", count: 4 },
+          { label: "3", count: 0 },
+          { label: "4", count: 1 },
+          { label: "5", count: 0 },
+          { label: "6", count: 0 },
+          { label: "7", count: 0 },
+          { label: "8以上", count: 0 }
+        ]
+      }
+    };
+
+    render(<DeckBuildingScreen {...props} viewModel={viewModel} />);
+
+    expect(screen.getByTestId("deck-cost-chart-bar-2")).toHaveStyle({ height: "100%" });
+    expect(screen.getByTestId("deck-cost-chart-bar-1以下")).toHaveStyle({ height: "50%" });
+    expect(screen.getByTestId("deck-cost-chart-bar-3")).toHaveStyle({ height: "0%" });
+  });
+
+  it("shows sorted deck contents with card artwork and the eight-bucket cost chart", () => {
+    const props = baseProps();
+    const selectedCards = validCatalogSnapshotFixture.cards.slice(0, 3);
+    const viewModel = projectDeckBuildingViewModel({
+      catalog: validCatalogSnapshotFixture,
+      draft: {
+        ...props.viewModel.draft,
+        cards: selectedCards.map((card, index) => ({ cardId: card.id, count: index + 1 }))
+      },
+      savedDecks: []
+    });
+
+    render(<DeckBuildingScreen {...props} viewModel={viewModel} />);
+
+    const displayedCardIds = screen.getAllByTestId(/deck-contents-row-/).map((row) =>
+      row.getAttribute("data-testid")?.replace("deck-contents-row-", "")
+    );
+    expect(displayedCardIds).toEqual(viewModel.deckContents.map((row) => row.card.id));
+
+    for (const row of viewModel.deckContents) {
+      const contentRow = screen.getByTestId(`deck-contents-row-${row.card.id}`);
+      expect(within(contentRow).getByTestId(`deck-card-image-${row.card.id}`)).toBeInTheDocument();
+      expect(contentRow).toHaveTextContent(localizeCardPresentation(row.card, "ja").name);
+    }
+
+    const chart = screen.getByTestId("deck-cost-chart");
+    expect(chart).toHaveAccessibleName(
+      viewModel.stats.costBuckets
+        .map((bucket) => `コスト ${bucket.label}: ${bucket.count}`)
+        .join(", ")
+    );
+    expect(screen.getAllByTestId(/deck-cost-chart-bar-/)).toHaveLength(8);
   });
 
   it("renders the card detail dialog and image fallback", () => {

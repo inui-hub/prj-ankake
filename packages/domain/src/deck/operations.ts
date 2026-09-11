@@ -242,12 +242,6 @@ export function compareCardsForDeckContents(
   left: CardMasterRecord,
   right: CardMasterRecord
 ): number {
-  const typeComparison = left.type.localeCompare(right.type, "en");
-
-  if (typeComparison !== 0) {
-    return typeComparison;
-  }
-
   const costComparison = left.cost - right.cost;
 
   if (costComparison !== 0) {
@@ -278,9 +272,14 @@ export function createEmptyDeckStats(): DeckStats {
     typeCounts: createZeroRecord(CARD_TYPES),
     attributeCounts: createZeroRecord(CARD_ATTRIBUTES),
     costBuckets: [
-      { label: "0-2", count: 0 },
-      { label: "3-5", count: 0 },
-      { label: "6+", count: 0 }
+      { label: "1以下", count: 0 },
+      { label: "2", count: 0 },
+      { label: "3", count: 0 },
+      { label: "4", count: 0 },
+      { label: "5", count: 0 },
+      { label: "6", count: 0 },
+      { label: "7", count: 0 },
+      { label: "8以上", count: 0 }
     ]
   };
 }
@@ -292,21 +291,24 @@ export function createDeckStats(
   const typeCounts = createZeroRecord<CardType>(CARD_TYPES);
   const attributeCounts = createZeroRecord<CardAttribute>(CARD_ATTRIBUTES);
   const costBuckets = [
-    { label: "0-2", count: 0 },
-    { label: "3-5", count: 0 },
-    { label: "6+", count: 0 }
+    { label: "1以下", count: 0 },
+    { label: "2", count: 0 },
+    { label: "3", count: 0 },
+    { label: "4", count: 0 },
+    { label: "5", count: 0 },
+    { label: "6", count: 0 },
+    { label: "7", count: 0 },
+    { label: "8以上", count: 0 }
   ];
 
   for (const entry of getDeckCardsWithRecords(cards, catalog)) {
     typeCounts[entry.card.type] += entry.count;
     attributeCounts[entry.card.attribute] += entry.count;
 
-    if (entry.card.cost <= 2) {
+    if (entry.card.cost <= 1) {
       costBuckets[0].count += entry.count;
-    } else if (entry.card.cost <= 5) {
-      costBuckets[1].count += entry.count;
     } else {
-      costBuckets[2].count += entry.count;
+      costBuckets[Math.min(entry.card.cost, 8) - 1].count += entry.count;
     }
   }
 
