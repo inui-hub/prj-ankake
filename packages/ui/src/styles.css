@@ -9,10 +9,18 @@
 
 .battle-prep-screen,
 .battle-screen {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
-  background:
-    linear-gradient(145deg, rgba(14, 19, 22, 0.98), rgba(28, 33, 35, 0.96)),
-    #101518;
+  background: #101518;
+}
+
+.battle-prep-header,
+.battle-prep-grid,
+.battle-status-bar,
+.battle-shell {
+  position: relative;
+  z-index: 1;
 }
 
 .battle-prep-header,
@@ -802,11 +810,10 @@
 
 .menu-screen {
   position: relative;
+  isolation: isolate;
   min-height: 100vh;
   overflow: hidden;
-  background:
-    linear-gradient(115deg, rgba(23, 19, 19, 0.94), rgba(36, 28, 24, 0.76) 46%, rgba(26, 49, 45, 0.74)),
-    #171313;
+  background: #171313;
 }
 
 .menu-screen__content {
@@ -909,58 +916,30 @@
 }
 
 .background-scene {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: -1;
+  overflow: hidden;
+  background: #182026;
   pointer-events: none;
 }
 
-.background-scene__mat {
+.background-scene::after {
   position: absolute;
-  inset: auto -8vw -18vh 36vw;
-  height: 72vh;
-  transform: rotate(-5deg);
-  border: 1px solid rgba(241, 196, 111, 0.2);
-  border-radius: 8px;
+  inset: 0;
+  content: "";
   background:
-    linear-gradient(90deg, rgba(231, 85, 61, 0.24), transparent 38%),
-    linear-gradient(135deg, rgba(80, 173, 140, 0.18), rgba(11, 11, 10, 0.2));
+    linear-gradient(90deg, rgba(10, 14, 18, 0.76), rgba(10, 14, 18, 0.62) 48%, rgba(10, 14, 18, 0.57)),
+    linear-gradient(180deg, rgba(8, 13, 17, 0.2), rgba(8, 13, 17, 0.52));
 }
 
-.background-scene__cards {
-  position: absolute;
-  right: clamp(18px, 8vw, 128px);
-  bottom: 8vh;
-  width: min(48vw, 520px);
-  height: min(68vh, 680px);
-}
-
-.background-scene__card {
-  position: absolute;
-  width: clamp(130px, 18vw, 210px);
-  aspect-ratio: 2 / 3;
+.background-scene__image {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border: 1px solid rgba(255, 248, 239, 0.28);
-  border-radius: 8px;
-  box-shadow: 0 24px 42px rgba(0, 0, 0, 0.45);
-}
-
-.background-scene__card--1 {
-  right: 45%;
-  bottom: 19%;
-  transform: rotate(-11deg);
-}
-
-.background-scene__card--2 {
-  right: 18%;
-  bottom: 25%;
-  transform: rotate(5deg);
-}
-
-.background-scene__card--3 {
-  right: 0;
-  bottom: 8%;
-  transform: rotate(15deg);
+  object-position: center;
+  image-rendering: pixelated;
 }
 
 .blocking-overlay {
@@ -1051,10 +1030,16 @@
 }
 
 .deck-screen {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
-  background:
-    linear-gradient(145deg, rgba(23, 19, 19, 0.98), rgba(24, 36, 42, 0.92)),
-    #171313;
+  background: #171313;
+}
+
+.deck-header,
+.deck-shell {
+  position: relative;
+  z-index: 1;
 }
 
 .deck-header {
@@ -1632,18 +1617,6 @@
 
   .menu-screen__actions {
     width: 100%;
-  }
-
-  .background-scene__cards {
-    top: 20px;
-    right: 8px;
-    bottom: auto;
-    width: 100%;
-    height: 42vh;
-  }
-
-  .background-scene__card {
-    width: clamp(112px, 30vw, 150px);
   }
 
   .deck-header {

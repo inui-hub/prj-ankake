@@ -52,6 +52,7 @@ describe("menu UI", () => {
 
     render(<MenuScreen viewModel={baseViewModel} onActionSelected={onActionSelected} />);
 
+    expect(screen.getByTestId("shared-background-scene")).toBeInTheDocument();
     expect(screen.getByTestId("menu-action-cpu-battle")).toBeDisabled();
     expect(screen.getByTestId("menu-action-deck-building")).toBeDisabled();
     expect(screen.getByTestId("menu-version-text")).toHaveTextContent("カタログ 1.1.0");

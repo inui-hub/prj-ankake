@@ -87,6 +87,7 @@ describe("battle screen", () => {
     const viewModel = projectPublicBattleView(state);
     const { container } = renderBattleScreen(viewModel);
 
+    expect(screen.getByTestId("shared-background-scene")).toBeInTheDocument();
     expect(screen.getAllByRole("gridcell")).toHaveLength(75);
     expect(screen.queryByTestId("battle-square-1-1")).not.toBeInTheDocument();
     expect(screen.getByTestId("battle-square-3-1")).toHaveStyle({

@@ -47,6 +47,7 @@ describe("deck building UI", () => {
 
     render(<DeckBuildingScreen {...props} />);
 
+    expect(screen.getByTestId("shared-background-scene")).toBeInTheDocument();
     expect(screen.getByTestId("deck-building-screen")).toBeInTheDocument();
     expect(screen.getByTestId("deck-header-save-button")).toBeDisabled();
     expect(screen.getByTestId("card-search-input")).toBeInTheDocument();
