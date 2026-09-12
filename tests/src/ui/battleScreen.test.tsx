@@ -452,12 +452,18 @@ describe("battle screen", () => {
     expect(destroyPresentation).toMatchObject({ squareKey: targetSquare.key, card: { instanceId: target.instanceId, currentHp: 0 } });
 
     rerender(
-      <BattleScreen viewModel={destroyedView} logEntries={LOG_ENTRIES} cpuStatus="idle"
-        animationEvent={destroyedEvent} defeatedCreature={destroyPresentation}
+      <BattleScreen viewModel={viewModel} logEntries={LOG_ENTRIES} cpuStatus="idle"
+        animationEvent={destroyedEvent} defeatedCreature={destroyPresentation} destroyedCreatureInstanceIds={[target.instanceId]}
         onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
     );
     expect(screen.getByTestId(`battle-board-card-${target.instanceId}`)).toHaveClass("battle-card--anim-destroy");
     expect(screen.getByTestId(`battle-square-${targetSquare.coordinate.column}-${targetSquare.coordinate.row}`)).toHaveClass("battle-square--anim-destroy");
+
+    rerender(
+      <BattleScreen viewModel={viewModel} logEntries={LOG_ENTRIES} cpuStatus="idle" destroyedCreatureInstanceIds={[target.instanceId]}
+        onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
+    );
+    expect(screen.queryByTestId(`battle-board-card-${target.instanceId}`)).not.toBeInTheDocument();
   });
 
   it("localizes terminal result labels, reason, and actions", () => {
@@ -901,7 +907,7 @@ describe("battle screen", () => {
       expect(result.current.viewModel.publicView.boardSquares.find(
         (square) => square.key === "3:9"
       )?.occupant).toMatchObject({ instanceId: source.instanceId });
-    });
+    }, { timeout: 3_000 });
   });
 
   it("guards phase end, cancels movement on Escape, and resolves at the movement limit", async () => {
@@ -973,14 +979,17 @@ describe("battle screen", () => {
       result.current.actions.selectBoardSquare({ column: 5, row: 5 });
     });
 
-    if (result.current.viewModel.kind === "battle") {
+    await waitFor(() => {
+      if (result.current.viewModel.kind !== "battle") {
+        throw new Error("Expected an active battle controller.");
+      }
       expect(result.current.viewModel.interaction.kind).toBe("idle");
       expect(
         result.current.viewModel.publicView.boardSquares.find(
           (square) => square.key === "5:5"
         )?.occupant
       ).toMatchObject({ instanceId: creature.instanceId, movedThisTurn: true });
-    }
+    }, { timeout: 2_000 });
   });
 });
 

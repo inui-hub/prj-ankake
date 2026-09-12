@@ -62,6 +62,7 @@ export type BattleRouteViewModel =
       readonly lastValidationIssueCode?: string;
       readonly animationEvent?: BattleEvent;
       readonly defeatedCreature?: DefeatedCreaturePresentation;
+      readonly destroyedCreatureInstanceIds: readonly string[];
       readonly isAnimating: boolean;
     };
 
@@ -128,6 +129,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   const [lastValidationIssueCode, setLastValidationIssueCode] = useState<string | undefined>();
   const [animationEvent, setAnimationEvent] = useState<BattleEvent | undefined>();
   const [defeatedCreature, setDefeatedCreature] = useState<DefeatedCreaturePresentation | undefined>();
+  const [destroyedCreatureInstanceIds, setDestroyedCreatureInstanceIds] = useState<readonly string[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
@@ -224,8 +226,8 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       return;
     }
     setLastValidationIssueCode(undefined);
-    setSession(attempted.session);
     await playBattleEvents(attempted.session.lastEvents, session, attempted.session);
+    setSession(attempted.session);
     await runCpuIfNeeded(attempted.session);
   }
 
@@ -260,8 +262,8 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     await yieldToBrowser();
     setCpuStatus("executing");
     const result = await executeCpuTurn(nextSession, diagnostics, yieldToBrowser, 30, async (presentedSession, previousSession) => {
-      setSession(presentedSession);
       await playBattleEvents(presentedSession.lastEvents, previousSession, presentedSession);
+      setSession(presentedSession);
     });
     setSession(result.session);
     setCpuStatus(
@@ -451,8 +453,8 @@ export function useBattleController(input: BattleControllerInput): BattleControl
 
     setInteraction(IDLE_BATTLE_INTERACTION);
     setLastValidationIssueCode(undefined);
-    setSession(submission.session);
     await playBattleEvents(submission.session.lastEvents, session, submission.session);
+    setSession(submission.session);
     await runCpuIfNeeded(submission.session);
   }
 
@@ -465,6 +467,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     const previousView = projectPublicBattleView(previousSession.state);
     const currentView = projectPublicBattleView(resultingSession.state);
     setIsAnimating(true);
+    setDestroyedCreatureInstanceIds([]);
     for (const event of events) {
       // Removing the class for a frame makes repeated damage or movement
       // events restart their CSS animation on the same target.
@@ -477,9 +480,13 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       await waitForBattlePresentation(16);
       setAnimationEvent(event);
       await waitForBattlePresentation(eventDuration(event));
+      if (event.type === "creature.destroyed" && event.instanceId) {
+        setDestroyedCreatureInstanceIds((current) => [...new Set([...current, event.instanceId!])]);
+      }
     }
     setAnimationEvent(undefined);
     setDefeatedCreature(undefined);
+    setDestroyedCreatureInstanceIds([]);
     setIsAnimating(false);
   }
 
@@ -500,6 +507,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
           lastValidationIssueCode,
           animationEvent,
           defeatedCreature,
+          destroyedCreatureInstanceIds,
           isAnimating
         };
       })()

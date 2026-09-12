@@ -43,6 +43,7 @@ export interface BattleScreenProps {
   readonly animationEvent?: BattleEvent;
   readonly isAnimating?: boolean;
   readonly defeatedCreature?: { readonly squareKey: string; readonly card: BattleCardView };
+  readonly destroyedCreatureInstanceIds?: readonly string[];
 }
 
 export function BattleScreen(props: BattleScreenProps) {
@@ -113,6 +114,7 @@ export function BattleScreen(props: BattleScreenProps) {
             interactionDisabled={interactionDisabled}
             animationEvent={props.animationEvent}
             defeatedCreature={props.defeatedCreature}
+            destroyedCreatureInstanceIds={props.destroyedCreatureInstanceIds}
             locale={props.locale}
             onCreatureIntent={terminal ? undefined : props.onBoardCreatureIntent}
             onSquareIntent={terminal ? undefined : props.onBoardSquareIntent}
