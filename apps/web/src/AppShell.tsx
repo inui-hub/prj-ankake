@@ -130,6 +130,7 @@ function BattleRoute({ catalog, locale, onReturnToMenu }: BattleRouteProps) {
       resonanceIssueCode={controller.viewModel.lastValidationIssueCode}
       animationEvent={controller.viewModel.animationEvent}
       defeatedCreature={controller.viewModel.defeatedCreature}
+      destroyedCreatureInstanceIds={controller.viewModel.destroyedCreatureInstanceIds}
       isAnimating={controller.viewModel.isAnimating}
       onReturnToPreparation={controller.actions.quitBattle}
       onReturnToMenu={controller.actions.returnToMenu}

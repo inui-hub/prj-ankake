@@ -236,7 +236,7 @@ function resolveDarkResonance(state: BattleState, destroyed: BattleCardInstance,
   }
   const tokenId = `dark-resonance-${side}-${nextSequence}`;
   const token: BattleCardInstance = {
-    instanceId: tokenId, catalogCardId: "dark-resonance-token", ownerSide: side, controllerSide: side, zone: "board", name: "Dark Resonance Token", type: "creature-token", attribute: "dark", cost: 1, currentCost: 1, attack: 1, currentAttack: 1, health: 1, currentHp: 1, maxHp: 1, movement: 1, isToken: true, effectText: "", effectIds: [], position, boardEntrySequence: nextSequence, summonedThisTurn: false, movedThisTurn: false
+    instanceId: tokenId, catalogCardId: "AK-T-002", ownerSide: side, controllerSide: side, zone: "board", name: "Shade Remnant", type: "creature-token", attribute: "dark", cost: 1, currentCost: 1, attack: 1, currentAttack: 1, health: 1, currentHp: 1, maxHp: 1, movement: 1, isToken: true, effectText: "", effectIds: [], position, boardEntrySequence: nextSequence, summonedThisTurn: false, movedThisTurn: false
   };
   return {
     state: { ...state, board: setBoardOccupant(state.board, position, tokenId), players: { ...state.players, [side]: { ...player, resonanceUsage: { ...player.resonanceUsage, dark: { ...player.resonanceUsage.dark, [lane]: true } } } }, cardInstances: { ...state.cardInstances, [tokenId]: token }, eventCursor: nextSequence },

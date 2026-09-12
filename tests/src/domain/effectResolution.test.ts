@@ -32,6 +32,49 @@ describe("effect resolution foundations", () => {
     expect(result.events.map((event) => event.sequence)).toEqual([...result.events].map((_, index) => context.firstSequence + index));
   });
 
+  it("destroys a creature lethally damaged by a generic effect", () => {
+    const { state, sourceId, enemyId } = createBoardState();
+    const lethalState: BattleState = {
+      ...state,
+      cardInstances: {
+        ...state.cardInstances,
+        [enemyId]: { ...state.cardInstances[enemyId]!, currentHp: 2, maxHp: 2, health: 2 }
+      }
+    };
+    const result = resolveEffect(makeContext(lethalState, sourceId, { kind: "creatures", instanceIds: [enemyId] }, [
+      { kind: "damage", target: "enemy-creature", amount: 2, minimumTargets: 1, maximumTargets: 1 }
+    ]));
+
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events.map((event) => event.type)).toEqual(["creature.damaged", "creature.destroyed"]);
+    expect(result.state.cardInstances[enemyId]).toMatchObject({ zone: "graveyard", currentHp: 0 });
+    expect(result.state.board.squares.some((square) => square.occupantId === enemyId)).toBe(false);
+    expect(result.state.players.cpu.graveyardZone).toContain(enemyId);
+  });
+
+  it.each(["AK-027", "AK-029"])("increases only maximum PP for %s", (cardId) => {
+    const { state, sourceId } = createBoardState();
+    const ppState: BattleState = {
+      ...state,
+      players: {
+        ...state.players,
+        player: { ...state.players.player, currentPp: 3, maxPp: 6 }
+      },
+      cardInstances: {
+        ...state.cardInstances,
+        [sourceId]: { ...state.cardInstances[sourceId]!, catalogCardId: cardId }
+      }
+    };
+    const result = resolveEffect(makeContext(ppState, sourceId, { kind: "none" }, [
+      { kind: "card-script", cardId, target: "any-creature", minimumTargets: 0, maximumTargets: 64 }
+    ]));
+
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.state.players.player).toMatchObject({ currentPp: 3, maxPp: 7 });
+  });
+
   it("rejects a stale target selection without changing state or its RNG", () => {
     const { state, sourceId } = createBoardState();
     const context = makeContext(state, sourceId, { kind: "creatures", instanceIds: ["missing"] }, [{ kind: "damage", target: "enemy-creature", amount: 1, minimumTargets: 1, maximumTargets: 1 }]);

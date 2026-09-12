@@ -689,6 +689,7 @@
 .battle-card--anim-summon { animation: battle-card-summon 420ms cubic-bezier(.18, .9, .22, 1); }
 .battle-card--anim-move { animation: battle-card-move 380ms cubic-bezier(.2, .8, .3, 1); }
 .battle-card--anim-damage { animation: battle-card-damage 420ms ease-out; }
+.battle-card--anim-destroy { animation: battle-card-destroy 420ms ease-in forwards; }
 .battle-square--anim-damage { animation: battle-square-damage 420ms ease-out; }
 .battle-square--anim-destroy { animation: battle-square-destroy 420ms ease-out; }
 .battle-square--anim-capture { animation: battle-square-capture 500ms cubic-bezier(.2, .8, .3, 1); }
@@ -697,15 +698,17 @@
 @keyframes battle-card-summon { 0% { opacity: 0; transform: scale(.45) translateY(18px); filter: brightness(1.8); } 65% { transform: scale(1.07) translateY(-2px); } 100% { opacity: 1; transform: scale(1); filter: brightness(1); } }
 @keyframes battle-card-move { 0% { transform: translateY(12px) scale(.92); filter: brightness(1.5); } 55% { transform: translateY(-4px) scale(1.05); } 100% { transform: translateY(0) scale(1); filter: brightness(1); } }
 @keyframes battle-card-damage { 0%, 100% { filter: brightness(1); transform: translateX(0); } 20% { filter: brightness(2.4) sepia(1) saturate(5); transform: translateX(-4px); } 45% { transform: translateX(4px); } }
+@keyframes battle-card-destroy { 0% { opacity: 1; transform: scale(1); filter: brightness(1); } 40% { opacity: 1; transform: scale(1.08); filter: brightness(2.6) sepia(1) saturate(4); } 100% { opacity: 0; transform: scale(.55); filter: brightness(.5); } }
 @keyframes battle-square-damage { 0%, 100% { box-shadow: inset 0 0 0 0 rgba(255, 92, 73, 0); } 30% { box-shadow: inset 0 0 0 999px rgba(255, 92, 73, .46); } }
 @keyframes battle-square-destroy { 0% { box-shadow: inset 0 0 0 0 rgba(255, 242, 231, 0); } 35% { box-shadow: inset 0 0 0 999px rgba(255, 242, 231, .78); } 100% { box-shadow: inset 0 0 0 999px rgba(255, 92, 73, .16); } }
 @keyframes battle-square-capture { 0% { filter: brightness(1); } 45% { filter: brightness(1.75) saturate(1.5); transform: scale(1.03); } 100% { filter: brightness(1); transform: scale(1); } }
 
 @media (prefers-reduced-motion: reduce) {
   .battle-event-banner,
-  .battle-card--anim-summon,
-  .battle-card--anim-move,
-  .battle-card--anim-damage,
+.battle-card--anim-summon,
+.battle-card--anim-move,
+.battle-card--anim-damage,
+.battle-card--anim-destroy,
   .battle-square--anim-damage,
   .battle-square--anim-destroy,
   .battle-square--anim-capture { animation: none; }

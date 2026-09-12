@@ -3,8 +3,8 @@ import { CardArtwork, resolveCardArtworkSrc } from "@ankake/ui";
 import { render, screen } from "@testing-library/react";
 
 describe("card artwork", () => {
-  it("resolves the generated dark resonance token artwork", () => {
-    expect(resolveCardArtworkSrc("dark-resonance-token")).toBeTruthy();
+  it("resolves the canonical dark token artwork", () => {
+    expect(resolveCardArtworkSrc("AK-T-002")).toBeTruthy();
   });
 
   it("localizes the fallback image accessible name", () => {

@@ -253,6 +253,22 @@ describe("battle summon queries", () => {
     expect(spellView?.isActionable).toBe(true);
     expect(spellView?.disabledReason).toBeUndefined();
   });
+
+  it("projects a stable reason code when a hand creature lacks PP", () => {
+    const { state } = createSummonState("player");
+    const unaffordable: BattleState = {
+      ...state,
+      players: {
+        ...state.players,
+        player: { ...state.players.player, currentPp: 0 }
+      }
+    };
+
+    expect(projectPublicBattleView(unaffordable).playerHand[0]).toMatchObject({
+      isActionable: false,
+      disabledReason: "battle.resource.pp-insufficient"
+    });
+  });
 });
 
 function createSummonState(side: BattleSide): {

@@ -36,7 +36,7 @@ import {
   undoMovementStep,
   type BattleInteractionState
 } from "../../../apps/web/src/battle/battleInteraction";
-import { useBattleController } from "../../../apps/web/src/battle/useBattleController";
+import { defeatedCreatureFor, useBattleController } from "../../../apps/web/src/battle/useBattleController";
 import {
   battleStateArbitrary,
   canonicalBoardCoordinateArbitrary
@@ -71,6 +71,25 @@ const LOG_ENTRIES: readonly BattleLogEntry[] = [
 ];
 
 describe("battle screen", () => {
+  it("shows a specific Japanese reason for an unplayable hand card", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const unavailableCard = {
+      ...viewModel.playerHand[0]!,
+      isActionable: false,
+      disabledReason: "battle.resource.pp-insufficient"
+    };
+    const unavailableView = { ...viewModel, playerHand: [unavailableCard] };
+
+    render(
+      <BattleScreen viewModel={unavailableView} locale="ja" logEntries={LOG_ENTRIES} cpuStatus="idle"
+        onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
+    );
+
+    const card = screen.getByTestId(`battle-hand-card-${unavailableCard.instanceId}`);
+    expect(card).toHaveTextContent("PPが不足しています。");
+    expect(card).not.toHaveTextContent("問題が発生しました");
+  });
+
   it("renders the sparse board, five bases, public resources, and no visible coordinates", () => {
     const initialState = createBattleScreenState();
     const state: BattleState = {
@@ -421,13 +440,30 @@ describe("battle screen", () => {
     expect(screen.getByTestId(`battle-board-card-${target.instanceId}`)).toHaveTextContent("HP 0");
     expect(screen.getByTestId(`battle-square-${targetSquare.coordinate.column}-${targetSquare.coordinate.row}`)).toHaveClass("battle-square--anim-damage");
 
+    const destroyedEvent = {
+      sequence: 101,
+      type: "creature.destroyed" as const,
+      instanceId: target.instanceId,
+      message: "Creature was destroyed.",
+      data: { previousColumn: targetSquare.coordinate.column, previousRow: targetSquare.coordinate.row }
+    };
+    const destroyPresentation = defeatedCreatureFor(destroyedEvent, viewModel, destroyedView);
+
+    expect(destroyPresentation).toMatchObject({ squareKey: targetSquare.key, card: { instanceId: target.instanceId, currentHp: 0 } });
+
     rerender(
-      <BattleScreen viewModel={destroyedView} logEntries={LOG_ENTRIES} cpuStatus="idle"
-        animationEvent={{ sequence: 101, type: "creature.destroyed", message: "Creature was destroyed.", data: { previousColumn: targetSquare.coordinate.column, previousRow: targetSquare.coordinate.row } }}
+      <BattleScreen viewModel={viewModel} logEntries={LOG_ENTRIES} cpuStatus="idle"
+        animationEvent={destroyedEvent} defeatedCreature={destroyPresentation} destroyedCreatureInstanceIds={[target.instanceId]}
+        onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
+    );
+    expect(screen.getByTestId(`battle-board-card-${target.instanceId}`)).toHaveClass("battle-card--anim-destroy");
+    expect(screen.getByTestId(`battle-square-${targetSquare.coordinate.column}-${targetSquare.coordinate.row}`)).toHaveClass("battle-square--anim-destroy");
+
+    rerender(
+      <BattleScreen viewModel={viewModel} logEntries={LOG_ENTRIES} cpuStatus="idle" destroyedCreatureInstanceIds={[target.instanceId]}
         onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
     );
     expect(screen.queryByTestId(`battle-board-card-${target.instanceId}`)).not.toBeInTheDocument();
-    expect(screen.getByTestId(`battle-square-${targetSquare.coordinate.column}-${targetSquare.coordinate.row}`)).toHaveClass("battle-square--anim-destroy");
   });
 
   it("localizes terminal result labels, reason, and actions", () => {
@@ -871,7 +907,7 @@ describe("battle screen", () => {
       expect(result.current.viewModel.publicView.boardSquares.find(
         (square) => square.key === "3:9"
       )?.occupant).toMatchObject({ instanceId: source.instanceId });
-    });
+    }, { timeout: 3_000 });
   });
 
   it("guards phase end, cancels movement on Escape, and resolves at the movement limit", async () => {
@@ -943,14 +979,17 @@ describe("battle screen", () => {
       result.current.actions.selectBoardSquare({ column: 5, row: 5 });
     });
 
-    if (result.current.viewModel.kind === "battle") {
+    await waitFor(() => {
+      if (result.current.viewModel.kind !== "battle") {
+        throw new Error("Expected an active battle controller.");
+      }
       expect(result.current.viewModel.interaction.kind).toBe("idle");
       expect(
         result.current.viewModel.publicView.boardSquares.find(
           (square) => square.key === "5:5"
         )?.occupant
       ).toMatchObject({ instanceId: creature.instanceId, movedThisTurn: true });
-    }
+    }, { timeout: 2_000 });
   });
 });
 

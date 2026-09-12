@@ -36,6 +36,8 @@ export interface BattleBoardProps {
   readonly animationEvent?: BattleEvent;
   /** A lethal target remains visible at 0 HP until its destruction event. */
   readonly defeatedCreature?: { readonly squareKey: string; readonly card: BattleCardView };
+  /** Cards already shown through a destruction event stay removed during later events. */
+  readonly destroyedCreatureInstanceIds?: readonly string[];
 }
 
 export function BattleBoard(props: BattleBoardProps) {
@@ -44,6 +46,7 @@ export function BattleBoard(props: BattleBoardProps) {
   const squareRefs = useRef(new Map<string, HTMLButtonElement>());
   const suppressTouchClickKey = useRef<string>();
   const candidateKeys = new Set(props.candidateKeys ?? []);
+  const destroyedCreatureIds = new Set(props.destroyedCreatureInstanceIds ?? []);
   // Keep the lane's existing background color visible. These keys only describe
   // the territory that can become a summon destination; occupancy is handled by
   // the stronger, interaction-specific candidate treatment below.
@@ -98,10 +101,11 @@ export function BattleBoard(props: BattleBoardProps) {
             square.occupant?.instanceId === selectedCreature.instanceId &&
             isMovementOrigin &&
             !isProvisional;
+          const hidesDestroyedCreature = square.occupant && destroyedCreatureIds.has(square.occupant.instanceId);
           const displayedOccupant =
             selectedCreature && isProvisional
               ? selectedCreature
-              : hidesConfirmedCreature
+              : hidesConfirmedCreature || hidesDestroyedCreature
                 ? undefined
                 : square.occupant;
           const animatedOccupant = props.defeatedCreature?.squareKey === square.key
@@ -193,7 +197,7 @@ export function BattleBoard(props: BattleBoardProps) {
               }}
             >
               {animatedOccupant ? (
-                <BattleCard card={animatedOccupant} locale={props.locale} mode="board" animationKind={animationKind === "summon" || animationKind === "move" || animationKind === "damage" ? animationKind : undefined} />
+                <BattleCard card={animatedOccupant} locale={props.locale} mode="board" animationKind={animationKind === "summon" || animationKind === "move" || animationKind === "damage" || animationKind === "destroy" ? animationKind : undefined} />
               ) : null}
               {isMovementOrigin ? (
                 <span

@@ -1,4 +1,5 @@
 import { getBattleBaseById } from "./bases";
+import { destroyCreature } from "./attack";
 import { isNormalBoardCoordinate } from "./board";
 import { resolveCardEffectScript } from "./cardEffectRuntime";
 import type { BattleBaseState, BattleCardInstance, BattleEvent, BattleState } from "./types";
@@ -79,6 +80,11 @@ function applyHealthDelta(state: BattleState, context: EffectContext, targets: r
       const currentHp = Math.max(0, Math.min(card.maxHp ?? card.currentHp ?? 0, (card.currentHp ?? 0) + delta));
       next = { ...next, cardInstances: { ...next.cardInstances, [card.instanceId]: { ...card, currentHp } } };
       events.push({ sequence: firstSequence + events.length, type: "creature.damaged", side: context.controllerSide, instanceId: card.instanceId, message: `${card.name} was ${verb}.`, data: { amount: Math.abs(delta), effectId: context.effect.effectId } });
+      if (delta < 0 && currentHp === 0) {
+        const destroyed = destroyCreature(next, card.instanceId, firstSequence + events.length);
+        next = destroyed.state;
+        events.push(...destroyed.events);
+      }
     } else {
       const base = getBattleBaseById(next.bases, target.baseId);
       const currentHp = Math.max(0, Math.min(base.maxHp, base.currentHp + delta));
