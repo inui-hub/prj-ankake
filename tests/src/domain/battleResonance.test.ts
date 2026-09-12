@@ -3,7 +3,6 @@ import {
   GameEngine,
   createInitialBattleBoard,
   createEmptyResonance,
-  decayResonance,
   getEffectiveCreatureAttack,
   getEffectiveCreatureCurrentHp,
   getEffectiveCreatureMaxHp,
@@ -22,33 +21,40 @@ import fc from "fast-check";
 import { battleStateArbitrary } from "../generators/battleGenerators";
 
 describe("resonance", () => {
-  it("maintains the complete 3 by 5 map within 0 through 10", () => {
+  it("maintains the complete 3 by 5 map within 0 through 15", () => {
     const initial = createEmptyResonance();
     expect(BATTLE_LANES.flatMap((lane) => Object.values(initial[lane]))).toEqual(Array(15).fill(0));
-    expect(increaseResonance(initial, "left", "fire", 99).left.fire).toBe(10);
-    expect(decayResonance(initial).center.water).toBe(0);
+    expect(increaseResonance(initial, "left", "fire", 99).left.fire).toBe(15);
     expect(resonanceGain(1)).toBe(1);
     expect(resonanceGain(3)).toBe(3);
-    expect(resonanceGain(9)).toBe(3);
+    expect(resonanceGain(9)).toBe(9);
   });
 
-  it("uses original cost for creature resonance, including a cost below three", () => {
-    const state = summonableState(2);
+  it("uses the full original cost for creature resonance", () => {
+    const state = summonableState(6);
     const result = GameEngine.submitCommand(state, {
       type: "summonCreature", side: "player", handInstanceId: "resonance-creature", destination: { column: 5, row: 9 }
     });
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.state.players.player.resonance.center.fire).toBe(2);
+    if (result.ok) expect(result.state.players.player.resonance.center.fire).toBe(6);
   });
 
-  it("adds a spell's original-cost resonance to every lane without running its intrinsic effect", () => {
+  it("adds one spell resonance to every lane regardless of its cost", () => {
     const state = spellState(6);
     const result = GameEngine.submitCommand(state, { type: "castSpell", side: "player", handInstanceId: "resonance-spell" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    for (const lane of BATTLE_LANES) expect(result.state.players.player.resonance[lane].water).toBe(3);
+    for (const lane of BATTLE_LANES) expect(result.state.players.player.resonance[lane].water).toBe(1);
     expect(result.events.map((event) => event.type)).toEqual(["spell.resolved", "resonance.changed", "resonance.changed", "resonance.changed"]);
     expect(result.events.some((event) => event.type === "effect.fizzled")).toBe(false);
+  });
+
+  it("preserves resonance values when a turn starts", () => {
+    const state = withResonance(baseState(), "player", "center", "fire", 11);
+    const result = resolveStandbyPhase(state, "player", 100);
+
+    expect(result.state.players.player.resonance.center.fire).toBe(11);
+    expect(result.events.some((event) => event.type === "resonance.changed")).toBe(false);
   });
 
   it("derives the fire bonus for allied creatures in an active lane without mutating their attack", () => {
@@ -59,7 +65,7 @@ describe("resonance", () => {
         ...state.players,
         player: {
           ...state.players.player,
-          resonance: increaseResonance(state.players.player.resonance, "center", "fire", 5)
+          resonance: increaseResonance(state.players.player.resonance, "center", "fire", 15)
         }
       }
     };
@@ -82,7 +88,7 @@ describe("resonance", () => {
         ...state.players,
         player: {
           ...state.players.player,
-          resonance: increaseResonance(state.players.player.resonance, "center", "fire", 5)
+          resonance: increaseResonance(state.players.player.resonance, "center", "fire", 15)
         }
       }
     };
@@ -101,7 +107,7 @@ describe("resonance", () => {
         ...activeState.players,
         player: {
           ...activeState.players.player,
-          resonance: { ...activeState.players.player.resonance, center: { ...activeState.players.player.resonance.center, fire: 4 } }
+          resonance: { ...activeState.players.player.resonance, center: { ...activeState.players.player.resonance.center, fire: 14 } }
         }
       }
     };
@@ -112,7 +118,7 @@ describe("resonance", () => {
   });
 
   it("automatically boosts the first creature to move in an active lane and removes it at turn end", () => {
-    const state = withResonance(boardCreatureState(), "player", "center", "water", 5);
+    const state = withResonance(boardCreatureState(), "player", "center", "water", 15);
     expect(projectPublicBattleView(state).boardSquares.find((square) => square.key === "5:8")?.occupant?.movement).toBe(1);
     const result = GameEngine.submitCommand(state, {
       type: "moveCreature",
@@ -147,7 +153,7 @@ describe("resonance", () => {
   });
 
   it("consumes wind resonance for the first summon even when the one-cost floor prevents a reduction", () => {
-    const state = withResonance(summonableState(2), "player", "center", "wind", 5);
+    const state = withResonance(summonableState(2), "player", "center", "wind", 15);
     const affordableState: BattleState = {
       ...state,
       players: { ...state.players, player: { ...state.players.player, currentPp: 1 } }
@@ -167,7 +173,7 @@ describe("resonance", () => {
 
   it("AK-004/009/013/021/028/036/043 derive their continuous values from the current board", () => {
     const state = continuousEffectState();
-    const active = withResonance(withResonance(withResonance(state, "player", "center", "fire", 5), "player", "left", "wind", 5), "player", "center", "wind", 5);
+    const active = withResonance(withResonance(withResonance(state, "player", "center", "fire", 15), "player", "left", "wind", 15), "player", "center", "wind", 15);
     const berserker = active.cardInstances["ak-004"]!;
     const seeker = active.cardInstances["ak-013"]!;
     const token = active.cardInstances["ak-token"]!;
@@ -195,7 +201,7 @@ describe("resonance", () => {
   });
 
   it("resets active dark lanes for both sides at every player-turn start and resets on activation", () => {
-    const state = withResonance(withResonance(baseState(), "player", "center", "dark", 5), "cpu", "center", "dark", 5);
+    const state = withResonance(withResonance(baseState(), "player", "center", "dark", 15), "cpu", "center", "dark", 15);
     const usedState: BattleState = {
       ...state,
       players: {
@@ -209,7 +215,7 @@ describe("resonance", () => {
     expect(standby.state.players.player.resonanceUsage.dark.center).toBe(false);
     expect(standby.state.players.cpu.resonanceUsage.dark.center).toBe(false);
 
-    const inactiveDark = withResonance(summonableState(1), "player", "center", "dark", 4);
+    const inactiveDark = withResonance(summonableState(1), "player", "center", "dark", 14);
     const reactivatingState: BattleState = {
       ...inactiveDark,
       cardInstances: {
@@ -363,5 +369,5 @@ function lightResonanceState(): BattleState {
       "neutral-center": { ...centerPlaced.bases["neutral-center"], owner: "cpu", currentHp: 8 }
     }
   };
-  return withResonance(withResonance(withCards, "player", "left", "light", 5), "player", "center", "light", 5);
+  return withResonance(withResonance(withCards, "player", "left", "light", 15), "player", "center", "light", 15);
 }

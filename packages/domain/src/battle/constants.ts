@@ -8,5 +8,5 @@ export const BATTLE_BASE_MOVEMENT = 1;
 export const BATTLE_LOG_LIMIT = 500;
 export const CPU_ACCEPTED_COMMAND_LIMIT = 30;
 export const HUMAN_PLAY_PHASE_SECONDS = 90;
-export const RESONANCE_MAX = 10;
-export const RESONANCE_ACTIVE_THRESHOLD = 5;
+export const RESONANCE_MAX = 15;
+export const RESONANCE_ACTIVE_THRESHOLD = 15;
