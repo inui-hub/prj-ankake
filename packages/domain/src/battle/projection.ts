@@ -196,10 +196,10 @@ function projectBattleCard(
       : summonStart?.eligible ?? movementStart?.eligible ?? false;
   const disabledReason =
     card.type === "spell"
-      ? spellIsActionable ? undefined : spellIssues?.[0]?.message
+      ? spellIsActionable ? undefined : spellIssues?.[0]?.code
       : location === "hand"
-        ? summonStart?.issues[0]?.message
-        : movementStart?.issues[0]?.message;
+        ? summonStart?.issues[0]?.code
+        : movementStart?.issues[0]?.code;
 
   return {
     instanceId: card.instanceId,

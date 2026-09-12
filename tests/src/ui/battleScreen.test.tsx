@@ -71,6 +71,25 @@ const LOG_ENTRIES: readonly BattleLogEntry[] = [
 ];
 
 describe("battle screen", () => {
+  it("shows a specific Japanese reason for an unplayable hand card", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const unavailableCard = {
+      ...viewModel.playerHand[0]!,
+      isActionable: false,
+      disabledReason: "battle.resource.pp-insufficient"
+    };
+    const unavailableView = { ...viewModel, playerHand: [unavailableCard] };
+
+    render(
+      <BattleScreen viewModel={unavailableView} locale="ja" logEntries={LOG_ENTRIES} cpuStatus="idle"
+        onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
+    );
+
+    const card = screen.getByTestId(`battle-hand-card-${unavailableCard.instanceId}`);
+    expect(card).toHaveTextContent("PPが不足しています。");
+    expect(card).not.toHaveTextContent("問題が発生しました");
+  });
+
   it("renders the sparse board, five bases, public resources, and no visible coordinates", () => {
     const initialState = createBattleScreenState();
     const state: BattleState = {

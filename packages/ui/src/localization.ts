@@ -39,6 +39,16 @@ const JAPANESE = {
   "battle.resonance.already-used": "このレーンの水共鳴はこのターンに使用済みです",
   "battle.resonance.no-target": "このレーンには水共鳴の対象がありません",
   "battle.resonance.unknown": "操作を実行できませんでした"
+  , "battle.terminal": "対戦はすでに終了しています。"
+  , "battle.phase.invalid": "プレイフェーズ中のみカードを使用できます。"
+  , "battle.side.inactive": "自分のターンではありません。"
+  , "battle.resource.pp-insufficient": "PPが不足しています。"
+  , "battle.summon.no-destination": "召喚可能な空きマスがありません。"
+  , "battle.effect.unsupported": "このカード効果は実行できません。"
+  , "battle.card.not-found": "選択したカードは存在しません。"
+  , "battle.card.owner-invalid": "選択したカードは自分の手札にありません。"
+  , "battle.card.zone-invalid": "選択したカードは手札にありません。"
+  , "battle.card.type-invalid": "このカードは召喚できません。"
   , "battle.status": "状態"
   , "battle.status.available": "使用可能"
   , "battle.status.unavailable": "使用不可"
@@ -226,6 +236,16 @@ const ENGLISH: TranslationCatalog = {
   "battle.resonance.already-used": "Water resonance was already used in this lane this turn.",
   "battle.resonance.no-target": "There is no water resonance target in this lane.",
   "battle.resonance.unknown": "The action could not be completed."
+  , "battle.terminal": "The battle has already ended."
+  , "battle.phase.invalid": "Cards can be used only during a play phase."
+  , "battle.side.inactive": "It is not your turn."
+  , "battle.resource.pp-insufficient": "Not enough PP."
+  , "battle.summon.no-destination": "No empty legal summon square is available."
+  , "battle.effect.unsupported": "This card effect cannot be executed."
+  , "battle.card.not-found": "The selected card no longer exists."
+  , "battle.card.owner-invalid": "The selected card is not in your hand."
+  , "battle.card.zone-invalid": "The selected card is not in hand."
+  , "battle.card.type-invalid": "This card cannot be summoned."
   , "battle.status": "Status"
   , "battle.status.available": "Available"
   , "battle.status.unavailable": "Unavailable"
@@ -600,7 +620,8 @@ export function localizeLoadingLabel(locale: UiLocale | undefined, label: string
 }
 
 export function localizeBattleReason(locale: UiLocale | undefined, reason: string): string {
-  if (locale === undefined) return reason;
+  if (locale === undefined) return reason in JAPANESE ? uiText("en", reason as UiTextKey) : reason;
+  if (reason in JAPANESE) return uiText(locale, reason as UiTextKey);
   const known: Readonly<Record<string, UiTextKey>> = {
     "Card data is unavailable.": "battle.card-unavailable",
     "No legal target is available for this summon effect.": "battle.effect.no-target",
