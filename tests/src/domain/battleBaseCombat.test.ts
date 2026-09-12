@@ -55,7 +55,7 @@ describe("creature and base combat", () => {
         ...fixture.state.players,
         cpu: {
           ...fixture.state.players.cpu,
-          resonance: increaseResonance(fixture.state.players.cpu.resonance, "center", "dark", 5)
+          resonance: increaseResonance(fixture.state.players.cpu.resonance, "center", "dark", 15)
         }
       }
     };

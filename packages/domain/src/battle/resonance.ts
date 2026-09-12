@@ -1,5 +1,5 @@
 import { CARD_ATTRIBUTES, type CardAttribute } from "../catalog/types";
-import { RESONANCE_MAX } from "./constants";
+import { RESONANCE_ACTIVE_THRESHOLD, RESONANCE_MAX } from "./constants";
 import { getLane } from "./board";
 import type { BattleCardInstance, BattleLane, BattleSide, BattleState, ResonanceMap, ResonanceTurnUsage } from "./types";
 
@@ -35,26 +35,12 @@ export function increaseResonance(
   };
 }
 
-export function decayResonance(resonance: ResonanceMap): ResonanceMap {
-  return Object.fromEntries(
-    BATTLE_LANES.map((lane) => [
-      lane,
-      Object.fromEntries(
-        CARD_ATTRIBUTES.map((attribute) => [
-          attribute,
-          clampResonance(resonance[lane][attribute] - 1)
-        ])
-      )
-    ])
-  ) as ResonanceMap;
-}
-
 export function clampResonance(value: number): number {
   return Math.min(RESONANCE_MAX, Math.max(0, Math.trunc(value)));
 }
 
 export function resonanceGain(originalCost: number): number {
-  return Math.min(3, Math.max(0, Math.trunc(originalCost)));
+  return Math.max(0, Math.trunc(originalCost));
 }
 
 export function isResonanceActive(
@@ -62,7 +48,7 @@ export function isResonanceActive(
   lane: BattleLane,
   attribute: CardAttribute
 ): boolean {
-  return resonance[lane][attribute] >= 5;
+  return resonance[lane][attribute] >= RESONANCE_ACTIVE_THRESHOLD;
 }
 
 export function getCreaturePlayCost(state: BattleState, side: BattleSide, card: BattleCardInstance, lane: BattleLane): number {

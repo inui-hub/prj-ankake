@@ -213,7 +213,7 @@ function projectBattleCard(
     ...(isCreature
       ? {
           // Resonance bonuses are derived from the current battle state so a
-          // lane change or resonance decay is reflected without mutating the
+          // lane changes or resonance changes are reflected without mutating the
           // card's persistent base/current attack.
           currentAttack: state
             ? getEffectiveCreatureAttack(state, card)

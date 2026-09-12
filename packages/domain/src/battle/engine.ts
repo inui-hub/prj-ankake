@@ -164,7 +164,7 @@ function acceptSpell(
     ...BATTLE_LANES.map((lane, index) => ({ sequence: firstEventSequence + 1 + index, type: "resonance.changed" as const, side: command.side, instanceId: card.instanceId, message: `${card.attribute} resonance increased in the ${lane} lane.` }))
   ];
   const nextPlayer = resolvedState.players[command.side];
-  const resonance = BATTLE_LANES.reduce((current, lane) => increaseResonance(current, lane, card.attribute, resonanceGain(card.cost)), nextPlayer.resonance);
+  const resonance = BATTLE_LANES.reduce((current, lane) => increaseResonance(current, lane, card.attribute, 1), nextPlayer.resonance);
   // Lifecycle resolution allocates from state.eventCursor.  Advance the
   // staged cursor past *all* spell events first, otherwise a trigger emitted
   // by the effect can reuse an effect/spell sequence number.

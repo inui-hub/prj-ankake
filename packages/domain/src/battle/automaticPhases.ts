@@ -1,7 +1,6 @@
 import { createRngFromState } from "./rng";
 import { BATTLE_HAND_LIMIT, BATTLE_MAX_PP } from "./constants";
 import { resolveAttackPhase } from "./attack";
-import { decayResonance } from "./resonance";
 import { getLane } from "./board";
 import { BATTLE_BASE_IDS } from "./bases";
 import { BATTLE_LANES, isResonanceActive } from "./resonance";
@@ -96,7 +95,6 @@ export function resolveStandbyPhase(
     turnsStarted: nextTurnsStarted,
     maxPp: nextMaxPp,
     currentPp: nextMaxPp,
-    resonance: nextTurnsStarted === 1 ? player.resonance : decayResonance(player.resonance),
     resonanceUsage: {
       water: { left: false, center: false, right: false },
       wind: { left: false, center: false, right: false },
@@ -108,23 +106,15 @@ export function resolveStandbyPhase(
       ? { ...card, movementOverride: undefined, movementOverrideExpiresOnSide: undefined }
       : card
   ])) as BattleState["cardInstances"];
-  const events: BattleEvent[] = [
-    ...(nextTurnsStarted === 1 ? [] : [{
-      sequence: firstSequence,
-      type: "resonance.changed" as const,
-      side,
-      message: `${labelSide(side)} resonance decayed.`
-    }]),
-    {
-      sequence: firstSequence + (nextTurnsStarted === 1 ? 0 : 1),
-      type: "standby.resolved",
-      side,
-      message: `${labelSide(side)} recovered to ${nextMaxPp} PP.`,
-      data: {
-        maxPp: nextMaxPp
-      }
+  const events: BattleEvent[] = [{
+    sequence: firstSequence,
+    type: "standby.resolved",
+    side,
+    message: `${labelSide(side)} recovered to ${nextMaxPp} PP.`,
+    data: {
+      maxPp: nextMaxPp
     }
-  ];
+  }];
 
   if (nextPlayer.deckZone.length === 0) {
     const sequence = firstSequence + events.length;

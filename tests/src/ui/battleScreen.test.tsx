@@ -161,7 +161,7 @@ describe("battle screen", () => {
           ...initialState.players.player,
           resonance: {
             ...initialState.players.player.resonance,
-            center: { ...initialState.players.player.resonance.center, fire: 5 }
+            center: { ...initialState.players.player.resonance.center, fire: 15, water: 14 }
           }
         }
       }
@@ -169,6 +169,9 @@ describe("battle screen", () => {
     renderBattleScreen(viewModel);
 
     expect(screen.getByTestId("battle-resonance-center-fire")).toHaveClass(
+      "battle-resonance-table__cell--active"
+    );
+    expect(screen.getByTestId("battle-resonance-center-water")).not.toHaveClass(
       "battle-resonance-table__cell--active"
     );
     const resonance = screen.getByTestId("battle-player-resonance");

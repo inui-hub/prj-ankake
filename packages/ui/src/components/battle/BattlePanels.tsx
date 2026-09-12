@@ -1,8 +1,9 @@
-import type {
-  BattleBaseId,
-  BattleBaseView,
-  BattleLogEntry,
-  PublicBattleView
+import {
+  RESONANCE_ACTIVE_THRESHOLD,
+  type BattleBaseId,
+  type BattleBaseView,
+  type BattleLogEntry,
+  type PublicBattleView
 } from "@ankake/domain";
 import { useState } from "react";
 import { localizeBattleEvent, localizeBattleSide, uiText } from "../../localization";
@@ -135,7 +136,7 @@ function ResonanceTable(props: { readonly viewModel: PublicBattleView; readonly 
       <thead><tr><th scope="col">{props.locale === "ja" ? "属性" : "Attribute"}</th>{lanes.map((lane) => <th key={lane} scope="col">{label(lane)}</th>)}</tr></thead>
       <tbody>{attributes.map((attribute) => <tr className={`battle-resonance-table__row--${attribute}`} key={attribute}><th scope="row">{label(attribute)}</th>{lanes.map((lane) => {
         const value = props.viewModel.playerResonance[lane]?.[attribute] ?? 0;
-        return <td className={value >= 5 ? "battle-resonance-table__cell--active" : undefined} key={lane} data-testid={`battle-resonance-${lane}-${attribute}`}>{value}</td>;
+        return <td className={value >= RESONANCE_ACTIVE_THRESHOLD ? "battle-resonance-table__cell--active" : undefined} key={lane} data-testid={`battle-resonance-${lane}-${attribute}`}>{value}</td>;
       })}</tr>)}</tbody>
     </table>
     {showEffects ? <ResonanceEffectPopover locale={props.locale} /> : null}
