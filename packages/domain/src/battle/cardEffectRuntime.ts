@@ -103,7 +103,7 @@ function setEnemyMovement(state: BattleState, context: EffectContext, movement: 
 function increaseMaxPp(state: BattleState, context: EffectContext, amount: number): BattleState {
   const player = state.players[context.controllerSide];
   const maxPp = Math.min(10, player.maxPp + amount);
-  return { ...state, players: { ...state.players, [context.controllerSide]: { ...player, maxPp, currentPp: Math.min(maxPp, player.currentPp + amount) } } };
+  return { ...state, players: { ...state.players, [context.controllerSide]: { ...player, maxPp } } };
 }
 function drawIfMaxPp(state: BattleState, context: EffectContext, threshold: number, sequence: number) { return state.players[context.controllerSide].maxPp >= threshold ? drawCards(state, context, 1, sequence) : withEvent(state, context, sequence, "Maximum PP condition was not met."); }
 function drawCards(state: BattleState, context: EffectContext, amount: number, firstSequence: number): { readonly state: BattleState; readonly events: readonly BattleEvent[] } {
