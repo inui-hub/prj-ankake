@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
 import { type UiLocale, uiText } from "../localization";
-import darkResonanceTokenArtwork from "../../../../images/card_illustrations/project_ankake_card_illustration_dark-resonance-token_v1_0.png";
-
-const tokenArtworkUrls: Readonly<Record<string, string>> = {
-  "dark-resonance-token": darkResonanceTokenArtwork
-};
 
 const cardArtworkUrls = import.meta.glob<string>(
   "../../../../images/card_illustrations/*.png",
@@ -68,10 +63,6 @@ export function resolveCardArtworkSrc(
   catalogCardId: string,
   illustration?: string
 ): string | undefined {
-  const tokenArtwork = tokenArtworkUrls[catalogCardId];
-  if (tokenArtwork) {
-    return tokenArtwork;
-  }
   const fileName =
     illustration?.split("/").at(-1) ??
     `project_ankake_card_illustration_${catalogCardId}_v1_0.png`;

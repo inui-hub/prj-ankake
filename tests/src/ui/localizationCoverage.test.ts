@@ -40,6 +40,11 @@ describe("localization coverage", () => {
     }
   });
 
+  it("uses the canonical dark token name in Japanese", () => {
+    expect(localizeCardPresentation({ id: "AK-T-002", name: "Shade Remnant", effectText: "No effect.", type: "creature-token", attribute: "dark" }, "ja").name)
+      .toBe("冥影の残滓");
+  });
+
   it("preserves the documented meaning in representative English effect translations", () => {
     expect(localizeCardPresentation({ id: "AK-012", name: "", effectText: "", type: "creature", attribute: "fire" }, "en").effectText)
       .toBe("On summon: Choose an enemy creature or attackable base. Deal 7 damage to it. If this destroys an enemy creature, deal 3 damage to all other enemy creatures in that creature's lane.");

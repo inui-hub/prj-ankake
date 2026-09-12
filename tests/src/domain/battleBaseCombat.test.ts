@@ -4,6 +4,7 @@ import {
   createInitialBattleBoard,
   getBattleBaseById,
   getOccupantId,
+  increaseResonance,
   placeCreatureForTest,
   updateBattleBase,
   type BattleCardInstance,
@@ -43,6 +44,25 @@ describe("creature and base combat", () => {
       "creature.damaged",
       "creature.destroyed"
     ]);
+  });
+
+  it("creates the canonical dark token when dark resonance destroys a creature", () => {
+    const fixture = createCreatureFixture(3);
+    const attacker = fixture.state.cardInstances[fixture.attackerId] as BattleCardInstance;
+    const state: BattleState = {
+      ...fixture.state,
+      players: {
+        ...fixture.state.players,
+        cpu: {
+          ...fixture.state.players.cpu,
+          resonance: increaseResonance(fixture.state.players.cpu.resonance, "center", "dark", 5)
+        }
+      }
+    };
+    const result = applyCreatureDamage(state, attacker, fixture.targetId, 4, 50);
+    const token = Object.values(result.state.cardInstances).find((card) => card.instanceId.startsWith("dark-resonance-cpu-"));
+
+    expect(token).toMatchObject({ catalogCardId: "AK-T-002", name: "Shade Remnant", type: "creature-token" });
   });
 
   it.each([
