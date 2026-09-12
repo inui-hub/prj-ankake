@@ -468,10 +468,13 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     for (const event of events) {
       // Removing the class for a frame makes repeated damage or movement
       // events restart their CSS animation on the same target.
+      // Keep a lethal creature mounted while changing from its damage event
+      // to the following destruction event, so it cannot disappear before
+      // its destruction animation begins.
+      const defeated = defeatedCreatureFor(event, previousView, currentView);
       setAnimationEvent(undefined);
-      setDefeatedCreature(undefined);
+      setDefeatedCreature(defeated);
       await waitForBattlePresentation(16);
-      setDefeatedCreature(defeatedCreatureFor(event, previousView, currentView));
       setAnimationEvent(event);
       await waitForBattlePresentation(eventDuration(event));
     }
@@ -574,22 +577,28 @@ function waitForBattlePresentation(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
-function defeatedCreatureFor(
+export function defeatedCreatureFor(
   event: BattleEvent,
   previousView: ReturnType<typeof projectPublicBattleView>,
   currentView: ReturnType<typeof projectPublicBattleView>
 ): DefeatedCreaturePresentation | undefined {
-  if (event.type !== "creature.damaged" || typeof event.data?.targetId !== "string") {
+  const damagedTargetId = typeof event.data?.targetId === "string" ? event.data.targetId : undefined;
+  const targetId = event.type === "creature.damaged"
+    ? damagedTargetId
+    : event.type === "creature.destroyed"
+      ? event.instanceId
+      : undefined;
+  if (!targetId) {
     return undefined;
   }
-  if (typeof event.data.remainingHp === "number" && event.data.remainingHp > 0) {
+  if (event.type === "creature.damaged" && (typeof event.data?.remainingHp !== "number" || event.data.remainingHp > 0)) {
     return undefined;
   }
   const previousSquare = previousView.boardSquares.find(
-    (square) => square.occupant?.instanceId === event.data?.targetId
+    (square) => square.occupant?.instanceId === targetId
   );
   const remainsOnBoard = currentView.boardSquares.some(
-    (square) => square.occupant?.instanceId === event.data?.targetId
+    (square) => square.occupant?.instanceId === targetId
   );
   if (!previousSquare?.occupant || remainsOnBoard) return undefined;
 

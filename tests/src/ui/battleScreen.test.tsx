@@ -36,7 +36,7 @@ import {
   undoMovementStep,
   type BattleInteractionState
 } from "../../../apps/web/src/battle/battleInteraction";
-import { useBattleController } from "../../../apps/web/src/battle/useBattleController";
+import { defeatedCreatureFor, useBattleController } from "../../../apps/web/src/battle/useBattleController";
 import {
   battleStateArbitrary,
   canonicalBoardCoordinateArbitrary
@@ -440,12 +440,23 @@ describe("battle screen", () => {
     expect(screen.getByTestId(`battle-board-card-${target.instanceId}`)).toHaveTextContent("HP 0");
     expect(screen.getByTestId(`battle-square-${targetSquare.coordinate.column}-${targetSquare.coordinate.row}`)).toHaveClass("battle-square--anim-damage");
 
+    const destroyedEvent = {
+      sequence: 101,
+      type: "creature.destroyed" as const,
+      instanceId: target.instanceId,
+      message: "Creature was destroyed.",
+      data: { previousColumn: targetSquare.coordinate.column, previousRow: targetSquare.coordinate.row }
+    };
+    const destroyPresentation = defeatedCreatureFor(destroyedEvent, viewModel, destroyedView);
+
+    expect(destroyPresentation).toMatchObject({ squareKey: targetSquare.key, card: { instanceId: target.instanceId, currentHp: 0 } });
+
     rerender(
       <BattleScreen viewModel={destroyedView} logEntries={LOG_ENTRIES} cpuStatus="idle"
-        animationEvent={{ sequence: 101, type: "creature.destroyed", message: "Creature was destroyed.", data: { previousColumn: targetSquare.coordinate.column, previousRow: targetSquare.coordinate.row } }}
+        animationEvent={destroyedEvent} defeatedCreature={destroyPresentation}
         onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
     );
-    expect(screen.queryByTestId(`battle-board-card-${target.instanceId}`)).not.toBeInTheDocument();
+    expect(screen.getByTestId(`battle-board-card-${target.instanceId}`)).toHaveClass("battle-card--anim-destroy");
     expect(screen.getByTestId(`battle-square-${targetSquare.coordinate.column}-${targetSquare.coordinate.row}`)).toHaveClass("battle-square--anim-destroy");
   });
 

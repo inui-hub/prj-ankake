@@ -193,7 +193,7 @@ export function BattleBoard(props: BattleBoardProps) {
               }}
             >
               {animatedOccupant ? (
-                <BattleCard card={animatedOccupant} locale={props.locale} mode="board" animationKind={animationKind === "summon" || animationKind === "move" || animationKind === "damage" ? animationKind : undefined} />
+                <BattleCard card={animatedOccupant} locale={props.locale} mode="board" animationKind={animationKind === "summon" || animationKind === "move" || animationKind === "damage" || animationKind === "destroy" ? animationKind : undefined} />
               ) : null}
               {isMovementOrigin ? (
                 <span
