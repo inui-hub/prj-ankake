@@ -20,6 +20,7 @@ import {
   BattleLogPanel,
   BattleStatusPanel
 } from "./BattlePanels";
+import { BackgroundScene } from "../BackgroundScene";
 
 export interface BattleScreenProps {
   readonly viewModel: PublicBattleView;
@@ -86,6 +87,7 @@ export function BattleScreen(props: BattleScreenProps) {
 
   return (
     <main className="battle-screen" data-testid="battle-screen">
+      <BackgroundScene />
       <BattleStatusPanel
         viewModel={props.viewModel}
         cpuStatus={props.cpuStatus}

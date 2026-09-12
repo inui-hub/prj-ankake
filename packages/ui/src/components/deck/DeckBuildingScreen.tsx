@@ -20,6 +20,7 @@ import {
   type UnsavedChangesDialogChoice
 } from "./UnsavedChangesDialog";
 import { SavedDeckListPanel } from "./SavedDeckListPanel";
+import { BackgroundScene } from "../BackgroundScene";
 
 export interface DeckBuildingScreenProps {
   readonly viewModel: DeckBuildingViewModel;
@@ -47,6 +48,7 @@ export function DeckBuildingScreen(props: DeckBuildingScreenProps) {
 
   return (
     <main className="deck-screen" data-testid="deck-building-screen">
+      <BackgroundScene />
       <DeckHeaderBar
         viewModel={viewModel}
         saveDisabledReason={props.saveDisabledReason}

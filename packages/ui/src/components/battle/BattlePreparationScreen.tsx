@@ -1,5 +1,6 @@
 import type { FirstPlayerMode, SavedDeckSummary } from "@ankake/domain";
 import { localizeBattleReason, uiText } from "../../localization";
+import { BackgroundScene } from "../BackgroundScene";
 
 export interface BattlePreparationScreenViewModel {
   readonly deckOptions: readonly SavedDeckSummary[];
@@ -28,6 +29,7 @@ export function BattlePreparationScreen(props: BattlePreparationScreenProps) {
 
   return (
     <main className="battle-prep-screen" data-testid="battle-preparation-screen">
+      <BackgroundScene />
       <header className="battle-prep-header">
         <button className="battle-button battle-button--quiet" type="button" onClick={props.onReturnToMenu}>
           {uiText(props.locale, "battle.back")}

@@ -42,6 +42,7 @@ describe("battle preparation screen", () => {
 
     fireEvent.click(screen.getByTestId("battle-prep-start-button"));
 
+    expect(screen.getByTestId("shared-background-scene")).toBeInTheDocument();
     expect(screen.getByTestId("battle-preparation-screen")).toBeInTheDocument();
     expect(onStartBattle).toHaveBeenCalledTimes(1);
   });
