@@ -5,7 +5,7 @@ import {
   getBattleBaseLabel
 } from "./bases";
 import { queryMovementStart } from "./movement";
-import { getEffectiveCreatureAttack, getEffectiveCreatureCurrentHp, getEffectiveCreatureMaxHp, getEffectiveCreatureMovement } from "./resonance";
+import { getEffectiveCreatureAttack, getEffectiveCreatureCurrentHp, getEffectiveCreatureHandCost, getEffectiveCreatureMaxHp, getEffectiveCreatureMovement } from "./resonance";
 import { querySummonStart } from "./summon";
 import { validateBattleCommand } from "./validation";
 import { getEffectChoiceForCard, getPublicEffectChoices } from "./legalActions";
@@ -223,7 +223,7 @@ function projectBattleCard(
     attribute: card.attribute,
     controllerSide: card.controllerSide,
     presentationStatus: "available",
-    currentCost: Math.max(0, card.currentCost),
+    currentCost: Math.max(0, state && location === "hand" && isCreature ? getEffectiveCreatureHandCost(state, card) : card.currentCost),
     ...(isCreature
       ? {
           // Resonance bonuses are derived from the current battle state so a

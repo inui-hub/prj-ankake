@@ -293,7 +293,8 @@ function resetTurnFlags(state: BattleState, endingSide: BattleSide, nextSide: Ba
           ...card,
           ...(card.controllerSide === nextSide ? {
             summonedThisTurn: false,
-            movedThisTurn: false
+            movedThisTurn: false,
+            effectUsesThisTurn: undefined
           } : {}),
           ...(card.controllerSide === endingSide ? { temporaryMovementBonus: undefined } : {})
           }

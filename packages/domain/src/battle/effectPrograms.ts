@@ -29,6 +29,23 @@ export function getExecutableEffects(
   const lifecycle = LIFECYCLE_CARD_IDS[trigger];
   if (trigger !== "play" && !lifecycle.has(card.catalogCardId)) return [];
 
+  // AK-012 has a follow-up script, but its initial target follows the same
+  // creature-or-attackable-base rule as a normal damage spell.
+  if (card.catalogCardId === "AK-012") {
+    return card.effectIds.map((effectId) => ({
+      effectId,
+      consumedOnFizzle: true,
+      operations: [{
+        kind: "card-script",
+        cardId: card.catalogCardId,
+        target: "enemy-creature-or-attackable-base",
+        minimumTargets: 1,
+        maximumTargets: 1,
+        stopOnFailure: true
+      }]
+    }));
+  }
+
   const damage = card.effectText.match(
     /敵クリーチャーまたは攻撃可能な拠点1つを選択する。その対象に(\d+)ダメージを与える。/
   );

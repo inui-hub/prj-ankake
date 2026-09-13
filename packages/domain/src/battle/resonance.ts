@@ -57,14 +57,26 @@ export function getCreaturePlayCost(state: BattleState, side: BattleSide, card: 
   ).length;
   // These are intrinsic hand-cost effects, so they are evaluated before the
   // lane-specific wind-resonance discount that every creature can use.
+  const handCost = getEffectiveCreatureHandCost(state, card);
   const intrinsicCost = card.catalogCardId === "AK-028"
-    ? activeWindLanes > 0 ? 1 : card.currentCost
+    ? activeWindLanes > 0 ? 1 : handCost
     : card.catalogCardId === "AK-036"
-      ? Math.max(0, card.currentCost - activeWindLanes * 3)
-      : card.currentCost;
+      ? Math.max(0, handCost - activeWindLanes * 3)
+      : handCost;
   return isWindResonanceDiscountAvailable(state, side, lane)
     ? Math.max(1, intrinsicCost - 1)
     : Math.max(0, intrinsicCost);
+}
+
+/** Cost a creature currently has in hand before destination-specific discounts. */
+export function getEffectiveCreatureHandCost(state: BattleState, card: BattleCardInstance): number {
+  const auraCount = Object.values(state.cardInstances).filter((source) =>
+    source.catalogCardId === "AK-033" &&
+    source.zone === "board" &&
+    source.controllerSide === card.controllerSide &&
+    !source.effectsDisabled
+  ).length;
+  return Math.max(0, card.currentCost - auraCount);
 }
 
 export function isWindResonanceDiscountAvailable(
@@ -89,28 +101,37 @@ export function getEffectiveCreatureAttack(state: BattleState, card: BattleCardI
   const fireBonus = isResonanceActive(state.players[card.controllerSide].resonance, lane, "fire") ? 1 : 0;
   const berserkerBonus = card.catalogCardId === "AK-004" && !card.effectsDisabled && fireBonus > 0 ? 2 : 0;
   const captainBonus = laneAuraSources(state, card, "AK-009").length;
+  const championBonus = card.catalogCardId === "AK-046" && !card.effectsDisabled
+    ? friendlyTokenCount(state, card.controllerSide)
+    : 0;
   const tokenBonus = card.isToken ? laneAuraSources(state, card, "AK-043").length : 0;
-  return baseAttack + fireBonus + berserkerBonus + captainBonus + tokenBonus;
+  return baseAttack + fireBonus + berserkerBonus + captainBonus + championBonus + tokenBonus;
 }
 
 /** The movement display and path validator must agree on continuous auras. */
 export function getEffectiveCreatureMovement(state: BattleState, card: BattleCardInstance): number {
   const baseMovement = card.movementOverride ?? card.movement + (card.temporaryMovementBonus ?? 0);
-  const intrinsicMovement = card.catalogCardId === "AK-013" ? Math.max(2, baseMovement) : baseMovement;
+  const intrinsicMovement = card.catalogCardId === "AK-013" || card.catalogCardId === "AK-022" ? Math.max(2, baseMovement) : baseMovement;
   if (card.zone !== "board" || !card.position) return Math.max(0, intrinsicMovement);
   return Math.max(0, intrinsicMovement + laneAuraSources(state, card, "AK-021").length);
 }
 
 export function getEffectiveCreatureMaxHp(state: BattleState, card: BattleCardInstance): number {
   const baseHp = card.maxHp ?? card.currentHp ?? 0;
+  if (card.catalogCardId === "AK-046" && card.zone === "board" && !card.effectsDisabled) return baseHp + friendlyTokenCount(state, card.controllerSide);
   if (!card.isToken || card.zone !== "board" || !card.position) return baseHp;
   return baseHp + laneAuraSources(state, card, "AK-043").length * 2;
 }
 
 export function getEffectiveCreatureCurrentHp(state: BattleState, card: BattleCardInstance): number {
   const baseHp = card.currentHp ?? 0;
+  if (card.catalogCardId === "AK-046" && card.zone === "board" && !card.effectsDisabled) return baseHp + friendlyTokenCount(state, card.controllerSide);
   if (!card.isToken || card.zone !== "board" || !card.position) return baseHp;
   return baseHp + laneAuraSources(state, card, "AK-043").length * 2;
+}
+
+function friendlyTokenCount(state: BattleState, side: BattleSide): number {
+  return Object.values(state.cardInstances).filter((card) => card.zone === "board" && card.controllerSide === side && card.isToken).length;
 }
 
 function laneAuraSources(state: BattleState, target: BattleCardInstance, sourceCardId: string): readonly BattleCardInstance[] {

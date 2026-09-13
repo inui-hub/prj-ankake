@@ -2,9 +2,13 @@ import {
   GameEngine,
   createBattleState,
   createInitialBattleBoard,
+  destroyCreature,
+  evaluateMovementDraft,
+  getCreaturePlayCost,
   generateLegalActions,
   placeCreatureForTest,
   projectPublicBattleView,
+  resolveLifecycleEffects,
   type BattleCardInstance,
   type BattleSide,
   type BattleState
@@ -249,6 +253,138 @@ describe("battle effect integration", () => {
     expect(result.state.cardInstances[allyId]?.zone).toBe("graveyard");
     expect(result.state.cardInstances[enemyId]?.zone).toBe("graveyard");
     expect(result.state.cardInstances[sourceId]).toMatchObject({ currentAttack: 4, currentHp: 5, maxHp: 5 });
+  });
+
+  it("resolves AK-012's lethal follow-up after its initial damage, but not for a base target", () => {
+    const sourceId = "ak012-source";
+    const targetId = "ak012-target";
+    const bystanderId = "ak012-bystander";
+    const state = createDeterministicLegalActionState("player", {
+      [sourceId]: createEffectTestCard(sourceId, "player", "creature", "hand", "AK-012", 1, ["AK-012.primary"]),
+      [targetId]: { ...createEffectTestCard(targetId, "cpu", "creature", "hand", "AK-001", 1), currentHp: 7, maxHp: 7 },
+      [bystanderId]: { ...createEffectTestCard(bystanderId, "cpu", "creature", "hand", "AK-001", 1), currentHp: 5, maxHp: 5 }
+    }, [sourceId], []);
+    const withTarget = placeCreatureForTest(state, targetId, "cpu", 2, 8);
+    const prepared = placeCreatureForTest(withTarget, bystanderId, "cpu", 4, 9);
+
+    const result = GameEngine.submitCommand(prepared, { type: "summonCreature", side: "player", handInstanceId: sourceId, destination: { column: 3, row: 9 }, effectSelection: { creatureIds: [targetId] } });
+
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+    expect(result.state.cardInstances[targetId]?.zone).toBe("graveyard");
+    expect(result.state.cardInstances[bystanderId]?.currentHp).toBe(2);
+    const baseTarget = GameEngine.submitCommand(state, { type: "summonCreature", side: "player", handInstanceId: sourceId, destination: { column: 3, row: 9 }, effectSelection: { baseIds: ["cpu-base"] } });
+    expect(baseTarget).toMatchObject({ ok: true });
+    if (baseTarget.ok) expect(baseTarget.state.bases["cpu-base"].currentHp).toBe(13);
+  });
+
+  it("includes attackable bases in AK-010 destruction and AK-011 lane damage", () => {
+    const phoenixId = "ak010-source";
+    const phoenixState = createDeterministicLegalActionState("player", {
+      [phoenixId]: createEffectTestCard(phoenixId, "player", "creature", "hand", "AK-010", 1, ["AK-010.primary"])
+    }, [], []);
+    const phoenix = placeCreatureForTest(phoenixState, phoenixId, "player", 3, 8);
+    const destroyed = destroyCreature(phoenix, phoenixId, phoenix.eventCursor + 1);
+    const destructionEffect = resolveLifecycleEffects(destroyed.state, destroyed.events);
+    expect(destructionEffect).toMatchObject({ accepted: true });
+    if (destructionEffect.accepted) expect(destructionEffect.state.bases["neutral-left"].currentHp).toBe(8);
+
+    const spellId = "ak011-source";
+    const spellState = createDeterministicLegalActionState("player", {
+      [spellId]: createEffectTestCard(spellId, "player", "spell", "hand", "AK-011", 1, ["AK-011.primary"])
+    }, [spellId], []);
+    const spell = GameEngine.submitCommand(spellState, { type: "castSpell", side: "player", handInstanceId: spellId, effectSelection: { lane: "center" } });
+    expect(spell).toMatchObject({ ok: true });
+    if (spell.ok) expect(spell.state.bases["cpu-base"].currentHp).toBe(15);
+  });
+
+  it("applies post-summon token buffs to newly created AK-044 and AK-048 tokens", () => {
+    const spellId = "ak044-source";
+    const spellState = createDeterministicLegalActionState("player", {
+      [spellId]: createEffectTestCard(spellId, "player", "spell", "hand", "AK-044", 1, ["AK-044.primary"])
+    }, [spellId], []);
+    const spell = GameEngine.submitCommand(spellState, { type: "castSpell", side: "player", handInstanceId: spellId, effectSelection: { lane: "left", coordinates: [{ column: 3, row: 9 }, { column: 4, row: 9 }, { column: 3, row: 8 }] } });
+    expect(spell).toMatchObject({ ok: true });
+    if (!spell.ok) return;
+    expect(Object.values(spell.state.cardInstances).filter((card) => card.isToken && card.zone === "board").map((card) => card.currentHp)).toEqual([5, 5, 5]);
+
+    const creatureId = "ak048-source";
+    const creatureState = createDeterministicLegalActionState("player", {
+      [creatureId]: createEffectTestCard(creatureId, "player", "creature", "hand", "AK-048", 1, ["AK-048.primary"])
+    }, [creatureId], []);
+    const creature = GameEngine.submitCommand(creatureState, { type: "summonCreature", side: "player", handInstanceId: creatureId, destination: { column: 3, row: 9 }, effectSelection: { coordinates: [{ column: 4, row: 9 }, { column: 3, row: 8 }, { column: 2, row: 8 }] } });
+    expect(creature).toMatchObject({ ok: true });
+    if (creature.ok) expect(Object.values(creature.state.cardInstances).filter((card) => card.isToken && card.zone === "board").map((card) => [card.currentAttack, card.currentHp])).toEqual([[4, 6], [4, 6], [4, 6]]);
+  });
+
+  it("derives AK-046's token-count bonus and AK-022's two-step, once-per-turn movement effect", () => {
+    const championId = "ak046-source";
+    const championState = createDeterministicLegalActionState("player", {
+      [championId]: createEffectTestCard(championId, "player", "creature", "hand", "AK-046", 1, ["AK-046.primary"])
+    }, [championId], []);
+    const champion = GameEngine.submitCommand(championState, { type: "summonCreature", side: "player", handInstanceId: championId, destination: { column: 3, row: 9 }, effectSelection: { coordinates: [{ column: 4, row: 9 }, { column: 3, row: 8 }] } });
+    expect(champion).toMatchObject({ ok: true });
+    if (!champion.ok) return;
+    const championView = projectPublicBattleView(champion.state).boardSquares.find((square) => square.occupant?.instanceId === championId)?.occupant;
+    expect(championView).toMatchObject({ currentAttack: 4, currentHp: 5, maxHp: 5 });
+
+    const sageId = "ak022-source";
+    const sageState = createDeterministicLegalActionState("player", {
+      [sageId]: createEffectTestCard(sageId, "player", "creature", "hand", "AK-022", 1, ["AK-022.primary"])
+    }, [], []);
+    const placedSage = placeCreatureForTest(sageState, sageId, "player", 3, 8);
+    expect(evaluateMovementDraft(placedSage, "player", sageId, { column: 3, row: 8 }, [{ column: 2, row: 8 }, { column: 2, row: 7 }]).issues).toEqual([]);
+    const first = resolveLifecycleEffects(placedSage, [{ sequence: placedSage.eventCursor + 1, type: "creature.moved", side: "player", instanceId: sageId, message: "moved" }]);
+    expect(first).toMatchObject({ accepted: true });
+    if (!first.accepted) return;
+    const second = resolveLifecycleEffects(first.state, [{ sequence: first.state.eventCursor + 1, type: "creature.moved", side: "player", instanceId: sageId, message: "moved" }]);
+    expect(second).toMatchObject({ accepted: true });
+    if (second.accepted) expect(second.events.filter((event) => event.type === "card.drawn")).toHaveLength(0);
+  });
+
+  it("applies AK-033 while active and respects AK-034's maximum-PP condition", () => {
+    const auraId = "ak033-source";
+    const targetId = "discounted-creature";
+    const state = createDeterministicLegalActionState("player", {
+      [auraId]: createEffectTestCard(auraId, "player", "creature", "hand", "AK-033", 1, ["AK-033.primary"]),
+      [targetId]: createEffectTestCard(targetId, "player", "creature", "hand", "AK-001", 5)
+    }, [targetId], []);
+    const active = placeCreatureForTest(state, auraId, "player", 3, 9);
+    expect(getCreaturePlayCost(active, "player", active.cardInstances[targetId]!, "left")).toBe(4);
+    expect(projectPublicBattleView(active).playerHand.find((card) => card.instanceId === targetId)?.currentCost).toBe(4);
+    const disabled = { ...active, cardInstances: { ...active.cardInstances, [auraId]: { ...active.cardInstances[auraId]!, effectsDisabled: true } } };
+    expect(getCreaturePlayCost(disabled, "player", active.cardInstances[targetId]!, "left")).toBe(5);
+
+    const sourceId = "ak034-source";
+    const deckId = "ak034-deck";
+    const initialDrawState = createDeterministicLegalActionState("player", {
+      [sourceId]: createEffectTestCard(sourceId, "player", "creature", "hand", "AK-034", 1, ["AK-034.primary"]),
+      [deckId]: createEffectTestCard(deckId, "player", "creature", "deck", "AK-001", 3)
+    }, [sourceId], []);
+    const drawState = { ...initialDrawState, players: { ...initialDrawState.players, player: { ...initialDrawState.players.player, deckZone: [deckId] } } };
+    const lowPp = GameEngine.submitCommand(drawState, { type: "summonCreature", side: "player", handInstanceId: sourceId, destination: { column: 3, row: 9 } });
+    expect(lowPp).toMatchObject({ ok: true });
+    if (lowPp.ok) expect(lowPp.state.players.player.handZone).not.toContain(deckId);
+    const highPpState = { ...drawState, players: { ...drawState.players, player: { ...drawState.players.player, maxPp: 10 } } };
+    const highPp = GameEngine.submitCommand(highPpState, { type: "summonCreature", side: "player", handInstanceId: sourceId, destination: { column: 3, row: 9 } });
+    expect(highPp).toMatchObject({ ok: true });
+    if (highPp.ok) expect(highPp.state.cardInstances[deckId]).toMatchObject({ zone: "hand", currentCost: 0 });
+  });
+
+  it("uses and advances the battle RNG for AK-058's random revival", () => {
+    const sourceId = "ak058-source";
+    const graveId = "ak058-grave";
+    const initial = createDeterministicLegalActionState("player", {
+      [sourceId]: createEffectTestCard(sourceId, "player", "creature", "hand", "AK-058", 7, ["AK-058.primary"]),
+      [graveId]: createEffectTestCard(graveId, "player", "creature", "graveyard", "AK-001", 1)
+    }, [], [graveId]);
+    const state = placeCreatureForTest(initial, sourceId, "player", 3, 8);
+    const destroyed = destroyCreature(state, sourceId, state.eventCursor + 1);
+    const result = resolveLifecycleEffects(destroyed.state, destroyed.events);
+    expect(result).toMatchObject({ accepted: true });
+    if (!result.accepted) return;
+    expect(result.state.metadata.rng).not.toEqual(destroyed.state.metadata.rng);
+    expect(result.events.some((event) => event.type === "creature.summoned")).toBe(true);
   });
 
   it("filters structured candidates and CPU selections to combinations accepted by validation", () => {
