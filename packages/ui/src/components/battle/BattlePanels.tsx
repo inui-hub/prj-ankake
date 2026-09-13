@@ -168,7 +168,7 @@ function ResonanceEffectPopover(props: { readonly locale?: "ja" | "en" }) {
     ["Light", "At your attack phase end, restore 1 HP to allies and controlled bases in that lane."],
     ["Dark", "The first allied creature destroyed in each lane each turn leaves a 1/1 token."]
   ];
-  return <section aria-live="polite" className="battle-resonance__effects" data-testid="battle-resonance-effects">
+  return <section aria-live="polite" className="battle-resonance__effects battle-resonance__effects--left" data-testid="battle-resonance-effects">
     <strong>{props.locale === "ja" ? "属性ごとの共鳴効果" : "Resonance effects"}</strong>
     <ul>{effects.map(([attribute, effect]) => <li className={`battle-resonance__effect--${attribute.toLowerCase()}`} key={attribute}><b>{attribute}</b><span>{effect}</span></li>)}</ul>
   </section>;

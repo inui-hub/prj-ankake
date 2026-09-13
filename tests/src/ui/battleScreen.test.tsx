@@ -196,6 +196,9 @@ describe("battle screen", () => {
     fireEvent.mouseEnter(resonance);
     expect(screen.getByTestId("battle-resonance-effects")).toHaveTextContent("Fire");
     expect(screen.getByTestId("battle-resonance-effects")).toHaveTextContent("Dark");
+    expect(screen.getByTestId("battle-resonance-effects")).toHaveClass(
+      "battle-resonance__effects--left"
+    );
     fireEvent.mouseLeave(resonance);
     expect(screen.queryByTestId("battle-resonance-effects")).not.toBeInTheDocument();
     act(() => resonance.focus());
