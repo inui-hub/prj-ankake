@@ -54,6 +54,9 @@ export function BattleCard(props: BattleCardProps) {
     "battle-card",
     `battle-card--${props.mode}`,
     `battle-card--${props.card.controllerSide}`,
+    props.mode === "board" && props.card.controllerSide !== "unknown"
+      ? "battle-card--owner-highlight"
+      : "",
     props.card.presentationStatus === "unavailable"
       ? "battle-card--unavailable"
       : "",

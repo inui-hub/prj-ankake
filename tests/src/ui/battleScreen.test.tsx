@@ -280,6 +280,45 @@ describe("battle screen", () => {
     expect(boardCard.querySelector(".battle-card__name")).toBeNull();
   });
 
+  it("highlights board creatures using their controller's base ownership color", () => {
+    const initialState = createBattleScreenState();
+    const playerCreature = Object.values(initialState.cardInstances).find(
+      (card) => card.zone === "board" && card.controllerSide === "player"
+    );
+    const cpuCreature = Object.values(initialState.cardInstances).find(
+      (card) => card.ownerSide === "cpu"
+    );
+    if (!playerCreature || !cpuCreature) {
+      throw new Error("Expected player and CPU creature fixtures.");
+    }
+    const state = placeCreatureForTest({
+      ...initialState,
+      cardInstances: {
+        ...initialState.cardInstances,
+        [cpuCreature.instanceId]: {
+          ...cpuCreature,
+          type: "creature",
+          attack: cpuCreature.attack ?? 3,
+          currentAttack: cpuCreature.currentAttack ?? cpuCreature.attack ?? 3,
+          health: cpuCreature.health ?? 4,
+          currentHp: cpuCreature.currentHp ?? cpuCreature.health ?? 4,
+          maxHp: cpuCreature.maxHp ?? cpuCreature.health ?? 4
+        }
+      }
+    }, cpuCreature.instanceId, "cpu", 8, 5);
+
+    renderBattleScreen(projectPublicBattleView(state));
+
+    expect(screen.getByTestId(`battle-board-card-${playerCreature.instanceId}`)).toHaveClass(
+      "battle-card--owner-highlight",
+      "battle-card--player"
+    );
+    expect(screen.getByTestId(`battle-board-card-${cpuCreature.instanceId}`)).toHaveClass(
+      "battle-card--owner-highlight",
+      "battle-card--cpu"
+    );
+  });
+
   it("opens one non-interactive card detail popover and closes it on Escape", () => {
     const viewModel = projectPublicBattleView(createBattleScreenState());
     renderBattleScreen(viewModel);
