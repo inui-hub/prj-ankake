@@ -35,6 +35,8 @@ export interface BattleBoardProps {
   readonly onInspectLeave?: () => void;
   readonly onInspectBlur?: () => void;
   readonly animationEvent?: BattleEvent;
+  /** The creature currently resolving an attack. */
+  readonly activeAttackerInstanceId?: string;
   /** A lethal target remains visible at 0 HP until its destruction event. */
   readonly defeatedCreature?: { readonly squareKey: string; readonly card: BattleCardView };
   /** Cards already shown through a destruction event stay removed during later events. */
@@ -130,6 +132,7 @@ export function BattleBoard(props: BattleBoardProps) {
           const animatedOccupant = props.defeatedCreature?.squareKey === square.key
             ? props.defeatedCreature.card
             : displayedOccupant;
+          const isAttacking = animatedOccupant?.instanceId === props.activeAttackerInstanceId;
           const animationKind = animationForSquare(square, animatedOccupant?.instanceId, props.animationEvent);
           return (
             <button
@@ -217,7 +220,7 @@ export function BattleBoard(props: BattleBoardProps) {
               }}
             >
               {animatedOccupant ? (
-                <BattleCard card={animatedOccupant} locale={props.locale} mode="board" animationKind={animationKind === "summon" || animationKind === "move" || animationKind === "damage" || animationKind === "destroy" ? animationKind : undefined} />
+                <BattleCard card={animatedOccupant} isAttacking={isAttacking} locale={props.locale} mode="board" animationKind={animationKind === "summon" || animationKind === "move" || animationKind === "damage" || animationKind === "destroy" ? animationKind : undefined} />
               ) : null}
               {isMovementOrigin ? (
                 <span

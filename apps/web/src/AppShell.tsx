@@ -129,6 +129,7 @@ function BattleRoute({ catalog, locale, onReturnToMenu }: BattleRouteProps) {
       cpuStatus={controller.viewModel.cpuStatus}
       resonanceIssueCode={controller.viewModel.lastValidationIssueCode}
       animationEvent={controller.viewModel.animationEvent}
+      activeAttackerInstanceId={controller.viewModel.activeAttackerInstanceId}
       defeatedCreature={controller.viewModel.defeatedCreature}
       destroyedCreatureInstanceIds={controller.viewModel.destroyedCreatureInstanceIds}
       isAnimating={controller.viewModel.isAnimating}

@@ -36,7 +36,7 @@ import {
   undoMovementStep,
   type BattleInteractionState
 } from "../../../apps/web/src/battle/battleInteraction";
-import { defeatedCreatureFor, useBattleController } from "../../../apps/web/src/battle/useBattleController";
+import { activeAttackerForEvent, defeatedCreatureFor, useBattleController } from "../../../apps/web/src/battle/useBattleController";
 import {
   battleStateArbitrary,
   canonicalBoardCoordinateArbitrary
@@ -126,13 +126,15 @@ describe("battle screen", () => {
       "battle-interaction-controls",
       "battle-card-counts-panel",
       "battle-resonance-panel",
-      "battle-log-panel"
+      "battle-log-control"
     ]);
     expect(screen.queryByTestId("battle-base-summary")).not.toBeInTheDocument();
     expect(screen.getByTestId("battle-card-counts-panel")).toHaveTextContent("Hand: 9");
     expect(screen.getByTestId("battle-card-counts-panel")).toHaveTextContent("Deck:");
     expect(screen.getByTestId("battle-cpu-info-panel")).toHaveTextContent("Hand: 5");
     expect(screen.getByTestId("battle-player-graveyard-button")).toHaveTextContent("Graveyard: 0");
+    expect(screen.queryByTestId("battle-log-panel")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("battle-log-toggle"));
     expect(screen.getByTestId("battle-log-panel")).toHaveTextContent("Player drew a card.");
 
     for (const square of container.querySelectorAll<HTMLElement>(".battle-square")) {
@@ -194,6 +196,9 @@ describe("battle screen", () => {
     fireEvent.mouseEnter(resonance);
     expect(screen.getByTestId("battle-resonance-effects")).toHaveTextContent("Fire");
     expect(screen.getByTestId("battle-resonance-effects")).toHaveTextContent("Dark");
+    expect(screen.getByTestId("battle-resonance-effects")).toHaveClass(
+      "battle-resonance__effects--left"
+    );
     fireEvent.mouseLeave(resonance);
     expect(screen.queryByTestId("battle-resonance-effects")).not.toBeInTheDocument();
     act(() => resonance.focus());
@@ -280,6 +285,45 @@ describe("battle screen", () => {
     expect(boardCard.querySelector(".battle-card__name")).toBeNull();
   });
 
+  it("highlights board creatures using their controller's base ownership color", () => {
+    const initialState = createBattleScreenState();
+    const playerCreature = Object.values(initialState.cardInstances).find(
+      (card) => card.zone === "board" && card.controllerSide === "player"
+    );
+    const cpuCreature = Object.values(initialState.cardInstances).find(
+      (card) => card.ownerSide === "cpu"
+    );
+    if (!playerCreature || !cpuCreature) {
+      throw new Error("Expected player and CPU creature fixtures.");
+    }
+    const state = placeCreatureForTest({
+      ...initialState,
+      cardInstances: {
+        ...initialState.cardInstances,
+        [cpuCreature.instanceId]: {
+          ...cpuCreature,
+          type: "creature",
+          attack: cpuCreature.attack ?? 3,
+          currentAttack: cpuCreature.currentAttack ?? cpuCreature.attack ?? 3,
+          health: cpuCreature.health ?? 4,
+          currentHp: cpuCreature.currentHp ?? cpuCreature.health ?? 4,
+          maxHp: cpuCreature.maxHp ?? cpuCreature.health ?? 4
+        }
+      }
+    }, cpuCreature.instanceId, "cpu", 8, 5);
+
+    renderBattleScreen(projectPublicBattleView(state));
+
+    expect(screen.getByTestId(`battle-board-card-${playerCreature.instanceId}`)).toHaveClass(
+      "battle-card--owner-highlight",
+      "battle-card--player"
+    );
+    expect(screen.getByTestId(`battle-board-card-${cpuCreature.instanceId}`)).toHaveClass(
+      "battle-card--owner-highlight",
+      "battle-card--cpu"
+    );
+  });
+
   it("opens one non-interactive card detail popover and closes it on Escape", () => {
     const viewModel = projectPublicBattleView(createBattleScreenState());
     renderBattleScreen(viewModel);
@@ -299,11 +343,34 @@ describe("battle screen", () => {
     render(<BattleScreen viewModel={viewModel} locale="ja" logEntries={LOG_ENTRIES} cpuStatus="thinking" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
     expect(screen.getByTestId("battle-status-bar")).toHaveTextContent("ターン");
     expect(screen.getByTestId("battle-player-info-panel")).toHaveTextContent("手札");
-    expect(screen.getByTestId("battle-log-panel")).toHaveTextContent("対戦ログ");
+    expect(screen.getByTestId("battle-log-toggle")).toHaveTextContent("対戦ログ");
     const handCard = screen.getByTestId(`battle-hand-card-${viewModel.playerHand[0]!.instanceId}`);
     fireEvent.focus(handCard);
     expect(screen.getByTestId("battle-card-detail-popover")).toHaveTextContent("移動力");
     expect(screen.getByTestId("battle-card-detail-popover")).toHaveTextContent("効果:");
+  });
+
+  it("opens and closes the battle log popover without adding it to the side rail", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    renderBattleScreen(viewModel);
+
+    const toggle = screen.getByTestId("battle-log-toggle");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("battle-log-panel")).toHaveTextContent("Player drew a card.");
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("battle-log-panel")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("battle-log-panel")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByTestId("battle-log-panel")).not.toBeInTheDocument();
   });
 
   it("localizes board and card accessible names, including stats and ownership", () => {
@@ -435,6 +502,49 @@ describe("battle screen", () => {
     );
     expect(screen.queryByTestId("battle-event-banner")).not.toBeInTheDocument();
     expect(screen.getByTestId("battle-end-play-phase-button")).toBeEnabled();
+  });
+
+  it("keeps the current attacker highlighted until the attack phase ends", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const attacker = viewModel.boardSquares.find((square) => square.occupant)?.occupant;
+    if (!attacker) throw new Error("Expected a board creature.");
+    const attackerStarted = {
+      sequence: 100,
+      type: "attack.attacker-started" as const,
+      instanceId: attacker.instanceId,
+      message: "Creature started attacking."
+    };
+    const damageEvent = {
+      sequence: 101,
+      type: "creature.damaged" as const,
+      instanceId: "other-creature",
+      message: "Creature took damage.",
+      data: { targetId: "other-creature", damage: 1 }
+    };
+    const phaseEnded = {
+      sequence: 102,
+      type: "attack.phase-ended" as const,
+      message: "Attack phase ended."
+    };
+
+    expect(activeAttackerForEvent(undefined, attackerStarted)).toBe(attacker.instanceId);
+    expect(activeAttackerForEvent(attacker.instanceId, damageEvent)).toBe(attacker.instanceId);
+    expect(activeAttackerForEvent(attacker.instanceId, phaseEnded)).toBeUndefined();
+
+    const { rerender } = renderBattleScreen(viewModel, {
+      activeAttackerInstanceId: attacker.instanceId
+    });
+    expect(screen.getByTestId(`battle-board-card-${attacker.instanceId}`)).toHaveClass(
+      "battle-card--attacking"
+    );
+
+    rerender(
+      <BattleScreen viewModel={viewModel} logEntries={LOG_ENTRIES} cpuStatus="idle"
+        onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
+    );
+    expect(screen.getByTestId(`battle-board-card-${attacker.instanceId}`)).not.toHaveClass(
+      "battle-card--attacking"
+    );
   });
 
   it("keeps a lethally damaged creature visible at zero HP until its destruction event", () => {
@@ -1071,6 +1181,7 @@ function renderBattleScreen(
     readonly cpuStatus?: "idle" | "thinking" | "executing" | "completed" | "limit-reached";
     readonly onEndPlayPhase?: () => void;
     readonly locale?: "ja" | "en";
+    readonly activeAttackerInstanceId?: string;
   } = {}
 ) {
   return render(
@@ -1079,6 +1190,7 @@ function renderBattleScreen(
       logEntries={LOG_ENTRIES}
       cpuStatus={overrides.cpuStatus ?? "idle"}
       locale={overrides.locale}
+      activeAttackerInstanceId={overrides.activeAttackerInstanceId}
       onReturnToPreparation={vi.fn()}
       onReturnToMenu={vi.fn()}
       onEndPlayPhase={overrides.onEndPlayPhase ?? vi.fn()}

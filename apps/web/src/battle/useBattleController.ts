@@ -9,7 +9,7 @@ import {
   type StaticCatalogSnapshot
 } from "@ankake/domain";
 import type { DeckRepository } from "@ankake/persistence";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createConsoleBattleDiagnostics } from "./battleDiagnostics";
 import {
   IDLE_BATTLE_INTERACTION,
@@ -61,6 +61,7 @@ export type BattleRouteViewModel =
       readonly cpuStatus: "idle" | "thinking" | "executing" | "completed" | "limit-reached";
       readonly lastValidationIssueCode?: string;
       readonly animationEvent?: BattleEvent;
+      readonly activeAttackerInstanceId?: string;
       readonly defeatedCreature?: DefeatedCreaturePresentation;
       readonly destroyedCreatureInstanceIds: readonly string[];
       readonly isAnimating: boolean;
@@ -128,6 +129,8 @@ export function useBattleController(input: BattleControllerInput): BattleControl
   const [cpuStatus, setCpuStatus] = useState<CpuStatus>("idle");
   const [lastValidationIssueCode, setLastValidationIssueCode] = useState<string | undefined>();
   const [animationEvent, setAnimationEvent] = useState<BattleEvent | undefined>();
+  const [activeAttackerInstanceId, setActiveAttackerInstanceId] = useState<string | undefined>();
+  const activeAttackerInstanceIdRef = useRef<string | undefined>();
   const [defeatedCreature, setDefeatedCreature] = useState<DefeatedCreaturePresentation | undefined>();
   const [destroyedCreatureInstanceIds, setDestroyedCreatureInstanceIds] = useState<readonly string[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -207,6 +210,8 @@ export function useBattleController(input: BattleControllerInput): BattleControl
     diagnostics.seed(result.state.metadata.setup.seed);
     const nextSession = createBattleRuntimeSession(result.state, result.events);
     setInteraction(IDLE_BATTLE_INTERACTION);
+    activeAttackerInstanceIdRef.current = undefined;
+    setActiveAttackerInstanceId(undefined);
     setSession(nextSession);
     setPreparation({
       ...preparation,
@@ -475,6 +480,14 @@ export function useBattleController(input: BattleControllerInput): BattleControl
       // to the following destruction event, so it cannot disappear before
       // its destruction animation begins.
       const defeated = defeatedCreatureFor(event, previousView, currentView);
+      const nextActiveAttackerInstanceId = activeAttackerForEvent(
+        activeAttackerInstanceIdRef.current,
+        event
+      );
+      if (nextActiveAttackerInstanceId !== activeAttackerInstanceIdRef.current) {
+        activeAttackerInstanceIdRef.current = nextActiveAttackerInstanceId;
+        setActiveAttackerInstanceId(nextActiveAttackerInstanceId);
+      }
       setAnimationEvent(undefined);
       setDefeatedCreature(defeated);
       await waitForBattlePresentation(16);
@@ -506,6 +519,7 @@ export function useBattleController(input: BattleControllerInput): BattleControl
           cpuStatus,
           lastValidationIssueCode,
           animationEvent,
+          activeAttackerInstanceId,
           defeatedCreature,
           destroyedCreatureInstanceIds,
           isAnimating
@@ -614,6 +628,21 @@ export function defeatedCreatureFor(
     squareKey: previousSquare.key,
     card: { ...previousSquare.occupant, currentHp: 0 }
   };
+}
+
+export function activeAttackerForEvent(
+  currentAttackerInstanceId: string | undefined,
+  event: BattleEvent
+): string | undefined {
+  if (event.type === "attack.attacker-started") {
+    return event.instanceId;
+  }
+
+  if (event.type === "attack.phase-ended" || event.type === "battle.ended") {
+    return undefined;
+  }
+
+  return currentAttackerInstanceId;
 }
 
 function effectCandidateAtBoardSquare(
