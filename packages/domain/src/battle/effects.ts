@@ -17,7 +17,8 @@ export function resolveSimpleSpellEffect(
       type: "spell.resolved",
       side,
       instanceId: spell.instanceId,
-      message: `${labelSide(side)} cast ${spell.name}.`
+      message: `${labelSide(side)} cast ${spell.name}.`,
+      data: { effectSourceInstanceId: spell.instanceId }
     },
     {
       sequence: firstSequence + 1,
@@ -26,7 +27,8 @@ export function resolveSimpleSpellEffect(
       instanceId: spell.instanceId,
       message: `${spell.name}'s card-specific effect is not implemented yet.`,
       data: {
-        reason: "effect-deferred"
+        reason: "effect-deferred",
+        effectSourceInstanceId: spell.instanceId
       }
     }
   ];

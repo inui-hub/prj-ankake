@@ -456,6 +456,24 @@ export interface BattleLogEntry {
   readonly message: string;
   readonly type: BattleEventType;
   readonly side?: BattleSide;
+  /** Present only when this event was produced by a card effect.  This
+   * snapshot is retained so the log remains inspectable after the card moves
+   * to a non-public zone. */
+  readonly sourceCard?: BattleLogSourceCard;
+}
+
+export interface BattleLogSourceCard {
+  readonly instanceId: BattleCardInstanceId;
+  readonly catalogCardId: string;
+  readonly name: string;
+  readonly type: BattleCardInstance["type"];
+  readonly attribute: CardAttribute;
+  readonly controllerSide: BattleSide;
+  readonly currentAttack?: number;
+  readonly currentHp?: number;
+  readonly maxHp?: number;
+  readonly movement: number;
+  readonly effectText: string;
 }
 
 export interface BattleLogState {

@@ -53,7 +53,7 @@ export function createBattleRuntimeSession(
 ): BattleRuntimeSession {
   return {
     state,
-    log: appendBattleLogEntries(createEmptyBattleLog(), events, state.terminalResult),
+    log: appendBattleLogEntries(createEmptyBattleLog(), events, state.terminalResult, state),
     lastEvents: events
   };
 }
@@ -87,7 +87,7 @@ export function attemptRuntimeCommand(
     ok: true,
     session: {
       state: result.state,
-      log: appendBattleLogEntries(session.log, result.events, result.state.terminalResult),
+      log: appendBattleLogEntries(session.log, result.events, result.state.terminalResult, result.state),
       lastEvents: result.events
     }
   };

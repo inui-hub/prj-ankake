@@ -373,6 +373,62 @@ describe("battle screen", () => {
     expect(screen.queryByTestId("battle-log-panel")).not.toBeInTheDocument();
   });
 
+  it("scrolls to the most recent log entry only when the log opens", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLOListElement.prototype, "scrollHeight");
+    Object.defineProperty(HTMLOListElement.prototype, "scrollHeight", { configurable: true, get: () => 480 });
+    try {
+      const { rerender } = render(<BattleScreen viewModel={viewModel} logEntries={LOG_ENTRIES} cpuStatus="idle" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
+      fireEvent.click(screen.getByTestId("battle-log-toggle"));
+      const entries = screen.getByTestId("battle-log-entries") as HTMLOListElement;
+      expect(entries.scrollTop).toBe(480);
+
+      entries.scrollTop = 120;
+      rerender(<BattleScreen viewModel={viewModel} logEntries={[...LOG_ENTRIES, { sequence: 2, message: "CPU drew a card.", type: "card.drawn", side: "cpu" }]} cpuStatus="idle" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
+      expect(entries.scrollTop).toBe(120);
+    } finally {
+      if (scrollHeightDescriptor) Object.defineProperty(HTMLOListElement.prototype, "scrollHeight", scrollHeightDescriptor);
+      else delete (HTMLOListElement.prototype as { scrollHeight?: number }).scrollHeight;
+    }
+  });
+
+  it("opens an inspectable source-card detail from an effect log entry", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const effectLogEntries: readonly BattleLogEntry[] = [{
+      sequence: 2,
+      message: "A card effect dealt damage.",
+      type: "creature.damaged",
+      side: "player",
+      sourceCard: {
+        instanceId: "effect-source",
+        catalogCardId: "AK-016",
+        name: "Azure Sage",
+        type: "creature",
+        attribute: "water",
+        controllerSide: "player",
+        currentAttack: 2,
+        currentHp: 3,
+        maxHp: 3,
+        movement: 1,
+        effectText: "On summon: Draw a card."
+      }
+    }];
+    render(<BattleScreen viewModel={viewModel} logEntries={effectLogEntries} cpuStatus="idle" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId("battle-log-toggle"));
+    const source = screen.getByTestId("battle-log-effect-source-2");
+    expect(source).toHaveTextContent("Azure Sage");
+    fireEvent.click(source);
+    expect(screen.getByTestId("battle-card-detail-popover")).toHaveTextContent("Azure Sage");
+
+    fireEvent.click(source);
+    expect(screen.queryByTestId("battle-card-detail-popover")).not.toBeInTheDocument();
+
+    fireEvent.click(source);
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByTestId("battle-card-detail-popover")).not.toBeInTheDocument();
+  });
+
   it("localizes board and card accessible names, including stats and ownership", () => {
     const viewModel = projectPublicBattleView(createBattleScreenState());
     const occupied = viewModel.boardSquares.find((square) => square.occupant);

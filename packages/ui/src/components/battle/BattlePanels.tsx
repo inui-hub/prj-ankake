@@ -2,10 +2,11 @@ import {
   RESONANCE_ACTIVE_THRESHOLD,
   type BattleCardView,
   type BattleLogEntry,
+  type BattleLogSourceCard,
   type BattleSide,
   type PublicBattleView
 } from "@ankake/domain";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { localizeBattleEvent, localizeBattleSide, uiText } from "../../localization";
 
 export interface BattleStatusPanelProps {
@@ -190,9 +191,22 @@ function cpuStatusLabel(status: string, locale?: "ja" | "en"): string {
   return ({ idle: "待機中", thinking: "思考中", executing: "実行中", completed: "完了", "limit-reached": "上限到達" }[status] ?? status);
 }
 
-export function BattleLogPanel(props: { readonly entries: readonly BattleLogEntry[]; readonly locale?: "ja" | "en" }) {
+export function BattleLogPanel(props: {
+  readonly entries: readonly BattleLogEntry[];
+  readonly locale?: "ja" | "en";
+  readonly onSourceCardIntent?: (card: BattleLogSourceCard, element: HTMLButtonElement) => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLElement>(null);
+  const entriesRef = useRef<HTMLOListElement>(null);
+
+  // Only set the initial viewport when the popover opens.  New entries must
+  // not pull a reader away from older entries they deliberately scrolled to.
+  useLayoutEffect(() => {
+    if (isOpen && entriesRef.current) {
+      entriesRef.current.scrollTop = entriesRef.current.scrollHeight;
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -242,9 +256,21 @@ export function BattleLogPanel(props: { readonly entries: readonly BattleLogEntr
               ×
             </button>
           </header>
-          <ol>
+          <ol data-testid="battle-log-entries" ref={entriesRef}>
             {props.entries.map((entry) => (
-              <li key={entry.sequence}>{localizeLogMessage(entry, props.locale)}</li>
+              <li key={entry.sequence}>
+                <span>{localizeLogMessage(entry, props.locale)}</span>
+                {entry.sourceCard ? <span className="battle-log-entry__effect-source">
+                  {uiText(props.locale, "battle.log.effect-source")}: <button
+                    className="battle-log-entry__source-card"
+                    data-testid={`battle-log-effect-source-${entry.sequence}`}
+                    type="button"
+                    onClick={(event) => props.onSourceCardIntent?.(entry.sourceCard!, event.currentTarget)}
+                  >
+                    {entry.sourceCard.name}
+                  </button>
+                </span> : null}
+              </li>
             ))}
           </ol>
         </section>

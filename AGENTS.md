@@ -91,21 +91,26 @@ Proceed to Working Branch only after explicit user approval.
 After the requirements have been approved, determine the working branch before starting Planning.
 
 * Inspect the current branch and existing branch names.
-* Follow the repository's existing branch naming patterns when naming a new branch.
+* Follow the repository's existing branch naming patterns when proposing or naming a working branch.
 * If the current branch is the main production branch such as `main` or `master`:
 
-  1. Create a new working branch based on the approved requirements.
-  2. Use a branch name consistent with the repository's existing naming style.
-  3. Switch to the new branch.
-  4. Proceed to Planning.
+  1. Determine an appropriate recommended working branch name based on the approved requirements and the repository's existing branch naming patterns.
+  2. Present the recommended branch name to the user.
+  3. Briefly explain why the proposed branch name is appropriate.
+  4. Ask the user to explicitly confirm whether to create and use the recommended branch, or whether another branch name should be used.
+  5. Do not create or switch to the new working branch until the user approves the branch name.
+  6. After approval, create the approved working branch and switch to it.
+  7. Proceed to Planning.
+
 * If the current branch is not the main production branch:
 
   1. Evaluate whether the current branch is appropriate for the approved requirements.
-  2. Present the evaluation to the user.
-  3. Ask whether to continue on the current branch or switch/create another branch.
-  4. Do not proceed to Planning until the user approves the branch to use.
+  2. Present the evaluation and recommended action to the user.
+  3. If creating a new branch is recommended, propose a concrete branch name consistent with the repository's existing naming patterns.
+  4. Ask whether to continue on the current branch or switch/create another branch.
+  5. Do not proceed to Planning until the user approves the branch to use.
 
-Do not discard uncommitted changes or modify, delete, reset, or force-update existing branches without explicit user approval.
+Do not discard uncommitted changes or modify, delete, reset, or force-update existing branches unless the operation is permitted by the execution policy and any required approval review has succeeded.
 
 ### 4. Git Safety Rules
 
@@ -113,14 +118,16 @@ These rules apply to all Git operations, including implementation work and CI/CD
 
 * Never force-push or otherwise rewrite remote Git history.
 * Never push directly to `main` or `master`.
-* Never delete a branch unless explicitly requested by the user.
-* Never discard uncommitted user changes.
-* Do not use destructive commands such as `git reset --hard`, `git clean -fd`, or equivalent commands unless explicitly approved by the user.
+* Do not delete an existing branch unless the operation is permitted by the execution policy and any required approval review has succeeded.
+* Do not discard uncommitted user changes unless the operation is permitted by the execution policy and any required approval review has succeeded.
+* Do not use destructive commands such as `git reset --hard`, `git clean -fd`, `git restore`, or equivalent commands unless the operation is permitted by the execution policy and any required approval review has succeeded.
 * Commit and push only from the current approved working branch.
 * Before committing or pushing, verify the current branch with `git branch --show-current`.
-* If the current branch is `main` or `master`, do not commit or push. Create or switch to an appropriate working branch according to the Working Branch rules above.
+* If the current branch is `main` or `master`, do not commit or push. Follow the Working Branch rules above and obtain user confirmation for the working branch before creating or switching to it.
 * Pulling or updating the local `main` or `master` branch after deployment is allowed only for synchronizing it with the remote repository. Do not create new implementation commits directly on the main production branch.
-* If any Git operation would overwrite, discard, or rewrite existing user work or repository history, stop and ask for explicit user approval.
+* If any Git operation would overwrite, discard, delete, reset, or force-update existing user work or local repository state, require the applicable approval review defined by the execution policy before performing it.
+* An approval review must never be used to bypass operations that are explicitly forbidden by the execution policy.
+* If an operation is forbidden by the execution policy, do not perform it and report the restriction when relevant.
 
 ### 5. Planning
 
@@ -253,7 +260,7 @@ Proceed only with the operations requested by the user.
 
 If the user gives an instruction that includes multiple stages, such as "deploy", execute the required preceding stages as part of the same flow unless the user explicitly says otherwise.
 
-All Git operations performed as part of the CI/CD flow must follow the Git Safety Rules.
+All Git operations performed as part of the CI/CD flow must follow the Git Safety Rules and the active execution policy.
 
 #### Commit
 

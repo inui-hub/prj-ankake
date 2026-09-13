@@ -756,6 +756,9 @@
 .battle-log-popover__header h2 { margin: 0; }
 .battle-log-popover__header button { min-width: 32px; min-height: 32px; padding: 0; font-size: 1.2rem; line-height: 1; }
 .battle-log-popover ol { display: grid; gap: 6px; min-height: 0; margin: 12px 0 0; overflow: auto; padding-left: 20px; color: #d4dde1; }
+.battle-log-entry__effect-source { display: inline-flex; gap: 4px; align-items: baseline; margin-left: 6px; color: #f1c46f; font-size: .88em; }
+.battle-log-entry__source-card { border: 0; padding: 0; color: inherit; background: transparent; font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.battle-log-entry__source-card:focus-visible { outline: 2px solid #f1c46f; outline-offset: 2px; }
 
 .battle-cpu-status,
 .battle-modal-backdrop {

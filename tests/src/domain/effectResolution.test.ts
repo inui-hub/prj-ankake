@@ -1,6 +1,8 @@
 import {
   BATTLE_MAX_PP,
+  appendBattleLogEntries,
   createInitialBattleBoard,
+  createEmptyBattleLog,
   drainTriggers,
   getEffectiveModifiedValue,
   getLegalEffectTargets,
@@ -52,6 +54,26 @@ describe("effect resolution foundations", () => {
     expect(result.state.cardInstances[enemyId]).toMatchObject({ zone: "graveyard", currentHp: 0 });
     expect(result.state.board.squares.some((square) => square.occupantId === enemyId)).toBe(false);
     expect(result.state.players.cpu.graveyardZone).toContain(enemyId);
+  });
+
+  it("retains the effect source card in log entries even when the event names its target", () => {
+    const { state, sourceId, enemyId } = createBoardState();
+    const result = resolveEffect(makeContext(state, sourceId, { kind: "creatures", instanceIds: [enemyId] }, [
+      { kind: "damage", target: "enemy-creature", amount: 2, minimumTargets: 1, maximumTargets: 1 }
+    ]));
+
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events[0]?.instanceId).toBe(enemyId);
+    expect(result.events[0]?.data?.effectSourceInstanceId).toBe(sourceId);
+
+    const log = appendBattleLogEntries(createEmptyBattleLog(), result.events, undefined, result.state);
+    expect(log.entries[0]?.sourceCard).toMatchObject({
+      instanceId: sourceId,
+      catalogCardId: state.cardInstances[sourceId]?.catalogCardId,
+      name: state.cardInstances[sourceId]?.name
+    });
+    expect(log.entries[0]?.sourceCard).not.toBe(result.state.cardInstances[sourceId]);
   });
 
   it.each(["AK-027", "AK-029"])("increases only maximum PP for %s", (cardId) => {

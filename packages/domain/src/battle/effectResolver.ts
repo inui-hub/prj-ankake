@@ -42,7 +42,22 @@ export function resolveEffect(context: EffectContext): EffectResolution {
   if (status === "fizzled") events.push({ sequence: context.firstSequence + events.length, type: "effect.fizzled", side: context.controllerSide, instanceId: context.sourceInstanceId, message: `Effect ${context.effect.effectId} fizzled.` });
   // BattleState.metadata.rng is the sole RNG authority; scripts stage it on
   // the returned state together with all other effect mutations.
-  return { accepted: true, state, events, effect: { status, completedOperationCount, ...(failedOperation ? { failedOperation } : {}), consumed: status === "resolved" || context.effect.consumedOnFizzle } };
+  return {
+    accepted: true,
+    state,
+    events: events.map((event) => withEffectSource(event, context.sourceInstanceId)),
+    effect: { status, completedOperationCount, ...(failedOperation ? { failedOperation } : {}), consumed: status === "resolved" || context.effect.consumedOnFizzle }
+  };
+}
+
+/** Keep the causal card separate from event.instanceId, which often denotes
+ * the affected creature rather than the card that triggered the effect. */
+function withEffectSource(event: BattleEvent, sourceInstanceId: string): BattleEvent {
+  // Resonance is an independent game rule even when a card effect happened
+  // to cause the preceding destruction, so it must not be labelled as a card
+  // effect in the log.
+  if (event.type === "resonance.effect-resolved") return event;
+  return { ...event, data: { ...event.data, effectSourceInstanceId: sourceInstanceId } };
 }
 
 export function getLegalEffectTargets(state: BattleState, controllerSide: EffectContext["controllerSide"], operation: EffectOperation): readonly EffectTarget[] {
