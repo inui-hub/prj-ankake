@@ -500,6 +500,18 @@
   --battle-owner-highlight-glow: rgba(220, 38, 38, 0.72);
 }
 
+.battle-card--board.battle-card--attacking::after {
+  position: absolute;
+  z-index: 1;
+  inset: 4px;
+  border: 2px solid #f1c46f;
+  border-radius: 2px;
+  box-shadow: 0 0 12px rgba(241, 196, 111, 0.9);
+  content: "";
+  animation: battle-card-attacker 760ms ease-in-out infinite;
+  pointer-events: none;
+}
+
 .battle-card--board .battle-card__artwork {
   width: 100%;
   height: 100%;
@@ -804,6 +816,7 @@
 @keyframes battle-event-enter { from { opacity: 0; transform: translate(-50%, 10px) scale(.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 @keyframes battle-card-summon { 0% { opacity: 0; transform: scale(.45) translateY(18px); filter: brightness(1.8); } 65% { transform: scale(1.07) translateY(-2px); } 100% { opacity: 1; transform: scale(1); filter: brightness(1); } }
 @keyframes battle-card-move { 0% { transform: translateY(12px) scale(.92); filter: brightness(1.5); } 55% { transform: translateY(-4px) scale(1.05); } 100% { transform: translateY(0) scale(1); filter: brightness(1); } }
+@keyframes battle-card-attacker { 0%, 100% { opacity: .55; transform: scale(.96); } 50% { opacity: 1; transform: scale(1); } }
 @keyframes battle-card-damage { 0%, 100% { filter: brightness(1); transform: translateX(0); } 20% { filter: brightness(2.4) sepia(1) saturate(5); transform: translateX(-4px); } 45% { transform: translateX(4px); } }
 @keyframes battle-card-destroy { 0% { opacity: 1; transform: scale(1); filter: brightness(1); } 40% { opacity: 1; transform: scale(1.08); filter: brightness(2.6) sepia(1) saturate(4); } 100% { opacity: 0; transform: scale(.55); filter: brightness(.5); } }
 @keyframes battle-square-damage { 0%, 100% { box-shadow: inset 0 0 0 0 rgba(255, 92, 73, 0); } 30% { box-shadow: inset 0 0 0 999px rgba(255, 92, 73, .46); } }
@@ -812,13 +825,17 @@
 
 @media (prefers-reduced-motion: reduce) {
   .battle-event-banner,
-.battle-card--anim-summon,
-.battle-card--anim-move,
-.battle-card--anim-damage,
-.battle-card--anim-destroy,
+  .battle-card--anim-summon,
+  .battle-card--anim-move,
+  .battle-card--anim-damage,
+  .battle-card--anim-destroy,
   .battle-square--anim-damage,
   .battle-square--anim-destroy,
-  .battle-square--anim-capture { animation: none; }
+  .battle-square--anim-capture,
+  .battle-card--board.battle-card--attacking::after {
+    animation: none;
+  }
+
   .battle-event-banner { border-color: #f1c46f; }
 }
 

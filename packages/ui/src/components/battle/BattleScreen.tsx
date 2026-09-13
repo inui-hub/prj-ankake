@@ -42,6 +42,7 @@ export interface BattleScreenProps {
   readonly locale?: "ja" | "en";
   readonly resonanceIssueCode?: string;
   readonly animationEvent?: BattleEvent;
+  readonly activeAttackerInstanceId?: string;
   readonly isAnimating?: boolean;
   readonly defeatedCreature?: { readonly squareKey: string; readonly card: BattleCardView };
   readonly destroyedCreatureInstanceIds?: readonly string[];
@@ -119,6 +120,7 @@ export function BattleScreen(props: BattleScreenProps) {
             effectCandidates={interaction.effectCandidates}
             interactionDisabled={interactionDisabled}
             animationEvent={props.animationEvent}
+            activeAttackerInstanceId={props.activeAttackerInstanceId}
             defeatedCreature={props.defeatedCreature}
             destroyedCreatureInstanceIds={props.destroyedCreatureInstanceIds}
             locale={props.locale}

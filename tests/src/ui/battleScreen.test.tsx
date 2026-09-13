@@ -36,7 +36,7 @@ import {
   undoMovementStep,
   type BattleInteractionState
 } from "../../../apps/web/src/battle/battleInteraction";
-import { defeatedCreatureFor, useBattleController } from "../../../apps/web/src/battle/useBattleController";
+import { activeAttackerForEvent, defeatedCreatureFor, useBattleController } from "../../../apps/web/src/battle/useBattleController";
 import {
   battleStateArbitrary,
   canonicalBoardCoordinateArbitrary
@@ -474,6 +474,49 @@ describe("battle screen", () => {
     );
     expect(screen.queryByTestId("battle-event-banner")).not.toBeInTheDocument();
     expect(screen.getByTestId("battle-end-play-phase-button")).toBeEnabled();
+  });
+
+  it("keeps the current attacker highlighted until the attack phase ends", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    const attacker = viewModel.boardSquares.find((square) => square.occupant)?.occupant;
+    if (!attacker) throw new Error("Expected a board creature.");
+    const attackerStarted = {
+      sequence: 100,
+      type: "attack.attacker-started" as const,
+      instanceId: attacker.instanceId,
+      message: "Creature started attacking."
+    };
+    const damageEvent = {
+      sequence: 101,
+      type: "creature.damaged" as const,
+      instanceId: "other-creature",
+      message: "Creature took damage.",
+      data: { targetId: "other-creature", damage: 1 }
+    };
+    const phaseEnded = {
+      sequence: 102,
+      type: "attack.phase-ended" as const,
+      message: "Attack phase ended."
+    };
+
+    expect(activeAttackerForEvent(undefined, attackerStarted)).toBe(attacker.instanceId);
+    expect(activeAttackerForEvent(attacker.instanceId, damageEvent)).toBe(attacker.instanceId);
+    expect(activeAttackerForEvent(attacker.instanceId, phaseEnded)).toBeUndefined();
+
+    const { rerender } = renderBattleScreen(viewModel, {
+      activeAttackerInstanceId: attacker.instanceId
+    });
+    expect(screen.getByTestId(`battle-board-card-${attacker.instanceId}`)).toHaveClass(
+      "battle-card--attacking"
+    );
+
+    rerender(
+      <BattleScreen viewModel={viewModel} logEntries={LOG_ENTRIES} cpuStatus="idle"
+        onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />
+    );
+    expect(screen.getByTestId(`battle-board-card-${attacker.instanceId}`)).not.toHaveClass(
+      "battle-card--attacking"
+    );
   });
 
   it("keeps a lethally damaged creature visible at zero HP until its destruction event", () => {
@@ -1110,6 +1153,7 @@ function renderBattleScreen(
     readonly cpuStatus?: "idle" | "thinking" | "executing" | "completed" | "limit-reached";
     readonly onEndPlayPhase?: () => void;
     readonly locale?: "ja" | "en";
+    readonly activeAttackerInstanceId?: string;
   } = {}
 ) {
   return render(
@@ -1118,6 +1162,7 @@ function renderBattleScreen(
       logEntries={LOG_ENTRIES}
       cpuStatus={overrides.cpuStatus ?? "idle"}
       locale={overrides.locale}
+      activeAttackerInstanceId={overrides.activeAttackerInstanceId}
       onReturnToPreparation={vi.fn()}
       onReturnToMenu={vi.fn()}
       onEndPlayPhase={overrides.onEndPlayPhase ?? vi.fn()}

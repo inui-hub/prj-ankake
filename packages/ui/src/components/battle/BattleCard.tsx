@@ -17,6 +17,8 @@ export interface BattleCardProps {
   readonly onPointerLeave?: () => void;
   readonly onTouchTap?: (event: PointerEvent<HTMLElement>) => void;
   readonly locale?: UiLocale;
+  /** The card is currently resolving an attack on the board. */
+  readonly isAttacking?: boolean;
   /** A short-lived, event-driven visual treatment. */
   readonly animationKind?: "summon" | "move" | "damage" | "destroy";
 }
@@ -62,6 +64,7 @@ export function BattleCard(props: BattleCardProps) {
       : "",
     props.isFocused ? "battle-card--focused" : "",
     props.isSelected ? "battle-card--selected" : "",
+    props.isAttacking ? "battle-card--attacking" : "",
     props.animationKind ? `battle-card--anim-${props.animationKind}` : ""
   ]
     .filter(Boolean)
