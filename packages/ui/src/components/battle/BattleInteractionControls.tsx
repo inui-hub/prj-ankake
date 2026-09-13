@@ -8,6 +8,7 @@ export interface BattleInteractionControlsView {
   readonly selectedDestinationKey?: string;
   readonly selectedCardName?: string;
   readonly selectedCardCost?: number;
+  readonly maximumTargets?: number;
   readonly effectAction?: "summon" | "spell";
   readonly effectCandidates?: readonly { readonly kind: "creature" | "base" | "lane" | "coordinate" | "graveyard"; readonly id: string; readonly label: string; readonly selected: boolean }[];
   readonly movementOriginKey?: string;
@@ -33,8 +34,8 @@ export interface BattleInteractionControlsProps {
   readonly interaction: BattleInteractionControlsView;
   readonly onCancel: () => void;
   readonly onUndo: () => void;
-  readonly onEndPlayPhase: () => void;
   readonly onEffectCandidate?: (id: string) => void;
+  readonly onOpenGraveyard?: () => void;
   readonly interactionDisabled?: boolean;
   readonly locale?: "ja" | "en";
 }
@@ -44,9 +45,8 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
   const selectingMove = props.interaction.kind === "selecting-move";
   const selectingEffect = props.interaction.kind === "selecting-effect";
   const selecting = selectingSummon || selectingMove || selectingEffect;
-  const graveyardCandidates = props.interaction.effectCandidates?.filter(
-    (candidate) => candidate.kind === "graveyard"
-  );
+  const graveyardCandidateCount = props.interaction.effectCandidates?.filter((candidate) => candidate.kind === "graveyard").length ?? 0;
+  const selectedEffectCount = props.interaction.effectCandidates?.filter((candidate) => candidate.selected).length ?? 0;
 
   return (
     <section
@@ -78,18 +78,12 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
             {battleText(props.locale, "battle.movement")} {props.interaction.movementUsed ?? 0} / {props.interaction.movementMaximum ?? 0}
           </span>
         ) : null}
-        {selectingEffect && graveyardCandidates?.length ? (
-          <div data-testid="battle-effect-candidates">
-            {graveyardCandidates.map((candidate) => (
-              <button key={`${candidate.kind}:${candidate.id}`} type="button"
-                className="battle-button battle-button--quiet" data-testid={`battle-effect-target-${candidate.kind}-${candidate.id}`}
-                aria-pressed={candidate.selected} disabled={props.interactionDisabled}
-                onClick={() => props.onEffectCandidate?.(candidate.id)}>
-                {candidate.selected ? `${battleText(props.locale, "battle.selected")}: ` : `${battleText(props.locale, "battle.select")}: `}{candidate.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        {selectingEffect ? <span className="battle-interaction-controls__selection-count" data-testid="battle-effect-selection-count">
+          {props.locale === "ja" ? "選択済み" : "Selected"} {selectedEffectCount} / {props.interaction.maximumTargets ?? 0}
+        </span> : null}
+        {selectingEffect && graveyardCandidateCount > 0 ? <button className="battle-button battle-button--quiet" data-testid="battle-effect-open-graveyard-button" disabled={props.interactionDisabled} type="button" onClick={props.onOpenGraveyard}>
+          {props.locale === "ja" ? "墓地から対象を選ぶ" : "Choose from graveyard"}
+        </button> : null}
         <p data-testid="battle-interaction-instruction">
           {props.interaction.instructionKey ? localizeBattleInstruction(props.locale, props.interaction.instructionKey) : props.interaction.instruction ?? localizeBattleInstruction(props.locale, "idle")}
         </p>
@@ -142,15 +136,6 @@ export function BattleInteractionControls(props: BattleInteractionControlsProps)
           <button className="battle-button battle-button--quiet" data-testid="battle-effect-cancel-button" disabled={props.interactionDisabled || !props.interaction.cancelEnabled} type="button" onClick={props.onCancel}>{props.interaction.effectAction === "summon" ? battleText(props.locale, "battle.cancel-summon") : battleText(props.locale, "battle.cancel-spell")}</button>
         </div>
       ) : null}
-      <button
-        className="battle-button battle-button--primary"
-        data-testid="battle-end-play-phase-button"
-        disabled={props.interactionDisabled || !props.interaction.endPlayPhaseEnabled}
-        type="button"
-        onClick={props.onEndPlayPhase}
-      >
-        {battleText(props.locale, "battle.end-play-phase")}
-      </button>
     </section>
   );
 }

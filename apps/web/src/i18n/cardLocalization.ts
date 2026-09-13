@@ -27,6 +27,8 @@ export function localizeBattleView(view: PublicBattleView, locale: AppLocale): P
   return {
     ...view,
     playerHand: view.playerHand.map((card) => localizeBattleCard(card, locale)),
+    playerGraveyard: (view.playerGraveyard ?? []).map((card) => localizeBattleCard(card, locale)),
+    cpuGraveyard: (view.cpuGraveyard ?? []).map((card) => localizeBattleCard(card, locale)),
     boardSquares: view.boardSquares.map((square) => square.occupant ? { ...square, occupant: localizeBattleCard(square.occupant, locale) } : square)
   };
 }

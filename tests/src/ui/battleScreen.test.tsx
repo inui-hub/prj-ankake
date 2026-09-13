@@ -118,12 +118,12 @@ describe("battle screen", () => {
     expect(screen.getByTestId("battle-square-2-5")).toHaveTextContent("HP 10/10");
     expect(screen.getByTestId("battle-square-6-5")).toHaveTextContent("HP 20/20");
     expect(screen.getByTestId("battle-square-10-5")).toHaveTextContent("HP 10/10");
-    expect(screen.getByTestId("battle-player-pp")).toHaveTextContent("PP: 10/10");
-    expect(screen.getByTestId("battle-base-summary")).toHaveTextContent("CPU Base");
-    expect(screen.getByTestId("battle-base-summary-cpu-base")).toHaveTextContent("HP 7/20");
-    expect(screen.getByTestId("battle-base-summary-player-base")).toHaveTextContent("HP 13/20");
-    expect(screen.getByTestId("battle-base-summary-neutral-left")).toHaveTextContent("Unclaimed");
-    expect(screen.getByTestId("battle-opponent-info-panel")).toHaveTextContent("Hand: 5");
+    expect(screen.getByTestId("battle-player-pp")).toHaveTextContent("10/10 PP");
+    expect(screen.queryByTestId("battle-base-summary")).not.toBeInTheDocument();
+    expect(screen.getByTestId("battle-card-counts-panel")).toHaveTextContent("Hand: 9");
+    expect(screen.getByTestId("battle-card-counts-panel")).toHaveTextContent("Deck:");
+    expect(screen.getByTestId("battle-cpu-info-panel")).toHaveTextContent("Hand: 5");
+    expect(screen.getByTestId("battle-player-graveyard-button")).toHaveTextContent("Graveyard: 0");
     expect(screen.getByTestId("battle-log-panel")).toHaveTextContent("Player drew a card.");
 
     for (const square of container.querySelectorAll<HTMLElement>(".battle-square")) {
@@ -151,7 +151,7 @@ describe("battle screen", () => {
     expect(screen.getByTestId("battle-base-neutral-center")).toHaveAttribute("data-base-owner", "player");
   });
 
-  it("colors resonance rows, emphasizes active values, and reveals every effect on hover or focus", () => {
+  it("switches between player and CPU resonance while preserving active values and effect help", () => {
     const initialState = createBattleScreenState();
     const viewModel = projectPublicBattleView({
       ...initialState,
@@ -162,6 +162,13 @@ describe("battle screen", () => {
           resonance: {
             ...initialState.players.player.resonance,
             center: { ...initialState.players.player.resonance.center, fire: 15, water: 14 }
+          }
+        },
+        cpu: {
+          ...initialState.players.cpu,
+          resonance: {
+            ...initialState.players.cpu.resonance,
+            right: { ...initialState.players.cpu.resonance.right, dark: 15 }
           }
         }
       }
@@ -182,6 +189,9 @@ describe("battle screen", () => {
     expect(screen.queryByTestId("battle-resonance-effects")).not.toBeInTheDocument();
     act(() => resonance.focus());
     expect(screen.getByTestId("battle-resonance-effects")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("battle-resonance-cpu-tab"));
+    expect(screen.getByTestId("battle-cpu-resonance")).toBeInTheDocument();
+    expect(screen.getByTestId("battle-resonance-right-dark")).toHaveClass("battle-resonance-table__cell--active");
   });
 
   it("skips absent coordinates during roving keyboard focus", () => {
@@ -374,6 +384,8 @@ describe("battle screen", () => {
 
     expect(screen.getByTestId("battle-result-overlay")).toHaveTextContent("勝利");
     expect(screen.getByTestId("battle-result-reason")).toHaveTextContent("敵拠点を破壊");
+    expect(screen.getByTestId("battle-rematch-button")).toBeEnabled();
+    expect(screen.getByTestId("battle-result-return-button")).toBeEnabled();
     expect(screen.getByTestId("battle-end-play-phase-button")).toBeDisabled();
     expect(screen.getByTestId("battle-square-3-1")).toBeDisabled();
     expect(
@@ -571,9 +583,10 @@ describe("battle screen", () => {
     expect(screen.getByTestId(`battle-hand-card-${spell.instanceId}`)).toHaveAttribute("aria-disabled", "false");
   });
 
-  it("keeps only graveyard candidates in the side menu and routes effect clicks through the board", () => {
+  it("opens the graveyard for effect selection and distinguishes lane and selected targets", () => {
     const state = createBattleScreenState();
     const viewModel = projectPublicBattleView(state);
+    const graveyardCard = { ...viewModel.playerHand[0]!, instanceId: "grave-1" };
     const onBoardSquareIntent = vi.fn();
     const onEffectCandidateIntent = vi.fn();
     const interaction = {
@@ -587,6 +600,7 @@ describe("battle screen", () => {
         { kind: "coordinate" as const, id: "5:5", label: "Cell", selected: false },
         { kind: "graveyard" as const, id: "grave-1", label: "Graveyard card", selected: false }
       ],
+      maximumTargets: 1,
       movementPathSteps: [],
       confirmEnabled: false,
       cancelEnabled: true,
@@ -597,7 +611,7 @@ describe("battle screen", () => {
 
     render(
       <BattleScreen
-        viewModel={viewModel}
+        viewModel={{ ...viewModel, playerGraveyard: [graveyardCard] }}
         interaction={interaction}
         logEntries={LOG_ENTRIES}
         cpuStatus="idle"
@@ -611,11 +625,11 @@ describe("battle screen", () => {
       />
     );
 
-    expect(screen.queryByTestId("battle-effect-target-creature-board-card")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("battle-effect-target-base-cpu-base")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("battle-effect-target-lane-left")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("battle-effect-target-coordinate-5:5")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("battle-effect-target-graveyard-grave-1"));
+    expect(screen.getByTestId("battle-effect-selection-count")).toHaveTextContent("Selected 0 / 1");
+    expect(screen.getByTestId("battle-square-3-1")).toHaveClass("battle-square--lane-candidate");
+    fireEvent.click(screen.getByTestId("battle-effect-open-graveyard-button"));
+    expect(screen.getByTestId("battle-player-graveyard-dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("battle-graveyard-card-grave-1"));
     expect(onEffectCandidateIntent).toHaveBeenCalledWith("grave-1");
 
     fireEvent.click(screen.getByTestId("battle-square-4-5"));

@@ -26,6 +26,7 @@ export interface BattleBoardProps {
   readonly provisionalPositionKey?: string;
   /** During effect targeting, every board click represents a board target. */
   readonly effectSelectionMode?: boolean;
+  readonly effectCandidates?: readonly { readonly kind: "creature" | "base" | "lane" | "coordinate" | "graveyard"; readonly id: string; readonly selected: boolean }[];
   readonly interactionDisabled?: boolean;
   readonly onCreatureIntent?: (instanceId: string) => void;
   readonly onSquareIntent?: (coordinate: BoardCoordinate) => void;
@@ -46,6 +47,9 @@ export function BattleBoard(props: BattleBoardProps) {
   const squareRefs = useRef(new Map<string, HTMLButtonElement>());
   const suppressTouchClickKey = useRef<string>();
   const candidateKeys = new Set(props.candidateKeys ?? []);
+  const selectedEffectTargetIds = new Set(props.effectCandidates?.filter((candidate) => candidate.selected).map((candidate) => candidate.id) ?? []);
+  const candidateLanes = new Set(props.effectCandidates?.filter((candidate) => candidate.kind === "lane").map((candidate) => candidate.id) ?? []);
+  const selectedLanes = new Set(props.effectCandidates?.filter((candidate) => candidate.kind === "lane" && candidate.selected).map((candidate) => candidate.id) ?? []);
   const destroyedCreatureIds = new Set(props.destroyedCreatureInstanceIds ?? []);
   // Keep the lane's existing background color visible. These keys only describe
   // the territory that can become a summon destination; occupancy is handled by
@@ -90,9 +94,13 @@ export function BattleBoard(props: BattleBoardProps) {
       >
         {props.squares.map((square) => {
           const isCandidate = candidateKeys.has(square.key);
-          const isInitialSummonArea = initialSummonKeys.has(square.key);
-          const isControlledBaseSummonArea = controlledBaseSummonKeys.has(square.key);
+          const isEmptyNormalSquare = square.terrain === "normal" && !square.occupant;
+          const isInitialSummonArea = isEmptyNormalSquare && initialSummonKeys.has(square.key);
+          const isControlledBaseSummonArea = isEmptyNormalSquare && controlledBaseSummonKeys.has(square.key);
           const isSelected = props.selectedKey === square.key;
+          const isEffectSelected = selectedEffectTargetIds.has(square.key) || selectedEffectTargetIds.has(square.lane) || (square.occupant !== undefined && selectedEffectTargetIds.has(square.occupant.instanceId)) || (square.base !== undefined && selectedEffectTargetIds.has(square.base.id));
+          const isLaneCandidate = candidateLanes.has(square.lane);
+          const isLaneSelected = selectedLanes.has(square.lane);
           const isMovementOrigin = props.movementOriginKey === square.key;
           const isProvisional = props.provisionalPositionKey === square.key;
           const pathSteps = pathStepsByKey.get(square.key) ?? [];
@@ -125,7 +133,7 @@ export function BattleBoard(props: BattleBoardProps) {
                 pathSteps,
                 props.locale
               )}
-              aria-selected={isSelected || isProvisional || undefined}
+              aria-selected={isSelected || isProvisional || isEffectSelected || undefined}
               className={[
                 "battle-square",
                 `battle-square--${square.terrain}`,
@@ -134,6 +142,9 @@ export function BattleBoard(props: BattleBoardProps) {
                 animatedOccupant ? "battle-square--occupied" : "",
                 isCandidate ? "battle-square--candidate" : "",
                 isSelected ? "battle-square--selected" : "",
+                isEffectSelected ? "battle-square--effect-selected" : "",
+                isLaneCandidate ? "battle-square--lane-candidate" : "",
+                isLaneSelected ? "battle-square--lane-selected" : "",
                 isMovementOrigin ? "battle-square--movement-origin" : "",
                 pathSteps.length > 0 ? "battle-square--movement-path" : "",
                 isProvisional ? "battle-square--provisional" : "",
