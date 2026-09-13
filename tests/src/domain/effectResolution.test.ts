@@ -1,4 +1,5 @@
 import {
+  BATTLE_MAX_PP,
   createInitialBattleBoard,
   drainTriggers,
   getEffectiveModifiedValue,
@@ -73,6 +74,29 @@ describe("effect resolution foundations", () => {
     expect(result.accepted).toBe(true);
     if (!result.accepted) return;
     expect(result.state.players.player).toMatchObject({ currentPp: 3, maxPp: 7 });
+  });
+
+  it.each(["AK-027", "AK-029"])("caps maximum PP at 15 for %s", (cardId) => {
+    const { state, sourceId } = createBoardState();
+    const ppState: BattleState = {
+      ...state,
+      players: {
+        ...state.players,
+        player: { ...state.players.player, currentPp: 3, maxPp: 15 }
+      },
+      cardInstances: {
+        ...state.cardInstances,
+        [sourceId]: { ...state.cardInstances[sourceId]!, catalogCardId: cardId }
+      }
+    };
+    const result = resolveEffect(makeContext(ppState, sourceId, { kind: "none" }, [
+      { kind: "card-script", cardId, target: "any-creature", minimumTargets: 0, maximumTargets: 64 }
+    ]));
+
+    expect(BATTLE_MAX_PP).toBe(15);
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.state.players.player).toMatchObject({ currentPp: 3, maxPp: 15 });
   });
 
   it("rejects a stale target selection without changing state or its RNG", () => {
