@@ -1,5 +1,6 @@
 import type {
   BattleLogEntry,
+  BattleLogSourceCard,
   BattleEvent,
   BattleCardView,
   BoardCoordinate,
@@ -55,6 +56,7 @@ export function BattleScreen(props: BattleScreenProps) {
   const [detail, setDetail] = useState<DetailState>();
   const [graveyardSide, setGraveyardSide] = useState<"player" | "cpu">();
   const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const detailPopoverRef = useRef<HTMLDivElement>(null);
   const graveyardEffectCandidates = interaction.kind === "selecting-effect"
     ? interaction.effectCandidates?.filter((candidate) => candidate.kind === "graveyard") ?? []
     : [];
@@ -74,11 +76,22 @@ export function BattleScreen(props: BattleScreenProps) {
     leaveTimer.current = setTimeout(closeDetail, 80);
   }
 
+  function inspectLogSource(card: BattleLogSourceCard, element: HTMLButtonElement): void {
+    if (detail?.source === "click" && detail.element === element) {
+      closeDetail();
+      return;
+    }
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    setDetail({ card: logSourceToBattleCardView(card), element, source: "click", position: calculateDetailPosition(element) });
+  }
+
   useEffect(() => {
     const refresh = () => setDetail((current) => current ? { ...current, position: calculateDetailPosition(current.element) } : current);
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape") closeDetail(); };
     const outside = (event: PointerEvent) => {
-      if (event.pointerType === "touch" && detail && !detail.element.contains(event.target as Node)) closeDetail();
+      const target = event.target as Node;
+      if (detail?.source === "click" && !detail.element.contains(target) && !detailPopoverRef.current?.contains(target)) closeDetail();
+      if (event.pointerType === "touch" && detail && !detail.element.contains(target) && !detailPopoverRef.current?.contains(target)) closeDetail();
     };
     window.addEventListener("scroll", refresh, true);
     window.addEventListener("resize", refresh);
@@ -157,7 +170,7 @@ export function BattleScreen(props: BattleScreenProps) {
             onOpenGraveyard={setGraveyardSide}
             locale={props.locale}
           />
-          <BattleLogPanel entries={props.logEntries} locale={props.locale} />
+          <BattleLogPanel entries={props.logEntries} locale={props.locale} onSourceCardIntent={inspectLogSource} />
         </div>
       </div>
       {props.cpuStatus === "thinking" || props.cpuStatus === "executing" ? (
@@ -193,13 +206,15 @@ export function BattleScreen(props: BattleScreenProps) {
         locale={props.locale}
       /> : null}
       {detail ? (
-        <BattleCardDetailPopover
+        <div ref={detailPopoverRef}>
+          <BattleCardDetailPopover
           card={detail.card}
           position={detail.position}
           onPointerEnter={() => leaveTimer.current && clearTimeout(leaveTimer.current)}
           onPointerLeave={schedulePointerClose}
           locale={props.locale}
-        />
+          />
+        </div>
       ) : null}
     </main>
   );
@@ -230,7 +245,7 @@ function eventTitle(event: BattleEvent, locale: "ja" | "en" | undefined): string
   return titles[event.type] ?? (ja ? "対戦イベント" : "Battle event");
 }
 
-type DetailSource = "pointer" | "focus" | "touch";
+type DetailSource = "pointer" | "focus" | "touch" | "click";
 interface DetailState {
   readonly card: NonNullable<PublicBattleView["boardSquares"][number]["occupant"]>;
   readonly element: HTMLElement;
@@ -245,6 +260,26 @@ function calculateDetailPosition(element: HTMLElement): { readonly left: number;
   const below = rect.bottom + 8;
   const top = below + height <= window.innerHeight ? below : Math.max(8, rect.top - height - 8);
   return { left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)), top };
+}
+
+function logSourceToBattleCardView(card: BattleLogSourceCard): BattleCardView {
+  return {
+    instanceId: card.instanceId,
+    catalogCardId: card.catalogCardId,
+    name: card.name,
+    type: card.type,
+    attribute: card.attribute,
+    controllerSide: card.controllerSide,
+    presentationStatus: "available",
+    currentAttack: card.currentAttack,
+    currentHp: card.currentHp,
+    maxHp: card.maxHp,
+    movement: card.movement,
+    effectText: card.effectText,
+    isInspectable: true,
+    isActionable: false,
+    ownerLabel: card.controllerSide === "player" ? "Player" : "CPU"
+  };
 }
 
 function createIdleInteraction(viewModel: PublicBattleView): BattleInteractionControlsView {

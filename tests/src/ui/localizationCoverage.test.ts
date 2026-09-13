@@ -5,7 +5,7 @@ import {
   type UiLocale
 } from "@ankake/ui";
 import type { BattleEventType } from "@ankake/domain";
-import { localizeBattleView } from "../../../apps/web/src/i18n/cardLocalization";
+import { localizeBattleLogEntries, localizeBattleView } from "../../../apps/web/src/i18n/cardLocalization";
 
 const CARD_IDS = [
   ...Array.from({ length: 60 }, (_, index) => `AK-${String(index + 1).padStart(3, "0")}`),
@@ -74,6 +74,27 @@ describe("localization coverage", () => {
     const japanese = localizeBattleView(view, "ja");
     expect(japanese.playerHand[0]!.effectText).toContain("7ダメージ");
     expect(japanese.boardSquares[0]!.occupant!.effectText).toContain("7ダメージ");
+  });
+
+  it("localizes effect-source card snapshots in battle logs", () => {
+    const entries = [{
+      sequence: 1,
+      message: "effect",
+      type: "spell.resolved" as const,
+      sourceCard: {
+        instanceId: "source",
+        catalogCardId: "AK-016",
+        name: "Azure Sage",
+        type: "creature" as const,
+        attribute: "water" as const,
+        controllerSide: "player" as const,
+        movement: 1,
+        effectText: "On summon: Draw a card."
+      }
+    }];
+
+    expect(localizeBattleLogEntries(entries, "ja")[0]?.sourceCard?.name).toBe("ブルーフィンの学究");
+    expect(localizeBattleLogEntries(entries, "en")[0]?.sourceCard?.effectText).toContain("Draw a card");
   });
 
   it.each(["ja", "en"] satisfies readonly UiLocale[])("localizes every battle event and instruction in %s", (locale) => {

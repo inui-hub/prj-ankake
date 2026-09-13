@@ -15,7 +15,7 @@ import {
   MenuScreen
 } from "@ankake/ui";
 import { useEffect, useMemo, useReducer, useState } from "react";
-import { cardNameMap, localizeBattleView } from "./i18n/cardLocalization";
+import { cardNameMap, localizeBattleLogEntries, localizeBattleView } from "./i18n/cardLocalization";
 import type { AppLocale } from "./i18n/localization";
 import { useBattleController } from "./battle/useBattleController";
 import { createDeckRepository } from "./deck/createDeckRepository";
@@ -125,7 +125,7 @@ function BattleRoute({ catalog, locale, onReturnToMenu }: BattleRouteProps) {
       viewModel={localizeBattleView(controller.viewModel.publicView, locale)}
       locale={locale}
       interaction={controller.viewModel.interaction}
-      logEntries={controller.viewModel.logEntries}
+      logEntries={localizeBattleLogEntries(controller.viewModel.logEntries, locale)}
       cpuStatus={controller.viewModel.cpuStatus}
       resonanceIssueCode={controller.viewModel.lastValidationIssueCode}
       animationEvent={controller.viewModel.animationEvent}

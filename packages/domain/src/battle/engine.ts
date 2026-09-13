@@ -160,7 +160,7 @@ function acceptSpell(
   const firstEventSequence = state.eventCursor + effectEvents.length + 1;
   const events: readonly BattleEvent[] = [
     ...effectEvents,
-    { sequence: firstEventSequence, type: "spell.resolved", side: command.side, instanceId: card.instanceId, message: `${labelSide(command.side)} cast ${card.name}.` },
+    { sequence: firstEventSequence, type: "spell.resolved", side: command.side, instanceId: card.instanceId, message: `${labelSide(command.side)} cast ${card.name}.`, data: { effectSourceInstanceId: card.instanceId } },
     ...BATTLE_LANES.map((lane, index) => ({ sequence: firstEventSequence + 1 + index, type: "resonance.changed" as const, side: command.side, instanceId: card.instanceId, message: `${card.attribute} resonance increased in the ${lane} lane.` }))
   ];
   const nextPlayer = resolvedState.players[command.side];
