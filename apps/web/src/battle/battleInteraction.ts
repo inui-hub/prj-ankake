@@ -70,6 +70,7 @@ export interface BattleInteractionView {
   readonly selectedDestinationKey?: string;
   readonly selectedCardName?: string;
   readonly selectedCardCost?: number;
+  readonly maximumTargets?: number;
   readonly effectAction?: "summon" | "spell";
   readonly effectCandidates?: readonly { readonly kind: "creature" | "base" | "lane" | "coordinate" | "graveyard"; readonly id: string; readonly label: string; readonly selected: boolean }[];
   readonly selectedEffectTargetIds?: readonly string[];
@@ -586,6 +587,7 @@ export function projectBattleInteractionView(
       selectedCardCost: selectedCard?.currentCost, candidateDestinationKeys: [...coordinateCandidateKeys, ...baseCandidateKeys, ...laneCandidateKeys], movementPathSteps: [],
       effectAction: interaction.summonDestination ? "summon" : "spell",
       effectCandidates: interaction.candidates.map((candidate) => ({ ...candidate, selected: interaction.selectedIds.includes(candidate.id) })),
+      maximumTargets: interaction.maximumTargets,
       selectedEffectTargetIds: interaction.selectedIds, confirmEnabled: selectionComplete(interaction),
       cancelEnabled: true, undoEnabled: false, endPlayPhaseEnabled: false,
       instructionKey: "effect", issueCode: interaction.issue?.code, issue: interaction.issue?.message };

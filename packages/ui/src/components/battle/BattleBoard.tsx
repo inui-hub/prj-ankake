@@ -26,6 +26,7 @@ export interface BattleBoardProps {
   readonly provisionalPositionKey?: string;
   /** During effect targeting, every board click represents a board target. */
   readonly effectSelectionMode?: boolean;
+  readonly effectCandidates?: readonly { readonly kind: "creature" | "base" | "lane" | "coordinate" | "graveyard"; readonly id: string; readonly selected: boolean }[];
   readonly interactionDisabled?: boolean;
   readonly onCreatureIntent?: (instanceId: string) => void;
   readonly onSquareIntent?: (coordinate: BoardCoordinate) => void;
@@ -46,6 +47,10 @@ export function BattleBoard(props: BattleBoardProps) {
   const squareRefs = useRef(new Map<string, HTMLButtonElement>());
   const suppressTouchClickKey = useRef<string>();
   const candidateKeys = new Set(props.candidateKeys ?? []);
+  const selectedEffectTargetIds = new Set(props.effectCandidates?.filter((candidate) => candidate.selected).map((candidate) => candidate.id) ?? []);
+  const candidateLanes = new Set(props.effectCandidates?.filter((candidate) => candidate.kind === "lane").map((candidate) => candidate.id) ?? []);
+  const selectedLanes = new Set(props.effectCandidates?.filter((candidate) => candidate.kind === "lane" && candidate.selected).map((candidate) => candidate.id) ?? []);
+  const laneOverlays = (["left", "center", "right"] as const).filter((lane) => candidateLanes.has(lane));
   const destroyedCreatureIds = new Set(props.destroyedCreatureInstanceIds ?? []);
   // Keep the lane's existing background color visible. These keys only describe
   // the territory that can become a summon destination; occupancy is handled by
@@ -88,11 +93,25 @@ export function BattleBoard(props: BattleBoardProps) {
         data-testid="battle-board"
         role="grid"
       >
+        {laneOverlays.map((lane) => (
+          <div
+            aria-hidden="true"
+            className={`battle-lane-overlay battle-lane-overlay--${lane} ${selectedLanes.has(lane) ? "battle-lane-overlay--selected" : ""}`}
+            data-selected={selectedLanes.has(lane) || undefined}
+            data-testid={`battle-lane-overlay-${lane}`}
+            key={lane}
+            style={{ gridColumn: laneGridColumn(lane), gridRow: "1 / 10" }}
+          >
+            <span className="battle-lane-overlay__label">{laneLabel(lane, props.locale)}</span>
+          </div>
+        ))}
         {props.squares.map((square) => {
           const isCandidate = candidateKeys.has(square.key);
-          const isInitialSummonArea = initialSummonKeys.has(square.key);
-          const isControlledBaseSummonArea = controlledBaseSummonKeys.has(square.key);
+          const isEmptyNormalSquare = square.terrain === "normal" && !square.occupant;
+          const isInitialSummonArea = isEmptyNormalSquare && initialSummonKeys.has(square.key);
+          const isControlledBaseSummonArea = isEmptyNormalSquare && controlledBaseSummonKeys.has(square.key);
           const isSelected = props.selectedKey === square.key;
+          const isEffectSelected = selectedEffectTargetIds.has(square.key) || (square.occupant !== undefined && selectedEffectTargetIds.has(square.occupant.instanceId)) || (square.base !== undefined && selectedEffectTargetIds.has(square.base.id));
           const isMovementOrigin = props.movementOriginKey === square.key;
           const isProvisional = props.provisionalPositionKey === square.key;
           const pathSteps = pathStepsByKey.get(square.key) ?? [];
@@ -125,7 +144,7 @@ export function BattleBoard(props: BattleBoardProps) {
                 pathSteps,
                 props.locale
               )}
-              aria-selected={isSelected || isProvisional || undefined}
+              aria-selected={isSelected || isProvisional || isEffectSelected || undefined}
               className={[
                 "battle-square",
                 `battle-square--${square.terrain}`,
@@ -134,6 +153,7 @@ export function BattleBoard(props: BattleBoardProps) {
                 animatedOccupant ? "battle-square--occupied" : "",
                 isCandidate ? "battle-square--candidate" : "",
                 isSelected ? "battle-square--selected" : "",
+                isEffectSelected ? "battle-square--effect-selected" : "",
                 isMovementOrigin ? "battle-square--movement-origin" : "",
                 pathSteps.length > 0 ? "battle-square--movement-path" : "",
                 isProvisional ? "battle-square--provisional" : "",
@@ -291,6 +311,17 @@ function describeSquare(
 function ownerLabel(owner: "none" | "player" | "cpu", locale: "ja" | "en" = "ja"): string {
   if (locale === "ja") return owner === "none" ? "中立拠点" : owner === "player" ? "味方拠点" : "敵拠点";
   return owner === "none" ? "Unclaimed" : owner === "player" ? "Player controlled" : "CPU controlled";
+}
+
+function laneGridColumn(lane: "left" | "center" | "right"): string {
+  return lane === "left" ? "1 / 5" : lane === "center" ? "5 / 8" : "8 / 12";
+}
+
+function laneLabel(lane: "left" | "center" | "right", locale: UiLocale | undefined): string {
+  const label = locale === "ja"
+    ? { left: "左", center: "中央", right: "右" }[lane]
+    : lane === "center" ? "Center" : `${lane[0]?.toUpperCase()}${lane.slice(1)}`;
+  return locale === "ja" ? `${label}レーンを選択` : `Select ${label} lane`;
 }
 
 export type BoardFocusDirection =

@@ -28,17 +28,22 @@ describe("public battle projection", () => {
     expect(view).not.toHaveProperty("cpuBaseHp");
   });
 
-  it("projects player hand order and PP without CPU hand identities or legal actions", () => {
+  it("projects public resources without CPU hand identities or legal actions", () => {
     const state = sampleBattleState();
     const view = projectPublicBattleView(state);
     const serialized = JSON.stringify(view);
 
     expect(view.playerCurrentPp).toBe(state.players.player.currentPp);
     expect(view.playerMaxPp).toBe(state.players.player.maxPp);
+    expect(view.cpuCurrentPp).toBe(state.players.cpu.currentPp);
+    expect(view.cpuMaxPp).toBe(state.players.cpu.maxPp);
+    expect(view.cpuResonance).toBe(state.players.cpu.resonance);
     expect(view.playerHand.map((card) => card.instanceId)).toEqual(
       state.players.player.handZone
     );
     expect(view.cpuHandCount).toBe(state.players.cpu.handZone.length);
+    expect(view.playerGraveyard.map((card) => card.instanceId)).toEqual(state.players.player.graveyardZone);
+    expect(view.cpuGraveyard.map((card) => card.instanceId)).toEqual(state.players.cpu.graveyardZone);
     expect(view).not.toHaveProperty("legalActions");
 
     for (const cpuHandInstanceId of state.players.cpu.handZone) {

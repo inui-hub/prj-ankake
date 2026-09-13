@@ -1,8 +1,8 @@
 import {
   RESONANCE_ACTIVE_THRESHOLD,
-  type BattleBaseId,
-  type BattleBaseView,
+  type BattleCardView,
   type BattleLogEntry,
+  type BattleSide,
   type PublicBattleView
 } from "@ankake/domain";
 import { useState } from "react";
@@ -55,19 +55,22 @@ export function BattleStatusPanel(props: BattleStatusPanelProps) {
   );
 }
 
-export interface BattlePhaseControlsProps {
+export interface BattleResourceControlsProps {
+  readonly viewModel: PublicBattleView;
   readonly canEndPlayPhase: boolean;
   readonly onEndPlayPhase: () => void;
   readonly locale?: "ja" | "en";
 }
 
-export function BattlePhaseControls(props: BattlePhaseControlsProps) {
+export function BattleResourceControls(props: BattleResourceControlsProps) {
   return (
     <section
-      className="battle-panel battle-phase-controls"
-      data-testid="battle-phase-controls"
+      className="battle-panel battle-resource-controls"
+      data-testid="battle-resource-controls"
     >
-      <h2>{uiText(props.locale, "battle.phase-control")}</h2>
+      <span className="battle-resource-controls__pp" data-testid="battle-player-pp">
+        {props.viewModel.playerCurrentPp}<small>/{props.viewModel.playerMaxPp} PP</small>
+      </span>
       <button
         className="battle-button battle-button--primary"
         data-testid="battle-end-play-phase-button"
@@ -83,48 +86,56 @@ export function BattlePhaseControls(props: BattlePhaseControlsProps) {
 
 export function BattleInfoPanels(props: {
   readonly viewModel: PublicBattleView;
+  readonly onOpenGraveyard: (side: BattleSide) => void;
   readonly locale?: "ja" | "en";
 }) {
   const { viewModel } = props;
 
   return (
-    <aside className="battle-info-grid">
-      <section className="battle-panel" data-testid="battle-player-info-panel">
-        <h2>{props.locale === "ja" ? "プレイヤー" : "Player"}</h2>
-        <p data-testid="battle-player-pp">
-          PP: {viewModel.playerCurrentPp}/{viewModel.playerMaxPp}
-        </p>
-        <p>{props.locale === "ja" ? "手札" : "Hand"}: {viewModel.playerHand.length}</p>
-        <p>{props.locale === "ja" ? "デッキ" : "Deck"}: {viewModel.playerDeckCount}</p>
-        <ResonanceTable viewModel={viewModel} locale={props.locale} />
+    <>
+      <section className="battle-panel battle-card-counts" data-testid="battle-card-counts-panel">
+        <h2>{props.locale === "ja" ? "カード枚数" : "Cards"}</h2>
+        <CardCounts side="player" handCount={viewModel.playerHand.length} deckCount={viewModel.playerDeckCount} graveyardCount={viewModel.playerGraveyard.length} locale={props.locale} onOpenGraveyard={props.onOpenGraveyard} />
+        <CardCounts side="cpu" handCount={viewModel.cpuHandCount} deckCount={viewModel.cpuDeckCount} graveyardCount={viewModel.cpuGraveyard.length} locale={props.locale} onOpenGraveyard={props.onOpenGraveyard} />
       </section>
-      <section className="battle-panel" data-testid="battle-opponent-info-panel">
-        <h2>CPU</h2>
-        <p>{props.locale === "ja" ? "手札" : "Hand"}: {viewModel.cpuHandCount}</p>
-        <p>{props.locale === "ja" ? "デッキ" : "Deck"}: {viewModel.cpuDeckCount}</p>
-      </section>
-      <section className="battle-panel battle-base-summary" data-testid="battle-base-summary">
-        <h2>{props.locale === "ja" ? "拠点" : "Bases"}</h2>
-        <ol>
-          {viewModel.bases.map((base) => (
-            <li data-testid={`battle-base-summary-${base.id}`} key={base.id}>
-              <strong>{base.label}</strong><span>{ownerLabel(base.owner, props.locale)}</span><span>HP {base.currentHp}/{base.maxHp}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </aside>
+      <ResonancePanel viewModel={viewModel} locale={props.locale} />
+    </>
   );
 }
 
-function ResonanceTable(props: { readonly viewModel: PublicBattleView; readonly locale?: "ja" | "en" }) {
+function CardCounts(props: { readonly side: BattleSide; readonly handCount: number; readonly deckCount: number; readonly graveyardCount: number; readonly locale?: "ja" | "en"; readonly onOpenGraveyard: (side: BattleSide) => void }) {
+  const label = props.side === "player" ? (props.locale === "ja" ? "プレイヤー" : "Player") : "CPU";
+  return <section className="battle-card-counts__side" data-testid={`battle-${props.side}-info-panel`}>
+    <h3>{label}</h3>
+    <p>{props.locale === "ja" ? "手札" : "Hand"}: {props.handCount}</p>
+    <p>{props.locale === "ja" ? "山札" : "Deck"}: {props.deckCount}</p>
+    <button className="battle-card-counts__graveyard" data-testid={`battle-${props.side}-graveyard-button`} type="button" onClick={() => props.onOpenGraveyard(props.side)}>
+      {props.locale === "ja" ? "墓地" : "Graveyard"}: {props.graveyardCount}
+    </button>
+  </section>;
+}
+
+function ResonancePanel(props: { readonly viewModel: PublicBattleView; readonly locale?: "ja" | "en" }) {
+  const [side, setSide] = useState<BattleSide>("player");
+  const playerLabel = props.locale === "ja" ? "味方" : "Player";
+  const cpuLabel = props.locale === "ja" ? "敵" : "CPU";
+  return <section className="battle-panel" data-testid="battle-resonance-panel">
+    <div className="battle-resonance-tabs" role="group" aria-label={props.locale === "ja" ? "共鳴値の表示対象" : "Resonance display side"}>
+      <button className="battle-button battle-button--quiet" data-testid="battle-resonance-player-tab" aria-pressed={side === "player"} type="button" onClick={() => setSide("player")}>{playerLabel}</button>
+      <button className="battle-button battle-button--quiet" data-testid="battle-resonance-cpu-tab" aria-pressed={side === "cpu"} type="button" onClick={() => setSide("cpu")}>{cpuLabel}</button>
+    </div>
+    <ResonanceTable resonance={side === "player" ? props.viewModel.playerResonance : props.viewModel.cpuResonance} side={side} locale={props.locale} />
+  </section>;
+}
+
+function ResonanceTable(props: { readonly resonance: PublicBattleView["playerResonance"]; readonly side: BattleSide; readonly locale?: "ja" | "en" }) {
   const lanes = ["left", "center", "right"] as const;
   const attributes = ["fire", "water", "wind", "light", "dark"] as const;
   const label = (value: string) => props.locale === "ja" ? ({ left: "左", center: "中央", right: "右", fire: "火", water: "水", wind: "風", light: "光", dark: "闇" }[value] ?? value) : value;
   const [showEffects, setShowEffects] = useState(false);
   return <div
     className="battle-resonance"
-    data-testid="battle-player-resonance"
+    data-testid={`battle-${props.side}-resonance`}
     tabIndex={0}
     onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setShowEffects(false); }}
     onFocus={() => setShowEffects(true)}
@@ -135,7 +146,7 @@ function ResonanceTable(props: { readonly viewModel: PublicBattleView; readonly 
       <caption>{props.locale === "ja" ? "共鳴" : "Resonance"}</caption>
       <thead><tr><th scope="col">{props.locale === "ja" ? "属性" : "Attribute"}</th>{lanes.map((lane) => <th key={lane} scope="col">{label(lane)}</th>)}</tr></thead>
       <tbody>{attributes.map((attribute) => <tr className={`battle-resonance-table__row--${attribute}`} key={attribute}><th scope="row">{label(attribute)}</th>{lanes.map((lane) => {
-        const value = props.viewModel.playerResonance[lane]?.[attribute] ?? 0;
+        const value = props.resonance[lane]?.[attribute] ?? 0;
         return <td className={value >= RESONANCE_ACTIVE_THRESHOLD ? "battle-resonance-table__cell--active" : undefined} key={lane} data-testid={`battle-resonance-${lane}-${attribute}`}>{value}</td>;
       })}</tr>)}</tbody>
     </table>
@@ -162,8 +173,6 @@ function ResonanceEffectPopover(props: { readonly locale?: "ja" | "en" }) {
     <ul>{effects.map(([attribute, effect]) => <li className={`battle-resonance__effect--${attribute.toLowerCase()}`} key={attribute}><b>{attribute}</b><span>{effect}</span></li>)}</ul>
   </section>;
 }
-
-function ownerLabel(owner: "none" | "player" | "cpu", locale?: "ja" | "en"): string { return locale === "ja" ? owner === "none" ? "中立" : owner === "player" ? "味方" : "敵" : owner === "none" ? "Unclaimed" : owner === "player" ? "Player" : "CPU"; }
 
 function phaseLabel(phase: PublicBattleView["phase"], locale?: "ja" | "en"): string {
   switch (phase) {

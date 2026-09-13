@@ -77,10 +77,15 @@ export interface PublicBattleView {
   readonly playerCurrentPp: number;
   readonly playerMaxPp: number;
   readonly playerResonance: ResonanceMap;
+  readonly cpuCurrentPp: number;
+  readonly cpuMaxPp: number;
+  readonly cpuResonance: ResonanceMap;
   readonly cpuHandCount: number;
   readonly playerDeckCount: number;
   readonly cpuDeckCount: number;
   readonly playerHand: readonly BattleCardView[];
+  readonly playerGraveyard: readonly BattleCardView[];
+  readonly cpuGraveyard: readonly BattleCardView[];
   readonly effectChoices: readonly import("./types").PublicEffectChoice[];
   readonly boardSquares: readonly BattleBoardSquareView[];
   readonly terminalResult: BattleState["terminalResult"];
@@ -98,11 +103,20 @@ export function projectPublicBattleView(state: BattleState): PublicBattleView {
     playerCurrentPp: state.players.player.currentPp,
     playerMaxPp: state.players.player.maxPp,
     playerResonance: state.players.player.resonance,
+    cpuCurrentPp: state.players.cpu.currentPp,
+    cpuMaxPp: state.players.cpu.maxPp,
+    cpuResonance: state.players.cpu.resonance,
     cpuHandCount: state.players.cpu.handZone.length,
     playerDeckCount: state.players.player.deckZone.length,
     cpuDeckCount: state.players.cpu.deckZone.length,
     playerHand: state.players.player.handZone.map((instanceId) =>
       projectBattleCard(instanceId, state.cardInstances[instanceId], "hand", state)
+    ),
+    playerGraveyard: state.players.player.graveyardZone.map((instanceId) =>
+      projectBattleCard(instanceId, state.cardInstances[instanceId], "graveyard", state)
+    ),
+    cpuGraveyard: state.players.cpu.graveyardZone.map((instanceId) =>
+      projectBattleCard(instanceId, state.cardInstances[instanceId], "graveyard", state)
     ),
     effectChoices: getPublicEffectChoices(state, "player"),
     boardSquares: state.board.squares.map((square) => {
@@ -142,7 +156,7 @@ export function projectBattleBaseView(base: BattleBaseState): BattleBaseView {
 function projectBattleCard(
   instanceId: string,
   card: BattleCardInstance | undefined,
-  location: "hand" | "board",
+  location: "hand" | "board" | "graveyard",
   state?: BattleState
 ): BattleCardView {
   if (!card) {

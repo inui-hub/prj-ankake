@@ -7,7 +7,7 @@ import type {
 } from "@ankake/domain";
 import { useEffect, useRef, useState } from "react";
 import { BattleBoard } from "./BattleBoard";
-import { BattleResultOverlay } from "./BattleDialogs";
+import { BattleGraveyardDialog, BattleResultOverlay } from "./BattleDialogs";
 import { BattleHand } from "./BattleHand";
 import { BattleCardDetailPopover } from "./BattleCardDetailPopover";
 import { localizeBattleEvent, localizeBattleIssue, uiText } from "../../localization";
@@ -18,6 +18,7 @@ import {
 import {
   BattleInfoPanels,
   BattleLogPanel,
+  BattleResourceControls,
   BattleStatusPanel
 } from "./BattlePanels";
 import { BackgroundScene } from "../BackgroundScene";
@@ -51,7 +52,11 @@ export function BattleScreen(props: BattleScreenProps) {
   const terminal = Boolean(props.viewModel.terminalResult);
   const interactionDisabled = terminal || Boolean(props.isAnimating);
   const [detail, setDetail] = useState<DetailState>();
+  const [graveyardSide, setGraveyardSide] = useState<"player" | "cpu">();
   const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const graveyardEffectCandidates = interaction.kind === "selecting-effect"
+    ? interaction.effectCandidates?.filter((candidate) => candidate.kind === "graveyard") ?? []
+    : [];
 
   function closeDetail(): void {
     if (leaveTimer.current) clearTimeout(leaveTimer.current);
@@ -111,6 +116,7 @@ export function BattleScreen(props: BattleScreenProps) {
             movementPathSteps={interaction.movementPathSteps}
             provisionalPositionKey={interaction.provisionalPositionKey}
             effectSelectionMode={interaction.kind === "selecting-effect"}
+            effectCandidates={interaction.effectCandidates}
             interactionDisabled={interactionDisabled}
             animationEvent={props.animationEvent}
             defeatedCreature={props.defeatedCreature}
@@ -134,17 +140,19 @@ export function BattleScreen(props: BattleScreenProps) {
           />
         </div>
         <div className="battle-side-rail">
-          <BattleInfoPanels
-            viewModel={props.viewModel}
-            locale={props.locale}
-          />
+          <BattleResourceControls viewModel={props.viewModel} canEndPlayPhase={!interactionDisabled && interaction.endPlayPhaseEnabled} onEndPlayPhase={props.onEndPlayPhase} locale={props.locale} />
           <BattleInteractionControls
             interaction={interaction}
             onCancel={props.onCancelInteraction ?? noOperation}
             onUndo={props.onUndoInteraction ?? noOperation}
-            onEndPlayPhase={props.onEndPlayPhase}
             onEffectCandidate={props.onEffectCandidateIntent}
+            onOpenGraveyard={() => setGraveyardSide("player")}
             interactionDisabled={interactionDisabled}
+            locale={props.locale}
+          />
+          <BattleInfoPanels
+            viewModel={props.viewModel}
+            onOpenGraveyard={setGraveyardSide}
             locale={props.locale}
           />
           <BattleLogPanel entries={props.logEntries} locale={props.locale} />
@@ -171,8 +179,17 @@ export function BattleScreen(props: BattleScreenProps) {
         locale={props.locale}
         onRematch={props.onRematch}
         onReturnToPreparation={props.onReturnToPreparation}
-        interactionDisabled={interactionDisabled}
+        interactionDisabled={Boolean(props.isAnimating)}
       />
+      {graveyardSide ? <BattleGraveyardDialog
+        side={graveyardSide}
+        cards={graveyardSide === "player" ? props.viewModel.playerGraveyard : props.viewModel.cpuGraveyard}
+        selectableCardIds={graveyardSide === "player" && graveyardEffectCandidates.length > 0 ? graveyardEffectCandidates.map((candidate) => candidate.id) : undefined}
+        selectedCardIds={graveyardEffectCandidates.filter((candidate) => candidate.selected).map((candidate) => candidate.id)}
+        onSelectCard={props.onEffectCandidateIntent}
+        onClose={() => setGraveyardSide(undefined)}
+        locale={props.locale}
+      /> : null}
       {detail ? (
         <BattleCardDetailPopover
           card={detail.card}
