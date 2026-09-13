@@ -13,8 +13,6 @@ export interface BattleStatusPanelProps {
   readonly cpuStatus: string;
   readonly onReturnToMenu: () => void;
   readonly onQuitBattle: () => void;
-  readonly canEndPlayPhase: boolean;
-  readonly onEndPlayPhase: () => void;
   readonly locale?: "ja" | "en";
   readonly interactionDisabled?: boolean;
 }
@@ -35,20 +33,6 @@ export function BattleStatusPanel(props: BattleStatusPanelProps) {
       <span aria-live="polite" data-testid="battle-cpu-status">
         CPU {cpuStatusLabel(props.cpuStatus, props.locale)}
       </span>
-      <div className="battle-status-bar__phase-action">
-        <span className="battle-status-bar__pp" data-testid="battle-player-pp">
-          {viewModel.playerCurrentPp}<small>/{viewModel.playerMaxPp} PP</small>
-        </span>
-        <button
-          className="battle-button battle-button--primary"
-          data-testid="battle-end-play-phase-button"
-          disabled={!props.canEndPlayPhase}
-          type="button"
-          onClick={props.onEndPlayPhase}
-        >
-          {uiText(props.locale, "battle.end-play-phase")}
-        </button>
-      </div>
       <button
         className="battle-button battle-button--quiet"
         data-testid="battle-quit-button"
@@ -71,19 +55,22 @@ export function BattleStatusPanel(props: BattleStatusPanelProps) {
   );
 }
 
-export interface BattlePhaseControlsProps {
+export interface BattleResourceControlsProps {
+  readonly viewModel: PublicBattleView;
   readonly canEndPlayPhase: boolean;
   readonly onEndPlayPhase: () => void;
   readonly locale?: "ja" | "en";
 }
 
-export function BattlePhaseControls(props: BattlePhaseControlsProps) {
+export function BattleResourceControls(props: BattleResourceControlsProps) {
   return (
     <section
-      className="battle-panel battle-phase-controls"
-      data-testid="battle-phase-controls"
+      className="battle-panel battle-resource-controls"
+      data-testid="battle-resource-controls"
     >
-      <h2>{uiText(props.locale, "battle.phase-control")}</h2>
+      <span className="battle-resource-controls__pp" data-testid="battle-player-pp">
+        {props.viewModel.playerCurrentPp}<small>/{props.viewModel.playerMaxPp} PP</small>
+      </span>
       <button
         className="battle-button battle-button--primary"
         data-testid="battle-end-play-phase-button"
@@ -105,14 +92,14 @@ export function BattleInfoPanels(props: {
   const { viewModel } = props;
 
   return (
-    <aside className="battle-info-grid">
+    <>
       <section className="battle-panel battle-card-counts" data-testid="battle-card-counts-panel">
         <h2>{props.locale === "ja" ? "カード枚数" : "Cards"}</h2>
         <CardCounts side="player" handCount={viewModel.playerHand.length} deckCount={viewModel.playerDeckCount} graveyardCount={viewModel.playerGraveyard.length} locale={props.locale} onOpenGraveyard={props.onOpenGraveyard} />
         <CardCounts side="cpu" handCount={viewModel.cpuHandCount} deckCount={viewModel.cpuDeckCount} graveyardCount={viewModel.cpuGraveyard.length} locale={props.locale} onOpenGraveyard={props.onOpenGraveyard} />
       </section>
       <ResonancePanel viewModel={viewModel} locale={props.locale} />
-    </aside>
+    </>
   );
 }
 

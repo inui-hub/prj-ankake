@@ -1,4 +1,7 @@
 import type { BattleCardView, BattleSide, BattleTerminalReason, PublicBattleView } from "@ankake/domain";
+import { useRef, useState } from "react";
+import { CardArtwork } from "../CardArtwork";
+import { BattleCardDetailPopover } from "./BattleCardDetailPopover";
 import { type UiLocale, uiText } from "../../localization";
 
 export function BattleResultOverlay(props: {
@@ -49,6 +52,17 @@ export function BattleGraveyardDialog(props: {
   const selectable = props.selectableCardIds ? new Set(props.selectableCardIds) : undefined;
   const selected = new Set(props.selectedCardIds);
   const sideLabel = props.side === "player" ? (props.locale === "ja" ? "プレイヤー" : "Player") : "CPU";
+  const [detail, setDetail] = useState<{ readonly card: BattleCardView; readonly element: HTMLElement; readonly position: { readonly left: number; readonly top: number } }>();
+  const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  function showDetail(card: BattleCardView, element: HTMLElement): void {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    setDetail({ card, element, position: calculateDetailPosition(element) });
+  }
+
+  function scheduleDetailClose(): void {
+    leaveTimer.current = setTimeout(() => setDetail(undefined), 80);
+  }
 
   return <div className="battle-modal-backdrop battle-graveyard-backdrop" role="presentation">
     <section aria-label={`${sideLabel} ${props.locale === "ja" ? "墓地" : "graveyard"}`} aria-modal="true" className="battle-modal battle-graveyard-dialog" data-testid={`battle-${props.side}-graveyard-dialog`} role="dialog">
@@ -61,21 +75,34 @@ export function BattleGraveyardDialog(props: {
           const canSelect = selectable?.has(card.instanceId) ?? false;
           const isSelected = selected.has(card.instanceId);
           return <li key={card.instanceId}>
-            {selectable ? <button aria-pressed={isSelected} className={`battle-graveyard-card ${isSelected ? "battle-graveyard-card--selected" : ""}`} data-testid={`battle-graveyard-card-${card.instanceId}`} disabled={!canSelect} type="button" onClick={() => props.onSelectCard?.(card.instanceId)}>
+            {selectable ? <button aria-disabled={!canSelect} aria-pressed={isSelected} className={`battle-graveyard-card ${isSelected ? "battle-graveyard-card--selected" : ""} ${!canSelect ? "battle-graveyard-card--unavailable" : ""}`} data-testid={`battle-graveyard-card-${card.instanceId}`} type="button" onClick={() => canSelect && props.onSelectCard?.(card.instanceId)} onPointerEnter={(event) => showDetail(card, event.currentTarget)} onPointerLeave={scheduleDetailClose}>
               <CardSummary card={card} locale={props.locale} />
               <span>{isSelected ? (props.locale === "ja" ? "選択済み" : "Selected") : (props.locale === "ja" ? "選択" : "Select")}</span>
-            </button> : <article className="battle-graveyard-card" data-testid={`battle-graveyard-card-${card.instanceId}`}><CardSummary card={card} locale={props.locale} /></article>}
+            </button> : <article className="battle-graveyard-card" data-testid={`battle-graveyard-card-${card.instanceId}`} onPointerEnter={(event) => showDetail(card, event.currentTarget)} onPointerLeave={scheduleDetailClose}><CardSummary card={card} locale={props.locale} /></article>}
           </li>;
         })}
       </ol>}
     </section>
+    {detail ? <BattleCardDetailPopover card={detail.card} position={detail.position} locale={props.locale} onPointerEnter={() => leaveTimer.current && clearTimeout(leaveTimer.current)} onPointerLeave={scheduleDetailClose} /> : null}
   </div>;
 }
 
 function CardSummary(props: { readonly card: BattleCardView; readonly locale?: UiLocale }) {
-  return <span className="battle-graveyard-card__summary">
+  return <>
+    <CardArtwork attribute={props.card.attribute} catalogCardId={props.card.catalogCardId} className="battle-graveyard-card__artwork" fallbackClassName="battle-graveyard-card__artwork battle-graveyard-card__artwork--fallback" locale={props.locale} name={props.card.name} testIdPrefix="battle-graveyard-artwork" type={props.card.type} />
+    <span className="battle-graveyard-card__summary">
     <strong>{props.card.name}</strong>
     <span>{props.locale === "ja" ? "コスト" : "Cost"} {props.card.currentCost ?? "-"}</span>
     <span>{props.card.type === "creature" || props.card.type === "creature-token" ? `${props.card.currentAttack ?? "-"}/${props.card.maxHp ?? "-"}` : props.card.type}</span>
-  </span>;
+    </span>
+  </>;
+}
+
+function calculateDetailPosition(element: HTMLElement): { readonly left: number; readonly top: number } {
+  const rect = element.getBoundingClientRect();
+  const width = Math.min(360, window.innerWidth - 16);
+  const height = 260;
+  const below = rect.bottom + 8;
+  const top = below + height <= window.innerHeight ? below : Math.max(8, rect.top - height - 8);
+  return { left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)), top };
 }

@@ -18,6 +18,7 @@ import {
 import {
   BattleInfoPanels,
   BattleLogPanel,
+  BattleResourceControls,
   BattleStatusPanel
 } from "./BattlePanels";
 import { BackgroundScene } from "../BackgroundScene";
@@ -98,8 +99,6 @@ export function BattleScreen(props: BattleScreenProps) {
         cpuStatus={props.cpuStatus}
         locale={props.locale}
         interactionDisabled={interactionDisabled}
-        canEndPlayPhase={!interactionDisabled && interaction.endPlayPhaseEnabled}
-        onEndPlayPhase={props.onEndPlayPhase}
         onReturnToMenu={props.onReturnToMenu}
         onQuitBattle={props.onQuitBattle}
       />
@@ -141,11 +140,7 @@ export function BattleScreen(props: BattleScreenProps) {
           />
         </div>
         <div className="battle-side-rail">
-          <BattleInfoPanels
-            viewModel={props.viewModel}
-            onOpenGraveyard={setGraveyardSide}
-            locale={props.locale}
-          />
+          <BattleResourceControls viewModel={props.viewModel} canEndPlayPhase={!interactionDisabled && interaction.endPlayPhaseEnabled} onEndPlayPhase={props.onEndPlayPhase} locale={props.locale} />
           <BattleInteractionControls
             interaction={interaction}
             onCancel={props.onCancelInteraction ?? noOperation}
@@ -153,6 +148,11 @@ export function BattleScreen(props: BattleScreenProps) {
             onEffectCandidate={props.onEffectCandidateIntent}
             onOpenGraveyard={() => setGraveyardSide("player")}
             interactionDisabled={interactionDisabled}
+            locale={props.locale}
+          />
+          <BattleInfoPanels
+            viewModel={props.viewModel}
+            onOpenGraveyard={setGraveyardSide}
             locale={props.locale}
           />
           <BattleLogPanel entries={props.logEntries} locale={props.locale} />

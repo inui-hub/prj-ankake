@@ -119,6 +119,15 @@ describe("battle screen", () => {
     expect(screen.getByTestId("battle-square-6-5")).toHaveTextContent("HP 20/20");
     expect(screen.getByTestId("battle-square-10-5")).toHaveTextContent("HP 10/10");
     expect(screen.getByTestId("battle-player-pp")).toHaveTextContent("10/10 PP");
+    const sideRail = container.querySelector(".battle-side-rail");
+    expect(sideRail).not.toBeNull();
+    expect(Array.from(sideRail!.children).map((element) => element.getAttribute("data-testid"))).toEqual([
+      "battle-resource-controls",
+      "battle-interaction-controls",
+      "battle-card-counts-panel",
+      "battle-resonance-panel",
+      "battle-log-panel"
+    ]);
     expect(screen.queryByTestId("battle-base-summary")).not.toBeInTheDocument();
     expect(screen.getByTestId("battle-card-counts-panel")).toHaveTextContent("Hand: 9");
     expect(screen.getByTestId("battle-card-counts-panel")).toHaveTextContent("Deck:");
@@ -629,6 +638,9 @@ describe("battle screen", () => {
     expect(screen.getByTestId("battle-square-3-1")).toHaveClass("battle-square--lane-candidate");
     fireEvent.click(screen.getByTestId("battle-effect-open-graveyard-button"));
     expect(screen.getByTestId("battle-player-graveyard-dialog")).toBeInTheDocument();
+    expect(screen.getByTestId(`battle-graveyard-artwork-${graveyardCard.catalogCardId}`)).toBeInTheDocument();
+    fireEvent.pointerEnter(screen.getByTestId("battle-graveyard-card-grave-1"));
+    expect(screen.getByTestId("battle-card-detail-popover")).toHaveTextContent(graveyardCard.name);
     fireEvent.click(screen.getByTestId("battle-graveyard-card-grave-1"));
     expect(onEffectCandidateIntent).toHaveBeenCalledWith("grave-1");
 
