@@ -3,6 +3,7 @@ import { BATTLE_BASE_IDS, getBattleBaseById } from "./bases";
 import { applyBaseDamage } from "./baseCombat";
 import { getAdjacentBoardCoordinates, getBoardSquare, getLane, isNormalBoardCoordinate, setBoardOccupant } from "./board";
 import { createRngFromState } from "./rng";
+import { BATTLE_MAX_PP } from "./constants";
 import type { EffectContext } from "./effectTypes";
 import type { BattleCardInstance, BattleEvent, BattleState } from "./types";
 
@@ -113,7 +114,7 @@ function setEnemyMovement(state: BattleState, context: EffectContext, movement: 
 }
 function increaseMaxPp(state: BattleState, context: EffectContext, amount: number): BattleState {
   const player = state.players[context.controllerSide];
-  const maxPp = Math.min(10, player.maxPp + amount);
+  const maxPp = Math.min(BATTLE_MAX_PP, player.maxPp + amount);
   return { ...state, players: { ...state.players, [context.controllerSide]: { ...player, maxPp } } };
 }
 function drawIfMaxPp(state: BattleState, context: EffectContext, threshold: number, sequence: number) { return state.players[context.controllerSide].maxPp >= threshold ? drawCards(state, context, 1, sequence) : withEvent(state, context, sequence, "Maximum PP condition was not met."); }

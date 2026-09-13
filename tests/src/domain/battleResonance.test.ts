@@ -1,4 +1,5 @@
 import {
+  BATTLE_MAX_PP,
   BATTLE_LANES,
   GameEngine,
   createInitialBattleBoard,
@@ -21,6 +22,22 @@ import fc from "fast-check";
 import { battleStateArbitrary } from "../generators/battleGenerators";
 
 describe("resonance", () => {
+  it("caps standby PP recovery at 15", () => {
+    const state = baseState();
+    const cappedState: BattleState = {
+      ...state,
+      players: {
+        ...state.players,
+        player: { ...state.players.player, currentPp: 4, maxPp: 15 }
+      }
+    };
+
+    const result = resolveStandbyPhase(cappedState, "player", 100);
+
+    expect(BATTLE_MAX_PP).toBe(15);
+    expect(result.state.players.player).toMatchObject({ currentPp: 15, maxPp: 15 });
+  });
+
   it("maintains the complete 3 by 5 map within 0 through 15", () => {
     const initial = createEmptyResonance();
     expect(BATTLE_LANES.flatMap((lane) => Object.values(initial[lane]))).toEqual(Array(15).fill(0));
