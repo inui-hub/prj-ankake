@@ -126,13 +126,15 @@ describe("battle screen", () => {
       "battle-interaction-controls",
       "battle-card-counts-panel",
       "battle-resonance-panel",
-      "battle-log-panel"
+      "battle-log-control"
     ]);
     expect(screen.queryByTestId("battle-base-summary")).not.toBeInTheDocument();
     expect(screen.getByTestId("battle-card-counts-panel")).toHaveTextContent("Hand: 9");
     expect(screen.getByTestId("battle-card-counts-panel")).toHaveTextContent("Deck:");
     expect(screen.getByTestId("battle-cpu-info-panel")).toHaveTextContent("Hand: 5");
     expect(screen.getByTestId("battle-player-graveyard-button")).toHaveTextContent("Graveyard: 0");
+    expect(screen.queryByTestId("battle-log-panel")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("battle-log-toggle"));
     expect(screen.getByTestId("battle-log-panel")).toHaveTextContent("Player drew a card.");
 
     for (const square of container.querySelectorAll<HTMLElement>(".battle-square")) {
@@ -338,11 +340,34 @@ describe("battle screen", () => {
     render(<BattleScreen viewModel={viewModel} locale="ja" logEntries={LOG_ENTRIES} cpuStatus="thinking" onReturnToPreparation={vi.fn()} onReturnToMenu={vi.fn()} onEndPlayPhase={vi.fn()} onRematch={vi.fn()} onQuitBattle={vi.fn()} />);
     expect(screen.getByTestId("battle-status-bar")).toHaveTextContent("ターン");
     expect(screen.getByTestId("battle-player-info-panel")).toHaveTextContent("手札");
-    expect(screen.getByTestId("battle-log-panel")).toHaveTextContent("対戦ログ");
+    expect(screen.getByTestId("battle-log-toggle")).toHaveTextContent("対戦ログ");
     const handCard = screen.getByTestId(`battle-hand-card-${viewModel.playerHand[0]!.instanceId}`);
     fireEvent.focus(handCard);
     expect(screen.getByTestId("battle-card-detail-popover")).toHaveTextContent("移動力");
     expect(screen.getByTestId("battle-card-detail-popover")).toHaveTextContent("効果:");
+  });
+
+  it("opens and closes the battle log popover without adding it to the side rail", () => {
+    const viewModel = projectPublicBattleView(createBattleScreenState());
+    renderBattleScreen(viewModel);
+
+    const toggle = screen.getByTestId("battle-log-toggle");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("battle-log-panel")).toHaveTextContent("Player drew a card.");
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("battle-log-panel")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("battle-log-panel")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByTestId("battle-log-panel")).not.toBeInTheDocument();
   });
 
   it("localizes board and card accessible names, including stats and ownership", () => {

@@ -5,7 +5,7 @@ import {
   type BattleSide,
   type PublicBattleView
 } from "@ankake/domain";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { localizeBattleEvent, localizeBattleSide, uiText } from "../../localization";
 
 export interface BattleStatusPanelProps {
@@ -191,14 +191,64 @@ function cpuStatusLabel(status: string, locale?: "ja" | "en"): string {
 }
 
 export function BattleLogPanel(props: { readonly entries: readonly BattleLogEntry[]; readonly locale?: "ja" | "en" }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    const closeOnOutsidePointerDown = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsidePointerDown);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsidePointerDown);
+    };
+  }, [isOpen]);
+
   return (
-    <section className="battle-panel battle-log-panel" data-testid="battle-log-panel">
-      <h2>{uiText(props.locale, "battle.log")}</h2>
-      <ol>
-        {props.entries.map((entry) => (
-          <li key={entry.sequence}>{localizeLogMessage(entry, props.locale)}</li>
-        ))}
-      </ol>
+    <section className="battle-log-control" data-testid="battle-log-control" ref={containerRef}>
+      <button
+        aria-controls="battle-log-popover"
+        aria-expanded={isOpen}
+        className="battle-button battle-log-control__button"
+        data-testid="battle-log-toggle"
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        {uiText(props.locale, "battle.log")}
+      </button>
+      {isOpen ? (
+        <section
+          aria-label={uiText(props.locale, "battle.log")}
+          className="battle-log-popover"
+          data-testid="battle-log-panel"
+          id="battle-log-popover"
+          role="dialog"
+        >
+          <header className="battle-log-popover__header">
+            <h2>{uiText(props.locale, "battle.log")}</h2>
+            <button
+              aria-label={props.locale === "ja" ? "対戦ログを閉じる" : "Close battle log"}
+              className="battle-button battle-button--quiet"
+              data-testid="battle-log-close"
+              type="button"
+              onClick={() => setIsOpen(false)}
+            >
+              ×
+            </button>
+          </header>
+          <ol>
+            {props.entries.map((entry) => (
+              <li key={entry.sequence}>{localizeLogMessage(entry, props.locale)}</li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
     </section>
   );
 }

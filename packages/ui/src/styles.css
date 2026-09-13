@@ -749,15 +749,13 @@
 .battle-card-counts__graveyard { grid-column: 1 / -1; min-height: 32px; border: 1px solid rgba(241, 196, 111, .46); border-radius: 6px; color: #f6efe7; background: rgba(241, 196, 111, .09); font: inherit; font-size: .82rem; font-weight: 800; text-align: left; cursor: pointer; }
 .battle-card-counts__graveyard:hover { background: rgba(241, 196, 111, .18); }
 
-.battle-log-panel ol {
-  display: grid;
-  gap: 6px;
-  max-height: 240px;
-  margin: 12px 0 0;
-  overflow: auto;
-  padding-left: 20px;
-  color: #d4dde1;
-}
+.battle-log-control { position: relative; }
+.battle-log-control__button { width: 100%; }
+.battle-log-popover { position: absolute; z-index: 10; right: 0; bottom: calc(100% + 8px); display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(420px, calc(100vw - 32px)); height: min(460px, calc(100dvh - 96px)); overflow: hidden; padding: 12px; border: 1px solid rgba(246, 239, 231, .35); border-radius: 8px; color: #f6efe7; background: #1b2226; box-shadow: 0 12px 30px rgba(0, 0, 0, .5); }
+.battle-log-popover__header { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.battle-log-popover__header h2 { margin: 0; }
+.battle-log-popover__header button { min-width: 32px; min-height: 32px; padding: 0; font-size: 1.2rem; line-height: 1; }
+.battle-log-popover ol { display: grid; gap: 6px; min-height: 0; margin: 12px 0 0; overflow: auto; padding-left: 20px; color: #d4dde1; }
 
 .battle-cpu-status,
 .battle-modal-backdrop {
@@ -929,8 +927,31 @@ button.battle-graveyard-card { cursor: pointer; }
   }
 
   .battle-side-rail {
-    overflow-y: auto;
-    padding-right: 2px;
+    gap: 8px;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .battle-side-rail .battle-panel {
+    padding: 10px;
+  }
+
+  .battle-side-rail .battle-interaction-controls,
+  .battle-side-rail .battle-interaction-controls__status {
+    min-height: 0;
+  }
+
+  .battle-side-rail .battle-card-counts {
+    gap: 6px;
+  }
+
+  .battle-side-rail .battle-card-counts__side {
+    padding-top: 5px;
+  }
+
+  .battle-side-rail .battle-resonance-table th,
+  .battle-side-rail .battle-resonance-table td {
+    padding: 3px;
   }
 }
 
@@ -946,6 +967,16 @@ button.battle-graveyard-card { cursor: pointer; }
 
   .battle-square {
     min-height: 0;
+  }
+
+  .battle-log-popover {
+    position: fixed;
+    z-index: 20;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: auto;
+    height: min(60dvh, 560px);
   }
 }
 
