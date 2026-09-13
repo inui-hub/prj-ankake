@@ -216,6 +216,7 @@
 
 .battle-square {
   position: relative;
+  z-index: 2;
   display: grid;
   align-content: stretch;
   min-width: 0;
@@ -334,26 +335,26 @@
   font-weight: 900;
 }
 
-.battle-square--lane-candidate {
-  box-shadow: inset 0 0 0 3px rgba(132, 93, 220, .72), inset 0 0 18px rgba(132, 93, 220, .25);
-}
-
-.battle-square--lane-candidate::before {
-  position: absolute;
-  z-index: 2;
-  inset: 2px;
-  border: 2px dashed rgba(132, 93, 220, .92);
-  border-radius: 4px;
-  content: "";
+.battle-lane-overlay {
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  margin: 2px;
+  overflow: hidden;
+  border: 4px solid currentColor;
+  border-radius: 10px;
+  color: #546d8c;
+  background: linear-gradient(180deg, rgba(79, 137, 195, .42), rgba(79, 137, 195, .14));
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .54), 0 0 18px currentColor;
   pointer-events: none;
 }
 
-.battle-square--lane-selected {
-  border-color: #a67aff;
-  box-shadow: inset 0 0 0 4px rgba(112, 65, 207, .92), 0 0 15px rgba(166, 122, 255, .8);
-}
-
-.battle-square--lane-selected::before { border-style: solid; border-color: #f0e8ff; background: rgba(133, 91, 222, .2); }
+.battle-lane-overlay--center { color: #9d7626; background: linear-gradient(180deg, rgba(219, 172, 59, .44), rgba(219, 172, 59, .14)); }
+.battle-lane-overlay--right { color: #ad5268; background: linear-gradient(180deg, rgba(208, 90, 119, .42), rgba(208, 90, 119, .14)); }
+.battle-lane-overlay__label { margin-top: 8px; padding: 4px 9px; border: 2px solid currentColor; border-radius: 999px; color: #17202a; background: rgba(255, 255, 255, .9); box-shadow: 0 2px 8px rgba(0, 0, 0, .28); font-size: .7rem; font-weight: 900; letter-spacing: .04em; }
+.battle-lane-overlay--selected { border-width: 6px; color: #6829b6; background: linear-gradient(180deg, rgba(159, 79, 237, .58), rgba(159, 79, 237, .26)); box-shadow: inset 0 0 0 3px #fff, 0 0 28px rgba(178, 101, 255, .95); }
+.battle-lane-overlay--selected .battle-lane-overlay__label { color: #fff; background: #6829b6; }
 
 .battle-square--player-base {
   border-color: rgba(80, 173, 140, 0.74);

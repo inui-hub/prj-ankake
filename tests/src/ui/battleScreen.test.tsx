@@ -605,7 +605,7 @@ describe("battle screen", () => {
       effectCandidates: [
         { kind: "creature" as const, id: "board-card", label: "Creature", selected: false },
         { kind: "base" as const, id: "cpu-base", label: "Base", selected: false },
-        { kind: "lane" as const, id: "left", label: "Left lane", selected: false },
+        { kind: "lane" as const, id: "left", label: "Left lane", selected: true },
         { kind: "coordinate" as const, id: "5:5", label: "Cell", selected: false },
         { kind: "graveyard" as const, id: "grave-1", label: "Graveyard card", selected: false }
       ],
@@ -634,8 +634,10 @@ describe("battle screen", () => {
       />
     );
 
-    expect(screen.getByTestId("battle-effect-selection-count")).toHaveTextContent("Selected 0 / 1");
-    expect(screen.getByTestId("battle-square-3-1")).toHaveClass("battle-square--lane-candidate");
+    expect(screen.getByTestId("battle-effect-selection-count")).toHaveTextContent("Selected 1 / 1");
+    expect(screen.queryByTestId("battle-square-3-1")).not.toHaveClass("battle-square--lane-candidate");
+    expect(screen.getByTestId("battle-lane-overlay-left")).toHaveAttribute("data-selected", "true");
+    expect(screen.getByTestId("battle-lane-overlay-left")).toHaveClass("battle-lane-overlay--selected");
     fireEvent.click(screen.getByTestId("battle-effect-open-graveyard-button"));
     expect(screen.getByTestId("battle-player-graveyard-dialog")).toBeInTheDocument();
     expect(screen.getByTestId(`battle-graveyard-artwork-${graveyardCard.catalogCardId}`)).toBeInTheDocument();
